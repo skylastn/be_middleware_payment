@@ -221,7 +221,7 @@ class OrderController extends Controller
             $split              = explode("-", $request->external_id);
             $project            = Project::where("type", $split[0])->first();
             return response()->json([
-                "data" => $request
+                "data" => $request->all()
             ], 403);
             $this->storeLog($project->id, $dataLog);
             if($request->status == "PAID"){
