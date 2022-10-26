@@ -202,7 +202,9 @@ class OrderController extends Controller
             
             if($xenditToken != $incomingTokenXendit){
                 return response()->json([
-                    "message" => "You are not permitted perform this"
+                    "message" => "You are not permitted perform this",
+                    "db_token" =>$xenditToken,
+                    "db_token" =>$incomingTokenXendit
                 ], 403);
             }
 
