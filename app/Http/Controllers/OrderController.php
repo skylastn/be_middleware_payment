@@ -190,7 +190,7 @@ class OrderController extends Controller
             if(!$order){
                 return response()->json([
                     "message" => "Order not found"
-                ], 400);
+                ], 200);
             }
 
             $xenditToken = Setting::where("key", "xendit_tokencallback_sanbox")->first()->value;
