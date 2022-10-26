@@ -202,9 +202,7 @@ class OrderController extends Controller
             
             if($xenditToken != $incomingTokenXendit){
                 return response()->json([
-                    "message" => "You are not permitted perform this",
-                    "db_token" =>$xenditToken,
-                    "db_incoming" =>$incomingTokenXendit
+                    "message" => "You are not permitted perform this"
                 ], 403);
             }
 
@@ -213,9 +211,6 @@ class OrderController extends Controller
             $order->status          = $request->status;
 
             $order->payment_method  = $request->payment_channel;
-            // if(!isset($request->bank_code) && empty($request->bank_code)){
-            //     $order->payment_method = 
-            // }
             
             $order->save();
             
@@ -225,6 +220,9 @@ class OrderController extends Controller
             $dataLog['name']    = $order->callback;
             $split              = explode("-", $request->external_id);
             $project            = Project::where("type", $split[0])->first();
+            return response()->json([
+                "data" => $request
+            ], 403);
             $this->storeLog($project->id, $dataLog);
             if($request->status == "PAID"){
                 $params['merchantOrderId']  = $split[1] . "-" . $split[2];
