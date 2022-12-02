@@ -321,7 +321,7 @@ class OrderController extends Controller
         curl_close($curl);
         // $result['response']     = json_decode($response);
         $result['statusCode']   = $httpcode;
-        return $urlOrderMidtrans;
+        return $mode;
     }
 
     public function Callback(Request $request)
