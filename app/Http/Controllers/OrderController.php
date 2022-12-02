@@ -100,9 +100,10 @@ class OrderController extends Controller
             $dataLog['key'] = "request_order";
             $dataLog['name'] = $result;
             $this->storeLog($project['data']->id, $dataLog);
-            if($createInvoice['statusCode'] != 201){
-                return response()->json($createInvoice, 403);
-            }
+            return response()->json($createInvoice, 403);
+            // if($createInvoice['statusCode'] != 201){
+            //     return response()->json($createInvoice, 403);
+            // }
             DB::table('orders')
                 ->where('id', $merchantOrderId)
                 ->limit(1)
