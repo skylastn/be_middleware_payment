@@ -103,7 +103,7 @@ class OrderController extends Controller
             if($createInvoice['statusCode'] != 201){
                 return response()->json([
                     "message" => $createInvoice['response']->message->error_message[0]
-                ], 404);
+                ], $createInvoice['statusCode']);
             }
             DB::table('orders')
                 ->where('id', $merchantOrderId)
