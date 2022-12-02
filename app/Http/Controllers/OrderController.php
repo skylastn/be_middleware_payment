@@ -50,7 +50,7 @@ class OrderController extends Controller
             return $this->orderXendit($request, $project);
         }
         if ($project['data']->slug == "midtrans") {
-            return $this->orderXendit($request, $project);
+            return $this->orderMidtrans($request, $project);
         }
         $response['message']    = "Undefined Project";
         return response()->json($response, 403);
@@ -73,7 +73,7 @@ class OrderController extends Controller
             $req['type']                        = $project['data']->type;
             $req['mode']                        = $request->mode ?? "sandbox";
             $req['payment_method']              = "";
-            
+
             $transactionDetails['order_id']     = $req['reference'] ?? $project['data']->type . '-' . $req['id'];
             $transactionDetails['gross_amount'] = $request->paymentAmount ?? 0;
             $creditCard['secure']               = true;
