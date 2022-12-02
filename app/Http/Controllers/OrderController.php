@@ -293,22 +293,7 @@ class OrderController extends Controller
                 CURLOPT_FOLLOWLOCATION => true,
                 CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
                 CURLOPT_CUSTOMREQUEST => 'POST',
-                // CURLOPT_POSTFIELDS => json_encode($body),
-                CURLOPT_POSTFIELDS =>'{
-                    "transaction_details": {
-                        "order_id": "YOUR-ORDERID-123456",
-                        "gross_amount": 10000
-                    },
-                    "credit_card": {
-                        "secure": true
-                    },
-                    "customer_details": {
-                        "first_name": "budi",
-                        "last_name": "pratama",
-                        "email": "budi.pra@example.com",
-                        "phone": "08111222333"
-                    }
-                }',
+                CURLOPT_POSTFIELDS => json_encode($body),
                 CURLOPT_HTTPHEADER => array(
                     "Authorization: Basic $serverKey",
                     'Content-Type: application/json'
