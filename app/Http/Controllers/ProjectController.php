@@ -46,7 +46,7 @@ class ProjectController extends Controller
             DB::beginTransaction();
             $data['name']       = $request->name;
             $data['type']       = $request->type;
-            $data['type']       = $request->slug;
+            $data['slug']       = $request->slug;
             $data['key']        = Str::random(10);
             $data['secure']     = Str::random(20);
             $data['callback']   = $request->callback;
