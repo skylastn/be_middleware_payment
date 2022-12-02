@@ -280,7 +280,7 @@ class OrderController extends Controller
             $urlOrderMidtrans   = Setting::where("key", "url_prod_ordermidtrans")->first()->value;
             $serverKey          = Setting::where("key", "serverkey_prod")->first()->value;
         }
-        // $serverKey = base64_encode($serverKey . ":");
+        $serverKey = base64_encode($serverKey . ":");
 
         curl_setopt_array(
             $curl,
@@ -319,9 +319,9 @@ class OrderController extends Controller
         $response = curl_exec($curl);
         $httpcode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
         curl_close($curl);
-        // $result['response']     = json_decode($response);
+        $result['response']     = json_decode($response);
         $result['statusCode']   = $httpcode;
-        return $mode == "sandbox";
+        return $result;
     }
 
     public function Callback(Request $request)
