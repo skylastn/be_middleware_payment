@@ -100,10 +100,9 @@ class OrderController extends Controller
             $dataLog['key'] = "request_order";
             $dataLog['name'] = $result;
             $this->storeLog($project['data']->id, $dataLog);
-            return response()->json($createInvoice, 403);
-            // if($createInvoice['statusCode'] != 201){
-            //     return response()->json($createInvoice, 403);
-            // }
+            if($createInvoice['statusCode'] != 201){
+                throw new Exception($createInvoice['response']['error_message']);
+            }
             DB::table('orders')
                 ->where('id', $merchantOrderId)
                 ->limit(1)
@@ -272,7 +271,7 @@ class OrderController extends Controller
         $curl = curl_init();
         $urlOrderMidtrans   = "";
         $serverKey          = "";
-        if ($mode == "sandbox") {
+        if ($mode == "sanbox") {
             $urlOrderMidtrans   = Setting::where("key", "url_sanbox_ordermidtrans")->first()->value;
             $serverKey          = Setting::where("key", "serverkey_sandbox")->first()->value;
         }
