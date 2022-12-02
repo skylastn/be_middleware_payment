@@ -280,6 +280,7 @@ class OrderController extends Controller
             $urlOrderMidtrans   = Setting::where("key", "url_prod_ordermidtrans")->first()->value;
             $serverKey          = Setting::where("key", "serverkey_prod")->first()->value;
         }
+        $serverKey = base64_encode($serverKey . ":");
 
         curl_setopt_array(
             $curl,
