@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 use Xendit\Xendit;
-use Vendor\autoload;
+use Exception;
 
 class OrderController extends Controller
 {
@@ -62,50 +62,47 @@ class OrderController extends Controller
         $date = date("Y-m-d");
         try {
             DB::beginTransaction();
-            $secretKey = Setting::where("key", "xendit_secretkey_sanbox")->first()->value;
-            if ($request->mode == "prod") {
-                $secretKey = Setting::where("key", "xendit_secretkey_prod")->first()->value;
-            }
-            $urlSuccess = Setting::where("key", "url_success")->first()->value;
-            Xendit::setApiKey($secretKey);
 
             $invID = DB::table('orders')->whereDate('created_at', $date)->orderBy('created_at', 'desc')->first();
-            $invIDCount                 = substr($invID->id ?? 00000, -5);
-            $invID_num                  = (int)$invIDCount + 1;
-            $merchantOrderId            = date("Ymd") . "-" . str_pad($invID_num, 5, '0', STR_PAD_LEFT);
-            // return $request->req;
-            $req['id']                  = $merchantOrderId;
-            $req['reference']           = $project['data']->type . '-' . $request->merchantOrderId;
-            $req['type']                = $project['data']->type;
-            $req['mode']                = $request->mode ?? "sandbox";
-            $transaction_details
+            $invIDCount                         = substr($invID->id ?? 00000, -5);
+            $invID_num                          = (int)$invIDCount + 1;
+            $merchantOrderId                    = date("Ymd") . "-" . str_pad($invID_num, 5, '0', STR_PAD_LEFT);
+
+            $req['id']                          = $merchantOrderId;
+            $req['reference']                   = $project['data']->type . '-' . $request->merchantOrderId;
+            $req['type']                        = $project['data']->type;
+            $req['mode']                        = $request->mode ?? "sandbox";
+            $req['payment_method']              = "";
             
+            $transactionDetails['order_id']     = $req['reference'] ?? $project['data']->type . '-' . $req['id'];
+            $transactionDetails['gross_amount'] = $request->paymentAmount ?? 0;
+            $creditCard['secure']               = true;
+            $customerDetails['first_name']      = $request->firstName ?? "";
+            $customerDetails['last_name']       = $request->lastName ?? "";
+            $customerDetails['email']           = $request->email ?? "xfit.id@gmail.com";
+            $customerDetails['phone']           = $request->phone ?? "081512356123";
+
             $params = [
-                "transaction_details"   =>,
-                "credit_card"           =>,
-                "customer_details"      =>,
-                // 'external_id' => $req['reference'] ?? $project['data']->type . '-' . $req['id'],
-                // 'amount' => $request->paymentAmount ?? 0,
-                // 'description' => $request->productDetails ?? "Payment",
-                // 'invoice_duration' => $expired,
-                // 'success_redirect_url' => $urlSuccess,
-                // 'failure_redirect_url' => $project['data']->callback,
-                // 'currency' => 'IDR',
+                "transaction_details"           => $transactionDetails,
+                "credit_card"                   => $creditCard,
+                "customer_details"              => $customerDetails,
             ];
 
-            $req['request']             = json_encode($params);
-            $order                      = Order::create($req);
+            $req['request']                     = json_encode($params);
+            $order                              = Order::create($req);
 
             $dataLog['key'] = "request_order";
             $dataLog['name'] = $req['request'];
             $this->storeLog($project['data']->id, $dataLog);
-            
-            $createInvoice = \Xendit\Invoice::create($params);
+
+            $createInvoice                      = $this->createTransactionMidtrans($params, $request->mode);
             $result = json_encode($createInvoice);
             $dataLog['key'] = "request_order";
             $dataLog['name'] = $result;
             $this->storeLog($project['data']->id, $dataLog);
-
+            if($createInvoice['statusCode'] != 201){
+                throw new Exception($createInvoice['response']['error_message']);
+            }
             DB::table('orders')
                 ->where('id', $merchantOrderId)
                 ->limit(1)
@@ -267,6 +264,47 @@ class OrderController extends Controller
                 "message" => $ex->getMessage()
             ], 400);
         }
+    }
+
+    public function createTransactionMidtrans($body, $mode)
+    {
+        $curl = curl_init();
+        $urlOrderMidtrans   = "";
+        $serverKey          = "";
+        if ($mode == "sandbox") {
+            $urlOrderMidtrans   = Setting::where("key", "url_sanbox_ordermidtrans")->first()->value;
+            $serverKey          = Setting::where("key", "serverkey_sandbox")->first()->value;
+        }
+        if ($mode == "prod") {
+            $urlOrderMidtrans   = Setting::where("key", "url_prod_ordermidtrans")->first()->value;
+            $serverKey          = Setting::where("key", "serverkey_prod")->first()->value;
+        }
+
+        curl_setopt_array(
+            $curl,
+            array(
+                CURLOPT_URL => $urlOrderMidtrans,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_ENCODING => '',
+                CURLOPT_MAXREDIRS => 10,
+                CURLOPT_TIMEOUT => 0,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+                CURLOPT_CUSTOMREQUEST => 'POST',
+                CURLOPT_POSTFIELDS => json_encode($body),
+                CURLOPT_HTTPHEADER => array(
+                    "Authorization: Basic $serverKey",
+                    'Content-Type: application/json'
+                ),
+            ),
+        );
+
+        $response = curl_exec($curl);
+        $httpcode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+        curl_close($curl);
+        $result['response']     = json_decode($response);
+        $result['statusCode']   = $httpcode;
+        return $result;
     }
 
     public function Callback(Request $request)
