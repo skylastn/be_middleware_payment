@@ -112,13 +112,13 @@ class OrderController extends Controller
                     [
                         'response'      => $result,
                         'updated_at'    => $dateNow,
-                        "url"           => $createInvoice['invoice_url']
+                        "url"           => $createInvoice['redirect_url']
                     ]
                 );
 
             DB::commit();
             $response['message']    = "Success Create Order";
-            $response['link']       = $createInvoice['invoice_url'];
+            $response['link']       = $createInvoice['redirect_url'];
             $response['data']       = $createInvoice;
             return response()->json($response, 200);
         } catch (\Exception $ex) {
