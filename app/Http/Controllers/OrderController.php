@@ -101,7 +101,9 @@ class OrderController extends Controller
             $dataLog['name'] = $result;
             $this->storeLog($project['data']->id, $dataLog);
             if($createInvoice['statusCode'] != 201){
-                throw new Exception($createInvoice['response']['error_message'][0]);
+                return response()->json([
+                    "message" => $createInvoice['response']['error_message']
+                ], 404);
             }
             DB::table('orders')
                 ->where('id', $merchantOrderId)
