@@ -1,7 +1,9 @@
 <?php
 
 namespace App\Http\Controllers;
+// namespace Midtrans;
 
+use Midtrans\Midtrans;
 use App\Models\Order;
 use Illuminate\Http\Request;
 use App\Http\Controllers\ProjectController;
@@ -94,7 +96,10 @@ class OrderController extends Controller
             $dataLog['key'] = "request_order";
             $dataLog['name'] = $req['request'];
             $this->storeLog($project['data']->id, $dataLog);
-
+            $createInvoice                      = \Midtrans\Snap::getSnapToken($params);
+            return response()->json([
+                "message" => $createInvoice,
+            ], 300);
             $createInvoice                      = $this->createTransactionMidtrans($params, $request->mode);
             $result = json_encode($createInvoice);
             $dataLog['key'] = "request_order";
@@ -314,6 +319,105 @@ class OrderController extends Controller
     {
         try {
             DB::beginTransaction();
+            $order = Order::where("reference", $request->external_id)->orderBy('id', 'DESC')->first();
+            if (!$order) {
+                return response()->json([
+                    "message" => "Order not found"
+                ], 200);
+            }
+
+            $xenditToken = Setting::where("key", "xendit_tokencallback_sanbox")->first()->value;
+            if ($order->mode == "prod") {
+                $xenditToken = Setting::where("key", "xendit_tokencallback")->first()->value;
+            }
+            $reqHeaders = getallheaders();
+            $incomingTokenXendit = isset($reqHeaders['X-Callback-Token']) ? $reqHeaders['X-Callback-Token'] : "";
+
+            if ($xenditToken != $incomingTokenXendit) {
+                return response()->json([
+                    "message" => "You are not permitted perform this"
+                ], 403);
+            }
+
+
+            $order->callback        = json_encode($request->all());
+            $order->status          = $request->status;
+
+            $order->payment_method  = $request->payment_channel;
+
+            $order->save();
+
+
+
+            $dataLog['key']     = "callback_order";
+            $dataLog['name']    = $order->callback;
+            $split              = explode("-", $request->external_id);
+            $project            = Project::where("type", $split[0])->first();
+            $this->storeLog($project->id, $dataLog);
+            if ($request->status == "PAID") {
+                $params['merchantOrderId']  = $split[1] . "-" . $split[2];
+                $params['paymentCode']      = $order->payment_method;
+                $params['resultCode']       = "00";
+                $callback                   = $this->sendCallback($project->value, $params, $project->callback);
+            }
+
+            DB::commit();
+            $response['message']    = "Success Send Callback";
+            $response['data']       = $callback;
+
+            return response()->json($response, 200);
+        } catch (\Exception $ex) {
+            $error['line']      = $ex->getLine();
+            $error['message']   = $ex->getMessage();
+            $error['file']      = $ex->getFile();
+            Log::error($error);
+            DB::rollback();
+            return response()->json([
+                "message" => $ex->getMessage()
+            ], 400);
+        }
+    }
+
+    public function callbackMidtrans(){
+        try {
+            DB::beginTransaction();
+            \Midtrans\Config::$serverKey = '<your server key>';
+            $notif = new Notification();
+            $notif = $notif->getResponse();
+            $transaction = $notif->transaction_status;
+            $type = $notif->payment_type;
+            $order_id = $notif->order_id;
+            $fraud = $notif->fraud_status;
+            
+
+            if ($transaction == 'capture') {
+                // For credit card transaction, we need to check whether transaction is challenge by FDS or not
+                if ($type == 'credit_card') {
+                    if ($fraud == 'challenge') {
+                        // TODO set payment status in merchant's database to 'Challenge by FDS'
+                        // TODO merchant should decide whether this transaction is authorized or not in MAP
+                        echo "Transaction order_id: " . $order_id ." is challenged by FDS";
+                    } else {
+                        // TODO set payment status in merchant's database to 'Success'
+                        echo "Transaction order_id: " . $order_id ." successfully captured using " . $type;
+                    }
+                }
+            } else if ($transaction == 'settlement') {
+                // TODO set payment status in merchant's database to 'Settlement'
+                echo "Transaction order_id: " . $order_id ." successfully transfered using " . $type;
+            } else if ($transaction == 'pending') {
+                // TODO set payment status in merchant's database to 'Pending'
+                echo "Waiting customer to finish transaction order_id: " . $order_id . " using " . $type;
+            } else if ($transaction == 'deny') {
+                // TODO set payment status in merchant's database to 'Denied'
+                echo "Payment using " . $type . " for transaction order_id: " . $order_id . " is denied.";
+            } else if ($transaction == 'expire') {
+                // TODO set payment status in merchant's database to 'expire'
+                echo "Payment using " . $type . " for transaction order_id: " . $order_id . " is expired.";
+            } else if ($transaction == 'cancel') {
+                // TODO set payment status in merchant's database to 'Denied'
+                echo "Payment using " . $type . " for transaction order_id: " . $order_id . " is canceled.";
+            }
             $order = Order::where("reference", $request->external_id)->orderBy('id', 'DESC')->first();
             if (!$order) {
                 return response()->json([
