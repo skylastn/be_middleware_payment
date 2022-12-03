@@ -96,11 +96,11 @@ class OrderController extends Controller
             $dataLog['key'] = "request_order";
             $dataLog['name'] = $req['request'];
             $this->storeLog($project['data']->id, $dataLog);
-            if ($mode == "sanbox") {
+            if ($request->mode == "sanbox") {
                 Config::$isProduction   = false;
                 Config::$serverKey      = Setting::where("key", "serverkey_sandbox")->first()->value;
             }
-            if ($mode == "prod") {
+            if ($request->mode == "prod") {
                 Config::$isProduction   = true;
                 Config::$serverKey      = Setting::where("key", "serverkey_prod")->first()->value;
             }
