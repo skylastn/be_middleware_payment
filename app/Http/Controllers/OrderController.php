@@ -449,13 +449,6 @@ class OrderController extends Controller
                 $status = strtoupper($transaction);
             }
 
-            // $xenditToken = Setting::where("key", "xendit_tokencallback_sanbox")->first()->value;
-            // if ($order->mode == "prod") {
-            //     $xenditToken = Setting::where("key", "xendit_tokencallback")->first()->value;
-            // }
-            // $reqHeaders = getallheaders();
-            // $incomingTokenXendit = isset($reqHeaders['X-Callback-Token']) ? $reqHeaders['X-Callback-Token'] : "";
-
             if (empty($status)) {
                 return response()->json([
                     "message" => "Status Undefined"
