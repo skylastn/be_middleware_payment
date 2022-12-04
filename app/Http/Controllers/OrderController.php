@@ -469,7 +469,7 @@ class OrderController extends Controller
             }
 
 
-            $order->callback        = json_encode($request);
+            $order->callback        = json_encode($request->all());
             $order->status          = $status;
 
             if($type == "bank_transfer"){
