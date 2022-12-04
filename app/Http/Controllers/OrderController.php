@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use App\Http\Controllers\ProjectController;
 use App\Models\Project;
 use App\Models\Setting;
+use App\Models\PaymentMethod;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
@@ -468,10 +469,27 @@ class OrderController extends Controller
             }
 
 
-            $order->callback        = json_encode($notif);
+            $order->callback        = json_encode($request);
             $order->status          = $status;
 
-            $order->payment_method  = $type;
+            if($type == "bank_transfer"){
+                if(empty($request->bank) || $request->bank == "permata" ){
+                    $paymentMethod          = Order::where("key", $type)->where("type", "permata")->first();
+                }else{
+                    $paymentMethod          = Order::where("key", $type)->where("type", $request->bank)->first();
+                }
+                
+            }else{
+                $paymentMethod          = Order::where("key", $type)->first();
+            }
+            
+            if(empty($paymentMethod)){
+                return response()->json([
+                    "message" => "Payment not found"
+                ], 200);
+            }
+
+            $order->payment_method  = $paymentMethod->value;
 
             $order->save();
 
@@ -482,12 +500,10 @@ class OrderController extends Controller
             $split              = explode("-", $reference);
             $project            = Project::where("type", $split[0])->first();
             $this->storeLog($project->id, $dataLog);
-            if ($status == "PAID") {
-                $params['merchantOrderId']  = $split[1] . "-" . $split[2];
-                $params['paymentCode']      = $order->payment_method;
-                $params['resultCode']       = "00";
-                $callback                   = $this->sendCallback($project->value, $params, $project->callback);
-            }
+            $params['merchantOrderId']  = $split[1] . "-" . $split[2];
+            $params['paymentCode']      = $order->payment_method;
+            $params['resultCode']       = "00";
+            $callback                   = $this->sendCallback($project->value, $params, $project->callback);
 
             DB::commit();
             $response['message']    = "Success Send Callback";

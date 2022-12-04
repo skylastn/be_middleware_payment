@@ -18,6 +18,7 @@ return new class extends Migration
             $table->increments('id');
             $table->string('key');
             $table->text('value');
+            $table->text('type');
             $table->timestamps();
         });
     }
