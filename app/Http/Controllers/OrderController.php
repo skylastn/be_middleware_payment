@@ -384,23 +384,18 @@ class OrderController extends Controller
         }
     }
 
-    public function callbackMidtrans(){
+    public function callbackMidtrans(Request $request){
         try {
             
             DB::beginTransaction();
-            $notif =  new \Midtrans\Notification();
-            $notif = $notif->getResponse();
-            $transaction = $notif->transaction_status;
-            $type = $notif->payment_type;
-            $reference = $notif->order_id;
-            $fraud = $notif->fraud_status;
-            $order = Order::where("reference", $reference)->orderBy('id', 'DESC')->first();
+            $order = Order::where("reference", $request->order_id)->orderBy('id', 'DESC')->first();
 
             if (!$order) {
                 return response()->json([
                     "message" => "Order not found"
                 ], 200);
             }
+
             if ($order->mode == "sanbox") {
                 \Midtrans\Config::$isProduction   = false;
                 \Midtrans\Config::$serverKey      = Setting::where("key", "serverkey_sandbox")->first()->value;
@@ -409,6 +404,13 @@ class OrderController extends Controller
                 \Midtrans\Config::$isProduction   = true;
                 \Midtrans\Config::$serverKey      = Setting::where("key", "serverkey_prod")->first()->value;
             }
+
+            $notif =  new \Midtrans\Notification();
+            $notif = $notif->getResponse();
+            $transaction = $notif->transaction_status;
+            $type = $notif->payment_type;
+            $reference = $notif->order_id;
+            $fraud = $notif->fraud_status;
             $status = "";
             if ($transaction == 'capture') {
                 // For credit card transaction, we need to check whether transaction is challenge by FDS or not
