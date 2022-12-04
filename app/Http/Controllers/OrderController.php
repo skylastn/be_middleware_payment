@@ -96,20 +96,16 @@ class OrderController extends Controller
             $dataLog['key'] = "request_order";
             $dataLog['name'] = $req['request'];
             $this->storeLog($project['data']->id, $dataLog);
-            if ($request->mode == "sanbox") {
-                \Midtrans\Config::$isProduction   = false;
-                \Midtrans\Config::$serverKey      = Setting::where("key", "serverkey_sandbox")->first()->value;
-            }
-            if ($request->mode == "prod") {
-                \Midtrans\Config::$isProduction   = true;
-                \Midtrans\Config::$serverKey      = Setting::where("key", "serverkey_prod")->first()->value;
-            }
-            
-            
-            $createInvoice                      = \Midtrans\Snap::getSnapToken($params);
-            return response()->json([
-                "message" => $createInvoice,
-            ], 300);
+            // if ($request->mode == "sanbox") {
+            //     \Midtrans\Config::$isProduction   = false;
+            //     \Midtrans\Config::$serverKey      = Setting::where("key", "serverkey_sandbox")->first()->value;
+            // }
+            // if ($request->mode == "prod") {
+            //     \Midtrans\Config::$isProduction   = true;
+            //     \Midtrans\Config::$serverKey      = Setting::where("key", "serverkey_prod")->first()->value;
+            // }
+
+            // $createInvoice                      = \Midtrans\Snap::getSnapToken($params);
             $createInvoice                      = $this->createTransactionMidtrans($params, $request->mode);
             $result = json_encode($createInvoice);
             $dataLog['key'] = "request_order";
@@ -391,6 +387,16 @@ class OrderController extends Controller
     public function callbackMidtrans(){
         try {
             DB::beginTransaction();
+            if ($request->mode == "sanbox") {
+                \Midtrans\Config::$isProduction   = false;
+                \Midtrans\Config::$serverKey      = Setting::where("key", "serverkey_sandbox")->first()->value;
+            }
+            if ($request->mode == "prod") {
+                \Midtrans\Config::$isProduction   = true;
+                \Midtrans\Config::$serverKey      = Setting::where("key", "serverkey_prod")->first()->value;
+            }
+
+            // $createInvoice                      = \Midtrans\Snap::getSnapToken($params);
             \Midtrans\Config::$serverKey = '<your server key>';
             $notif = new Notification();
             $notif = $notif->getResponse();
