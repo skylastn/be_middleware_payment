@@ -474,13 +474,13 @@ class OrderController extends Controller
 
             if($type == "bank_transfer"){
                 if(empty($request->bank) || $request->bank == "permata" ){
-                    $paymentMethod          = Order::where("key", $type)->where("type", "permata")->first();
+                    $paymentMethod          = PaymentMethod::where("key", $type)->where("type", "permata")->first();
                 }else{
-                    $paymentMethod          = Order::where("key", $type)->where("type", $request->bank)->first();
+                    $paymentMethod          = PaymentMethod::where("key", $type)->where("type", $request->bank)->first();
                 }
                 
             }else{
-                $paymentMethod          = Order::where("key", $type)->first();
+                $paymentMethod          = PaymentMethod::where("key", $type)->first();
             }
             
             if(empty($paymentMethod)){
