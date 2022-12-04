@@ -21,6 +21,7 @@ use App\Http\Controllers\ProjectController;
 Route::get('order', [OrderController::class, 'index']);
 Route::post('createOrder', [OrderController::class, 'store']);
 Route::post('Callback', [OrderController::class, 'Callback']);
+Route::post('callbackMidtrans', [OrderController::class, 'callbackMidtrans']);
 
 //project
 Route::get('project', [ProjectController::class, 'index']);
