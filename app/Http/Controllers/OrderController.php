@@ -388,7 +388,7 @@ class OrderController extends Controller
         try {
             
             DB::beginTransaction();
-            $notif = new Notification();
+            $notif =  new \Midtrans\Notification();
             $notif = $notif->getResponse();
             $transaction = $notif->transaction_status;
             $type = $notif->payment_type;
