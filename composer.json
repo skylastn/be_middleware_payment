@@ -12,6 +12,7 @@
         "laravel/helpers": "^1.5",
         "laravel/sanctum": "^3.0",
         "laravel/tinker": "^2.7",
+        "midtrans/midtrans-php": "^2.5",
         "xendit/xendit-php": "^2.18"
     },
     "require-dev": {
