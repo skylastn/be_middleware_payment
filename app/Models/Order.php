@@ -8,5 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 class Order extends Model
 {
     use HasFactory;
-    protected $fillable = ['id', 'mode' ,'type', "reference", "payment_method", 'request', 'response', "callback", "url" ];
+    public $incrementing = false;
+    protected $casts = ['id' => 'string'];
+    protected $fillable = ['id', 'mode', 'type', "reference", "payment_method", 'request', 'response', "callback", "url"];
 }
