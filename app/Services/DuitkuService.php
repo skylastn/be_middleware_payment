@@ -147,7 +147,7 @@ class DuitkuService
             $response = json_decode($createInvoice);
             LogHelper::sendLog(
                 'Response Order Duitku',
-                json_encode($response),
+                $response,
                 $project->id,
                 'response_order_duitku'
             );
