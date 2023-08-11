@@ -63,7 +63,7 @@ class DuitkuService
             $req['type']                        = $project->type;
             $req['mode']                        = $request->mode ?? "sandbox";
             $req['payment_method']              = $request->paymentMethod ?? '';
-            $paymentAmount      = 10000; // Amount
+            $paymentAmount      = $request->paymentAmount; // Amount
             $email              = $request->email ?? "admin@ngudek.com"; // your customer email
             $phoneNumber        = $request->phone ?? "081512356123"; // your customer phone number (optional)
             $productDetails     = $request->productDetails;
