@@ -136,6 +136,7 @@ class DuitkuService
             $order                  = Order::create($req);
             $order->id              = $idSystem;
             $order->save();
+            throw new Exception(json_encode($order));
 
             LogHelper::sendLog(
                 'Request Order Duitku',
