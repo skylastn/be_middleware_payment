@@ -56,13 +56,14 @@ class DuitkuService
             $invID = DB::table('orders')->whereDate('created_at', $date)->orderBy('created_at', 'desc')->first();
             $invIDCount                         = substr($invID->id ?? 00000, -5);
             $invID_num                          = (int)$invIDCount + 1;
-            $merchantOrderId                    = date("Ymd") . "-" . str_pad($invID_num, 5, '0', STR_PAD_LEFT);
+            $idSystem                           = date("Ymd") . "-" . str_pad($invID_num, 5, '0', STR_PAD_LEFT);
 
-            $req['id']                          = $merchantOrderId;
+            $req['id']                          = $idSystem;
             $req['reference']                   = $project->type . '-' . $request->merchantOrderId;
             $req['type']                        = $project->type;
             $req['mode']                        = $request->mode ?? "sandbox";
             $req['payment_method']              = $request->paymentMethod ?? '';
+
             $paymentAmount      = $request->paymentAmount; // Amount
             $email              = $request->email ?? "admin@ngudek.com"; // your customer email
             $phoneNumber        = $request->phone ?? "081512356123"; // your customer phone number (optional)
@@ -131,8 +132,11 @@ class DuitkuService
                 'expiryPeriod'      => $expiryPeriod
             );
 
-            $req['request']                     = json_encode($params);
-            $order                              = Order::create($req);
+            $req['request']         = json_encode($params);
+            $order                  = Order::create($req);
+            $order->id              = $idSystem;
+            $order->save();
+
             LogHelper::sendLog(
                 'Request Order Duitku',
                 $req,
@@ -140,29 +144,30 @@ class DuitkuService
                 'request_order_duitku'
             );
 
-
             $duitkuConfig = DuitkuService::setEnv($request->mode);
             // createInvoice Request
             $createInvoice = Pop::createInvoice($params, $duitkuConfig);
             $response = json_decode($createInvoice);
+
             LogHelper::sendLog(
                 'Response Order Duitku',
                 $response,
                 $project->id,
                 'response_order_duitku'
             );
-            $order->response = json_encode($response);
-            $order->url = $response->paymentUrl;
+            $order->response        = json_encode($response);
+            $order->url             = $response->paymentUrl;
             $order->save();
-            $msg    = "Success Create Order Duitku";
-            $result['link']             = $response->paymentUrl;
-            $result['result']           = $response;
+
+            $msg                    = "Success Create Order Duitku";
+            $result['link']         = $response->paymentUrl;
+            $result['result']       = $response;
             DB::commit();
             return ResponseHelper::successResponse($result, $msg);
         } catch (Exception $ex) {
             DB::rollback();
             LogHelper::sendErrorLog($ex);
-            return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400, $ex->getLine());
+            return ResponseHelper::failedResponse($ex->getFile(), $ex->getMessage(), 400, $ex->getLine());
         }
     }
 
