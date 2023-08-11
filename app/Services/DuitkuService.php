@@ -10,8 +10,8 @@ use App\Models\Setting;
 use Duitku\Config;
 use Duitku\Pop;
 use Exception;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Request;
 
 class DuitkuService
 {
@@ -21,14 +21,15 @@ class DuitkuService
         $merchantCode = '';
         if ($mode == 'prod') {
             $merchantKey = Setting::where('key', 'duitku_mk_prod')->first()->value ?? '';
-            $merchantCode = Setting::where('key', 'duitku_mk_prod')->first()->value ?? '';
+            $merchantCode = Setting::where('key', 'duitku_mc_prod')->first()->value ?? '';
             $duitkuConfig = new Config($merchantKey, $merchantCode);
             $duitkuConfig->setSandboxMode(false);
             // set log parameter (default : true)
             $duitkuConfig->setDuitkuLogs(false);
         } else {
             $merchantKey = Setting::where('key', 'duitku_mk_sandbox')->first()->value ?? '';
-            $merchantCode = Setting::where('key', 'duitku_mk_sandbox')->first()->value ?? '';
+            $merchantCode = Setting::where('key', 'duitku_mc_sandbox')->first()->value ?? '';
+            // throw new Exception($merchantCode . ' : ' . $merchantKey);
             $duitkuConfig = new Config($merchantKey, $merchantCode);
             $duitkuConfig->setSandboxMode(true);
             // set log parameter (default : true)
@@ -41,73 +42,10 @@ class DuitkuService
 
     static function orderDuitku(Request $request, Project $project)
     {
-        $paymentAmount      = 10000; // Amount
-        $email              = "customer@gmail.com"; // your customer email
-        $phoneNumber        = "081234567890"; // your customer phone number (optional)
-        $productDetails     = "Test Payment";
-        $merchantOrderId    = time(); // from merchant, unique   
-        $additionalParam    = ''; // optional
-        $merchantUserInfo   = ''; // optional
-        $customerVaName     = 'John Doe'; // display name on bank confirmation display
-        $callbackUrl        = 'http://YOUR_SERVER/callback'; // url for callback
-        $returnUrl          = 'http://YOUR_SERVER/return'; // url for redirect
-        $expiryPeriod       = 60; // set the expired time in minutes
 
-        // Customer Detail
-        $firstName          = "John";
-        $lastName           = "Doe";
 
-        // Address
-        $alamat             = "Jl. Kembangan Raya";
-        $city               = "Jakarta";
-        $postalCode         = "11530";
-        $countryCode        = "ID";
-
-        $address = array(
-            'firstName'     => $firstName,
-            'lastName'      => $lastName,
-            'address'       => $alamat,
-            'city'          => $city,
-            'postalCode'    => $postalCode,
-            'phone'         => $phoneNumber,
-            'countryCode'   => $countryCode
-        );
-
-        $customerDetail = array(
-            'firstName'         => $firstName,
-            'lastName'          => $lastName,
-            'email'             => $email,
-            'phoneNumber'       => $phoneNumber,
-            'billingAddress'    => $address,
-            'shippingAddress'   => $address
-        );
-
-        // Item Details
-        $item1 = array(
-            'name'      => $productDetails,
-            'price'     => $paymentAmount,
-            'quantity'  => 1
-        );
-
-        $itemDetails = array(
-            $item1
-        );
-
-        $params = array(
-            'paymentAmount'     => $paymentAmount,
-            'merchantOrderId'   => $merchantOrderId,
-            'productDetails'    => $productDetails,
-            'additionalParam'   => $additionalParam,
-            'merchantUserInfo'  => $merchantUserInfo,
-            'customerVaName'    => $customerVaName,
-            'email'             => $email,
-            'phoneNumber'       => $phoneNumber,
-            'itemDetails'       => $itemDetails,
-            'customerDetail'    => $customerDetail,
-            'callbackUrl'       => $callbackUrl,
-            'returnUrl'         => $returnUrl,
-            'expiryPeriod'      => $expiryPeriod
-        );
+        $dateNow = date("Y-m-d H:i:s");
+        $date = date("Y-m-d");
 
         try {
 
@@ -119,83 +57,121 @@ class DuitkuService
             $merchantOrderId                    = date("Ymd") . "-" . str_pad($invID_num, 5, '0', STR_PAD_LEFT);
 
             $req['id']                          = $merchantOrderId;
-            $req['reference']                   = $project['data']->type . '-' . $request->merchantOrderId;
-            $req['type']                        = $project['data']->type;
+            $req['reference']                   = $project->type . '-' . $request->merchantOrderId;
+            $req['type']                        = $project->type;
             $req['mode']                        = $request->mode ?? "sandbox";
-            $req['payment_method']              = "";
+            $req['payment_method']              = $request->paymentMethod ?? '';
+            $paymentAmount      = 10000; // Amount
+            $email              = $request->email ?? "admin@ngudek.com"; // your customer email
+            $phoneNumber        = $request->phone ?? "081512356123"; // your customer phone number (optional)
+            $productDetails     = $request->productDetails;
+            $merchantOrderId    = $req['reference'] ?? $project->type . '-' . $req['id']; // from merchant, unique   
+            $additionalParam    = ''; // optional
+            $merchantUserInfo   = ''; // optional
+            $customerVaName     = $request->firstName ?? ""; // display name on bank confirmation display
+            $callbackUrl        = env('APP_URL') . '/api/callbackDuitku'; // url for callback
+            $returnUrl          = env('APP_URL') . '/api/callbackDuitku'; // url for redirect
+            $expiryPeriod       = $request->expiryPeriod ?? 180; // set the expired time in minutes
 
-            $transactionDetails['order_id']     = $req['reference'] ?? $project['data']->type . '-' . $req['id'];
-            $transactionDetails['gross_amount'] = $request->paymentAmount ?? 0;
-            $creditCard['secure']               = true;
-            $customerDetails['first_name']      = $request->firstName ?? "";
-            $customerDetails['last_name']       = $request->lastName ?? "";
-            $customerDetails['email']           = $request->email ?? "xfit.id@gmail.com";
-            $customerDetails['phone']           = $request->phone ?? "081512356123";
+            // Customer Detail
+            $firstName          = $request->firstName ?? "";
+            $lastName           = $request->lastName ?? "";
 
-            $params = [
-                "transaction_details"           => $transactionDetails,
-                "credit_card"                   => $creditCard,
-                "customer_details"              => $customerDetails,
-            ];
+            // Address
+            $alamat             = $request->address;
+            $city               = "Jakarta";
+            $postalCode         = "11530";
+            $countryCode        = "ID";
+
+            $address = array(
+                'firstName'     => $firstName,
+                'lastName'      => $lastName,
+                'address'       => $alamat,
+                'city'          => $city,
+                'postalCode'    => $postalCode,
+                'phone'         => $phoneNumber,
+                'countryCode'   => $countryCode
+            );
+
+            $customerDetail = array(
+                'firstName'         => $firstName,
+                'lastName'          => $lastName,
+                'email'             => $email,
+                'phoneNumber'       => $phoneNumber,
+                'billingAddress'    => $address,
+                'shippingAddress'   => $address
+            );
+
+            // Item Details
+            $item1 = array(
+                'name'      => $productDetails,
+                'price'     => $paymentAmount,
+                'quantity'  => 1
+            );
+
+            $itemDetails = array(
+                $item1
+            );
+
+            $params = array(
+                'paymentAmount'     => $paymentAmount,
+                'merchantOrderId'   => $merchantOrderId,
+                'productDetails'    => $productDetails,
+                'additionalParam'   => $additionalParam,
+                'merchantUserInfo'  => $merchantUserInfo,
+                'customerVaName'    => $customerVaName,
+                'email'             => $email,
+                'phoneNumber'       => $phoneNumber,
+                'itemDetails'       => $itemDetails,
+                'customerDetail'    => $customerDetail,
+                'callbackUrl'       => $callbackUrl,
+                'returnUrl'         => $returnUrl,
+                'expiryPeriod'      => $expiryPeriod
+            );
 
             $req['request']                     = json_encode($params);
             $order                              = Order::create($req);
-
-            $dataLog['key'] = "request_order";
-            $dataLog['name'] = $req['request'];
             LogHelper::sendLog(
                 'Request Order Duitku',
                 json_encode($order),
-                $project['data']->id,
+                $project->id,
                 'request_order_duitku'
             );
-            // if ($request->mode == "sandbox") {
-            //     \Midtrans\Config::$isProduction   = false;
-            //     \Midtrans\Config::$serverKey      = Setting::where("key", "serverkey_sandbox")->first()->value;
-            // }
-            // if ($request->mode == "prod") {
-            //     \Midtrans\Config::$isProduction   = true;
-            //     \Midtrans\Config::$serverKey      = Setting::where("key", "serverkey_prod")->first()->value;
-            // }
 
-            // $createInvoice                      = \Midtrans\Snap::getSnapToken($params);
-            $createInvoice                      = $this->createTransactionMidtrans($params, $request->mode);
-            $result = json_encode($createInvoice);
+
+            $duitkuConfig = DuitkuService::setEnv($request->mode);
+            // createInvoice Request
+            $createInvoice = Pop::createInvoice($params, $duitkuConfig);
+            $response = json_decode($createInvoice);
             LogHelper::sendLog(
                 'Response Order Duitku',
-                json_encode($createInvoice),
-                $project['data']->id,
+                json_encode($response),
+                $project->id,
                 'response_order_duitku'
             );
-            if ($createInvoice['statusCode'] != 201) {
-                return response()->json([
-                    "message" => $createInvoice['response']->error_messages[0],
-                ], $createInvoice['statusCode']);
-            }
             DB::table('orders')
                 ->where('id', $merchantOrderId)
                 ->limit(1)
                 ->update(
                     [
-                        'response'      => $result,
+                        'response'      => json_encode($response),
                         'updated_at'    => $dateNow,
-                        "url"           => $createInvoice['response']->redirect_url
+                        "url"           => $response->paymentUrl,
                     ]
                 );
-
+            $msg    = "Success Create Order Duitku";
+            $result['link']             = $response->paymentUrl;
+            $result['result']           = $response;
             DB::commit();
-            $response['message']    = "Success Create Order";
-            $response['link']       = $createInvoice['response']->redirect_url;
-            $response['data']       = $createInvoice;
-            $duitkuConfig = DuitkuService::setEnv($request->mode);
-            // createInvoice Request
-            $responseDuitkuPop = Pop::createInvoice($params, $duitkuConfig);
-            header('Content-Type: application/json');
-            return $responseDuitkuPop;
+            return ResponseHelper::successResponse($result, $msg);
         } catch (Exception $ex) {
             DB::rollback();
             LogHelper::sendErrorLog($ex);
             return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400, $ex->getLine());
         }
+    }
+
+    private static function callback()
+    {
     }
 }

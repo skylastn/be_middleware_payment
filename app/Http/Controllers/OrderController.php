@@ -8,6 +8,8 @@ use App\Models\Order;
 use Illuminate\Http\Request;
 use App\Http\Controllers\ProjectController;
 use App\Http\Helper\LogHelper;
+use App\Http\Helper\RequestHelper;
+use App\Http\Helper\ResponseHelper;
 use App\Models\Project;
 use App\Models\Setting;
 use App\Models\PaymentMethod;
@@ -15,6 +17,7 @@ use App\Services\DuitkuService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
+use Duitku\Pop;
 use Xendit\Xendit;
 use Exception;
 
@@ -46,22 +49,23 @@ class OrderController extends Controller
 
     public function store(Request $request)
     {
-        $project        = (new ProjectController)->checkKey();
-        if (!$project['status']) {
-            return response()->json($project, 403);
+        try {
+            $project        = (new ProjectController)->checkKey();
+            if ($project->slug == "xendit") {
+                return $this->orderXendit($request, $project);
+            }
+            if ($project->slug == "midtrans") {
+                return $this->orderMidtrans($request, $project);
+            }
+            if ($project->slug == "duitku") {
+                return DuitkuService::orderDuitku($request, $project);
+            }
+            $response['message']    = "Undefined Project";
+            return response()->json($response, 403);
+        } catch (Exception $ex) {
+            LogHelper::sendErrorLog($ex);
+            return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400, $ex->getLine());
         }
-
-        if ($project['data']->slug == "xendit") {
-            return $this->orderXendit($request, $project);
-        }
-        if ($project['data']->slug == "midtrans") {
-            return $this->orderMidtrans($request, $project);
-        }
-        if ($project['data']->slug == "duitku") {
-            return DuitkuService::orderDuitku($request, $project);
-        }
-        $response['message']    = "Undefined Project";
-        return response()->json($response, 403);
     }
 
     public function orderMidtrans($request, $project)
@@ -77,12 +81,12 @@ class OrderController extends Controller
             $merchantOrderId                    = date("Ymd") . "-" . str_pad($invID_num, 5, '0', STR_PAD_LEFT);
 
             $req['id']                          = $merchantOrderId;
-            $req['reference']                   = $project['data']->type . '-' . $request->merchantOrderId;
-            $req['type']                        = $project['data']->type;
+            $req['reference']                   = $project->type . '-' . $request->merchantOrderId;
+            $req['type']                        = $project->type;
             $req['mode']                        = $request->mode ?? "sandbox";
             $req['payment_method']              = "";
 
-            $transactionDetails['order_id']     = $req['reference'] ?? $project['data']->type . '-' . $req['id'];
+            $transactionDetails['order_id']     = $req['reference'] ?? $project->type . '-' . $req['id'];
             $transactionDetails['gross_amount'] = $request->paymentAmount ?? 0;
             $creditCard['secure']               = true;
             $customerDetails['first_name']      = $request->firstName ?? "";
@@ -101,7 +105,7 @@ class OrderController extends Controller
             LogHelper::sendLog(
                 'Request Order Midtrans',
                 json_encode($order),
-                $project['data']->id,
+                $project->id,
                 'request_order_midtrans'
             );
             // if ($request->mode == "sandbox") {
@@ -119,7 +123,7 @@ class OrderController extends Controller
             LogHelper::sendLog(
                 'Response Order Midtrans',
                 json_encode($createInvoice),
-                $project['data']->id,
+                $project->id,
                 'response_order_midtrans'
             );
             if ($createInvoice['statusCode'] != 201) {
@@ -173,15 +177,15 @@ class OrderController extends Controller
             $merchantOrderId            = date("Ymd") . "-" . str_pad($invID_num, 5, '0', STR_PAD_LEFT);
             // return $request->req;
             $req['id']                  = $merchantOrderId;
-            $req['reference']           = $project['data']->type . '-' . $request->merchantOrderId;
-            $req['type']                = $project['data']->type;
+            $req['reference']           = $project->type . '-' . $request->merchantOrderId;
+            $req['type']                = $project->type;
             $req['mode']                = $request->mode ?? "sandbox";
             $req['payment_method']      = "";
 
             $expired                    = ($request->expiryPeriod ?? 0) * 60;
             // return $request;
             $params = [
-                'external_id' => $req['reference'] ?? $project['data']->type . '-' . $req['id'],
+                'external_id' => $req['reference'] ?? $project->type . '-' . $req['id'],
                 'amount' => $request->paymentAmount ?? 0,
                 'description' => $request->productDetails ?? "Payment",
                 'invoice_duration' => $expired,
@@ -229,7 +233,7 @@ class OrderController extends Controller
                 //     ]
                 // ],
                 'success_redirect_url' => $urlSuccess,
-                'failure_redirect_url' => $project['data']->callback,
+                'failure_redirect_url' => $project->callback,
                 'currency' => 'IDR',
                 // 'items' => [
                 //     [
@@ -253,16 +257,16 @@ class OrderController extends Controller
             LogHelper::sendLog(
                 'Request Order Xendit',
                 json_encode($order),
-                $project['data']->id,
+                $project->id,
                 'request_order_xendit'
             );
-            
+
             $createInvoice = \Xendit\Invoice::create($params);
             $result = json_encode($createInvoice);
             LogHelper::sendLog(
                 'Response Order Xendit',
                 json_encode($createInvoice),
-                $project['data']->id,
+                $project->id,
                 'response_order_xendit'
             );
             DB::table('orders')
@@ -379,7 +383,7 @@ class OrderController extends Controller
                 $params['merchantOrderId']  = $split[1] . "-" . $split[2];
                 $params['paymentCode']      = $order->payment_method;
                 $params['resultCode']       = "00";
-                $callback                   = $this->sendCallback($project->value, $params, $project->callback);
+                $callback                   = RequestHelper::sendCallback($project->value, $params, $project->callback);
             }
 
             DB::commit();
@@ -404,12 +408,26 @@ class OrderController extends Controller
         try {
 
             DB::beginTransaction();
+
             $order = Order::where("reference", $request->order_id)->orderBy('id', 'DESC')->first();
 
             if (!$order) {
                 return response()->json([
                     "message" => "Order not found"
                 ], 200);
+            }
+            
+            $callback = Pop::callback($duitkuConfig);
+
+            header('Content-Type: application/json');
+            $notif = json_decode($callback);
+
+            // var_dump($callback);
+
+            if ($notif->resultCode == "00") {
+                // Action Success
+            } else if ($notif->resultCode == "01") {
+                // Action Failed
             }
 
             if ($order->mode == "sandbox") {
@@ -510,7 +528,7 @@ class OrderController extends Controller
             $params['merchantOrderId']  = $split[1] . "-" . $split[2];
             $params['paymentCode']      = $order->payment_method;
             $params['resultCode']       = "00";
-            $callback                   = $this->sendCallback($project->value, $params, $project->callback);
+            $callback                   = RequestHelper::sendCallback($project->value, $params, $project->callback);
 
             DB::commit();
             $response['message']    = "Success Send Callback";
@@ -527,36 +545,5 @@ class OrderController extends Controller
                 "message" => $ex->getMessage()
             ], 400);
         }
-    }
-
-    public function sendCallback($token, $params, $urlCallback)
-    {
-
-        $curl = curl_init();
-
-        curl_setopt_array($curl, array(
-            CURLOPT_URL => $urlCallback,
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_ENCODING => '',
-            CURLOPT_MAXREDIRS => 10,
-            CURLOPT_TIMEOUT => 0,
-            CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-            CURLOPT_CUSTOMREQUEST => 'POST',
-            CURLOPT_POSTFIELDS => json_encode($params),
-            CURLOPT_HTTPHEADER => array(
-                "Token: $token",
-                'Content-Type: application/json'
-            ),
-        ));
-
-        $response = curl_exec($curl);
-
-        curl_close($curl);
-        Log::info("Sending Request", [$urlCallback, $params, $token]);
-        Log::info("Result Callback", [$response]);
-        return json_decode($response);
-        // echo $response;
-
     }
 }

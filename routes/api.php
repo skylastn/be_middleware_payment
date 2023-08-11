@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\OrderController;
+use App\Http\Controllers\OtherController;
 use App\Models\Project;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -26,6 +27,9 @@ Route::post('callbackMidtrans', [OrderController::class, 'callbackMidtrans']);
 //project
 Route::get('project', [ProjectController::class, 'index']);
 Route::post('createProject', [ProjectController::class, 'store']);
+
+//Other
+Route::post('other/duitkuEncrpyt', [OtherController::class, 'duitkuEncrpyt']);
 
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {

@@ -26,8 +26,7 @@ class ProjectController extends Controller
     {
         return Project::find($id);
     }
-
-    public function checkKey()
+    public function checkKey(): Project
     {
         $result['status'] = true;
         $where['value'] = request()->header('Token');
@@ -35,9 +34,9 @@ class ProjectController extends Controller
         if (!isset($project)) {
             $result['status'] = false;
             $result['message'] = "Unauthorized";
+            throw 'Unauthorized';
         }
-        $result['data'] = $project;
-        return $result;
+        return $project;
     }
 
     public function store(Request $request)
@@ -56,7 +55,7 @@ class ProjectController extends Controller
             Schema::create('log__' . $insert->id, function (Blueprint $table) {
                 $table->increments('id');
                 $table->string('key');
-                $table->text('name');
+                $table->text('value');
                 $table->text('ip');
                 $table->timestamps();
             });
