@@ -546,9 +546,7 @@ class OrderController extends Controller
                 ->whereBetween('created_at', [$dateBefore, $now])
                 ->orderBy('id', 'DESC')->first();
             if (!$order) {
-                return response()->json([
-                    "message" => "Order not found",
-                ], 200);
+                throw new Exception('Order not found');
             }
             return DuitkuService::callback($order, $request);
         } catch (Exception $ex) {
@@ -556,9 +554,7 @@ class OrderController extends Controller
             $error['message']   = $ex->getMessage();
             $error['file']      = $ex->getFile();
             Log::error($error);
-            return response()->json([
-                "message" => $ex->getMessage()
-            ], 400);
+            return ResponseHelper::failedResponse($error, $ex->getMessage(), 400, $ex->getLine());
         }
     }
 }
