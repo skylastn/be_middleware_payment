@@ -7,9 +7,11 @@ use Midtrans\Midtrans;
 use App\Models\Order;
 use Illuminate\Http\Request;
 use App\Http\Controllers\ProjectController;
+use App\Http\Helper\LogHelper;
 use App\Models\Project;
 use App\Models\Setting;
 use App\Models\PaymentMethod;
+use App\Services\DuitkuService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
@@ -55,6 +57,9 @@ class OrderController extends Controller
         if ($project['data']->slug == "midtrans") {
             return $this->orderMidtrans($request, $project);
         }
+        if ($project['data']->slug == "duitku") {
+            return DuitkuService::orderDuitku($request, $project);
+        }
         $response['message']    = "Undefined Project";
         return response()->json($response, 403);
     }
@@ -93,11 +98,13 @@ class OrderController extends Controller
 
             $req['request']                     = json_encode($params);
             $order                              = Order::create($req);
-
-            $dataLog['key'] = "request_order";
-            $dataLog['name'] = $req['request'];
-            $this->storeLog($project['data']->id, $dataLog);
-            // if ($request->mode == "sanbox") {
+            LogHelper::sendLog(
+                'Request Order Midtrans',
+                json_encode($order),
+                $project['data']->id,
+                'request_order_midtrans'
+            );
+            // if ($request->mode == "sandbox") {
             //     \Midtrans\Config::$isProduction   = false;
             //     \Midtrans\Config::$serverKey      = Setting::where("key", "serverkey_sandbox")->first()->value;
             // }
@@ -109,10 +116,13 @@ class OrderController extends Controller
             // $createInvoice                      = \Midtrans\Snap::getSnapToken($params);
             $createInvoice                      = $this->createTransactionMidtrans($params, $request->mode);
             $result = json_encode($createInvoice);
-            $dataLog['key'] = "request_order";
-            $dataLog['name'] = $result;
-            $this->storeLog($project['data']->id, $dataLog);
-            if($createInvoice['statusCode'] != 201){
+            LogHelper::sendLog(
+                'Response Order Midtrans',
+                json_encode($createInvoice),
+                $project['data']->id,
+                'response_order_midtrans'
+            );
+            if ($createInvoice['statusCode'] != 201) {
                 return response()->json([
                     "message" => $createInvoice['response']->error_messages[0],
                 ], $createInvoice['statusCode']);
@@ -150,7 +160,7 @@ class OrderController extends Controller
         try {
             $dateNow = date("Y-m-d H:i:s");
             DB::beginTransaction();
-            $secretKey = Setting::where("key", "xendit_secretkey_sanbox")->first()->value;
+            $secretKey = Setting::where("key", "xendit_secretkey_sandbox")->first()->value;
             if ($request->mode == "prod") {
                 $secretKey = Setting::where("key", "xendit_secretkey_prod")->first()->value;
             }
@@ -240,18 +250,21 @@ class OrderController extends Controller
 
             $req['request']             = json_encode($params);
             $order                      = Order::create($req);
-
-            $dataLog['key'] = "request_order";
-            $dataLog['name'] = $req['request'];
-            $this->storeLog($project['data']->id, $dataLog);
-            // return $params;
+            LogHelper::sendLog(
+                'Request Order Xendit',
+                json_encode($order),
+                $project['data']->id,
+                'request_order_xendit'
+            );
+            
             $createInvoice = \Xendit\Invoice::create($params);
             $result = json_encode($createInvoice);
-            $dataLog['key'] = "request_order";
-            $dataLog['name'] = $result;
-            $this->storeLog($project['data']->id, $dataLog);
-
-
+            LogHelper::sendLog(
+                'Response Order Xendit',
+                json_encode($createInvoice),
+                $project['data']->id,
+                'response_order_xendit'
+            );
             DB::table('orders')
                 ->where('id', $merchantOrderId)
                 ->limit(1)
@@ -285,8 +298,8 @@ class OrderController extends Controller
         $curl = curl_init();
         $urlOrderMidtrans   = "";
         $serverKey          = "";
-        if ($mode == "sanbox") {
-            $urlOrderMidtrans   = Setting::where("key", "url_sanbox_ordermidtrans")->first()->value;
+        if ($mode == "sandbox") {
+            $urlOrderMidtrans   = Setting::where("key", "url_sandbox_ordermidtrans")->first()->value;
             $serverKey          = Setting::where("key", "serverkey_sandbox")->first()->value;
         }
         if ($mode == "prod") {
@@ -333,7 +346,7 @@ class OrderController extends Controller
                 ], 200);
             }
 
-            $xenditToken = Setting::where("key", "xendit_tokencallback_sanbox")->first()->value;
+            $xenditToken = Setting::where("key", "xendit_tokencallback_sandbox")->first()->value;
             if ($order->mode == "prod") {
                 $xenditToken = Setting::where("key", "xendit_tokencallback")->first()->value;
             }
@@ -354,13 +367,14 @@ class OrderController extends Controller
 
             $order->save();
 
-
-
-            $dataLog['key']     = "callback_order";
-            $dataLog['name']    = $order->callback;
             $split              = explode("-", $request->external_id);
             $project            = Project::where("type", $split[0])->first();
-            $this->storeLog($project->id, $dataLog);
+            LogHelper::sendLog(
+                'Callback Midtrans',
+                json_encode($request->all()),
+                $project->id,
+                'callback_order_xendit'
+            );
             if ($request->status == "PAID") {
                 $params['merchantOrderId']  = $split[1] . "-" . $split[2];
                 $params['paymentCode']      = $order->payment_method;
@@ -385,9 +399,10 @@ class OrderController extends Controller
         }
     }
 
-    public function callbackMidtrans(Request $request){
+    public function callbackMidtrans(Request $request)
+    {
         try {
-            
+
             DB::beginTransaction();
             $order = Order::where("reference", $request->order_id)->orderBy('id', 'DESC')->first();
 
@@ -397,7 +412,7 @@ class OrderController extends Controller
                 ], 200);
             }
 
-            if ($order->mode == "sanbox") {
+            if ($order->mode == "sandbox") {
                 \Midtrans\Config::$isProduction   = false;
                 \Midtrans\Config::$serverKey      = Setting::where("key", "serverkey_sandbox")->first()->value;
             }
@@ -465,34 +480,33 @@ class OrderController extends Controller
             $order->callback        = json_encode($request->all());
             $order->status          = $status;
 
-            if($type == "bank_transfer"){
-                if(empty($request->bank) || $request->bank == "permata" ){
+            if ($type == "bank_transfer") {
+                if (empty($request->bank) || $request->bank == "permata") {
                     $paymentMethod          = PaymentMethod::where("key", $type)->where("type", "permata")->first();
-                }else{
+                } else {
                     $paymentMethod          = PaymentMethod::where("key", $type)->where("type", $request->bank)->first();
                 }
-                
-            }else{
+            } else {
                 $paymentMethod          = PaymentMethod::where("key", $type)->first();
             }
-            
-            if(empty($paymentMethod)){
+
+            if (empty($paymentMethod)) {
                 return response()->json([
                     "message" => "Payment not found"
                 ], 200);
             }
 
             $order->payment_method  = $paymentMethod->value;
-
             $order->save();
 
-
-
-            $dataLog['key']     = "callback_order";
-            $dataLog['name']    = $order->callback;
             $split              = explode("-", $reference);
             $project            = Project::where("type", $split[0])->first();
-            $this->storeLog($project->id, $dataLog);
+            LogHelper::sendLog(
+                'Callback Midtrans',
+                json_encode($order->callback),
+                $project->id,
+                'callback_order_midtrans'
+            );
             $params['merchantOrderId']  = $split[1] . "-" . $split[2];
             $params['paymentCode']      = $order->payment_method;
             $params['resultCode']       = "00";
@@ -544,35 +558,5 @@ class OrderController extends Controller
         return json_decode($response);
         // echo $response;
 
-    }
-
-    public function storeLog($id, $dataLog)
-    {
-        $dateNow                    = date("Y-m-d H:i:s");
-        $dataLog['ip']              = $this->getClientIP();
-        $dataLog['created_at']      = $dateNow;
-        $dataLog['updated_at']      = $dateNow;
-        $insertLog                  = DB::table('log__' . $id)->insert($dataLog);
-        return $insertLog;
-    }
-
-    public function getClientIP()
-    {
-        $ipaddress = '';
-        if (getenv('HTTP_CLIENT_IP'))
-            $ipaddress = getenv('HTTP_CLIENT_IP');
-        else if (getenv('HTTP_X_FORWARDED_FOR'))
-            $ipaddress = getenv('HTTP_X_FORWARDED_FOR');
-        else if (getenv('HTTP_X_FORWARDED'))
-            $ipaddress = getenv('HTTP_X_FORWARDED');
-        else if (getenv('HTTP_FORWARDED_FOR'))
-            $ipaddress = getenv('HTTP_FORWARDED_FOR');
-        else if (getenv('HTTP_FORWARDED'))
-            $ipaddress = getenv('HTTP_FORWARDED');
-        else if (getenv('REMOTE_ADDR'))
-            $ipaddress = getenv('REMOTE_ADDR');
-        else
-            $ipaddress = 'UNKNOWN';
-        return $ipaddress;
     }
 }

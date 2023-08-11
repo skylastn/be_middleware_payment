@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "0d92c86001176aee91b7f69f3de01a98",
+    "content-hash": "eb3e8d747fcfd84df1a971c8289b567a",
     "packages": [
         {
             "name": "arcanedev/log-viewer",
@@ -502,6 +502,47 @@
                 }
             ],
             "time": "2022-09-10T18:51:20+00:00"
+        },
+        {
+            "name": "duitkupg/duitku-php",
+            "version": "dev-master",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/duitkupg/duitku-php.git",
+                "reference": "983001aefdce35f2d994bfa1e84825169c1b930f"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/duitkupg/duitku-php/zipball/983001aefdce35f2d994bfa1e84825169c1b930f",
+                "reference": "983001aefdce35f2d994bfa1e84825169c1b930f",
+                "shasum": ""
+            },
+            "require": {
+                "ext-curl": "*",
+                "ext-json": "*",
+                "php": ">=5.6"
+            },
+            "require-dev": {
+                "phpunit/phpunit": "7"
+            },
+            "default-branch": true,
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Duitku\\": "Duitku/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "description": "Duitku PHP",
+            "homepage": "https://duitku.com",
+            "support": {
+                "issues": "https://github.com/duitkupg/duitku-php/issues",
+                "source": "https://github.com/duitkupg/duitku-php/tree/master"
+            },
+            "time": "2022-07-08T08:06:12+00:00"
         },
         {
             "name": "egulias/email-validator",
@@ -8356,7 +8397,9 @@
     ],
     "aliases": [],
     "minimum-stability": "dev",
-    "stability-flags": [],
+    "stability-flags": {
+        "duitkupg/duitku-php": 20
+    },
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {

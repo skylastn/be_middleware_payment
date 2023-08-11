@@ -18,10 +18,10 @@ class ProjectController extends Controller
         $page       = $request->page ?? 0;
         $limit      = $request->limit ?? 10;
         $response['message'] = "Success Get Project";
-        $response['data']   = Project::forPage($page,$limit)->get();
+        $response['data']   = Project::forPage($page, $limit)->get();
         return response()->json($response, 200);
     }
- 
+
     public function show($id)
     {
         return Project::find($id);
@@ -32,7 +32,7 @@ class ProjectController extends Controller
         $result['status'] = true;
         $where['value'] = request()->header('Token');
         $project        = Project::where($where)->first();
-        if(!isset($project)){
+        if (!isset($project)) {
             $result['status'] = false;
             $result['message'] = "Unauthorized";
         }
@@ -41,8 +41,8 @@ class ProjectController extends Controller
     }
 
     public function store(Request $request)
-    {   
-        try{
+    {
+        try {
             DB::beginTransaction();
             $data['name']       = $request->name;
             $data['type']       = $request->type;
@@ -63,7 +63,6 @@ class ProjectController extends Controller
             $response['message']    = "Success Create Project";
             $response['data']       = $insert;
             return response()->json($response, 200);
-
         } catch (\Exception $ex) {
             $error['line']      = $ex->getLine();
             $error['message']   = $ex->getMessage();
@@ -73,29 +72,26 @@ class ProjectController extends Controller
                 "message" => $ex->getMessage()
             ], 400);
         }
-        
     }
 
     public function update(Request $request, $id)
     {
-        try{
-            
+        try {
+
             DB::beginTransaction();
             $project = Project::where("value", $request->header('Token'));
             $project->update($request->all());
             $response['data']   = $project;
             return response()->json($response, 200);
-
         } catch (\Exception $ex) {
             $error['line']      = $ex->getLine();
-            $error['message']   = $ex->getMessage();   
+            $error['message']   = $ex->getMessage();
             Log::error($error);
             DB::rollback();
             return response()->json([
                 "message" => $ex->getMessage()
             ], 400);
         }
-        
     }
 
     public function delete(Request $request, $id)
