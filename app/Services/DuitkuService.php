@@ -135,7 +135,7 @@ class DuitkuService
             $order                              = Order::create($req);
             LogHelper::sendLog(
                 'Request Order Duitku',
-                json_encode($order),
+                $order,
                 $project->id,
                 'request_order_duitku'
             );
