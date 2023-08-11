@@ -32,7 +32,7 @@ class OrderController extends Controller
             $page       = $request->page ?? "0";
             $limit      = $request->limit ?? "10";
             $response['message'] = "Success Get Order";
-            $response['data']   = Order::forPage($page, $limit)->where('type', $cek->type)->get();
+            $response['data']   = Order::forPage($page, $limit)->where('type', $cek->type)->latest()->get();
             return response()->json($response, 200);
         } catch (\Exception $ex) {
             $error['line']      = $ex->getLine();
