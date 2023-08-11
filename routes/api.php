@@ -23,6 +23,7 @@ Route::get('order', [OrderController::class, 'index']);
 Route::post('createOrder', [OrderController::class, 'store']);
 Route::post('Callback', [OrderController::class, 'Callback']);
 Route::post('callbackMidtrans', [OrderController::class, 'callbackMidtrans']);
+Route::post('callbackDuitku', [OrderController::class, 'callbackDuitku']);
 
 //project
 Route::get('project', [ProjectController::class, 'index']);

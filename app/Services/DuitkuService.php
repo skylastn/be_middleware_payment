@@ -3,8 +3,10 @@
 namespace App\Services;
 
 use App\Http\Helper\LogHelper;
+use App\Http\Helper\RequestHelper;
 use App\Http\Helper\ResponseHelper;
 use App\Models\Order;
+use App\Models\PaymentMethod;
 use App\Models\Project;
 use App\Models\Setting;
 use Duitku\Config;
@@ -171,7 +173,66 @@ class DuitkuService
         }
     }
 
-    private static function callback()
+    public static function callback(Order $order, Request $request)
     {
+        try {
+            DB::beginTransaction();
+
+            $duitkuConfig = DuitkuService::setEnv($order->mode);
+            $callback = Pop::callback($duitkuConfig);
+            header('Content-Type: application/json');
+            $notif = json_decode($callback);
+
+
+            // var_dump($callback);
+            $status = '';
+            if ($notif->resultCode == "00") {
+                $status = 'SUCCESS';
+            } else if ($notif->resultCode == "01") {
+                $status = 'FAILED';
+            }
+
+            if (empty($status)) {
+                throw new Exception("Status Undefined : $status");
+            }
+            $reference              = $request->merchantOrderId;
+            $order->callback        = json_encode($request->all());
+            $order->status          = $status;
+            $paymentMethod          = PaymentMethod::where("key", $request->paymentMethod)->first();
+
+            if (empty($paymentMethod)) {
+                return response()->json([
+                    "message" => "Payment not found"
+                ], 200);
+            }
+
+            $order->payment_method  = $paymentMethod->value;
+            $order->save();
+
+            $split              = explode("-", $reference);
+            $project            = Project::where("type", $split[0])->first();
+            if (empty($project)) {
+                throw new Exception('Project Not Found');
+            }
+            LogHelper::sendLog(
+                'Callback Duitku',
+                json_encode($order->callback),
+                $project->id,
+                'callback_order_midtrans'
+            );
+            $params['merchantOrderId']  = $split[1] . "-" . $split[2];
+            $params['paymentCode']      = $order->payment_method;
+            $params['resultCode']       = "00";
+            $callback                   = RequestHelper::sendCallback($project->value, $params, $project->callback);
+
+            $response['message']    = "Success Send Callback";
+            $response['data']       = $callback;
+            DB::commit();
+            return ResponseHelper::successResponse($response, $response['message']);
+        } catch (Exception $ex) {
+            DB::rollback();
+            LogHelper::sendErrorLog($ex);
+            return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400, $ex->getLine());
+        }
     }
 }

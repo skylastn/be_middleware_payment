@@ -19,6 +19,10 @@ class OtherController extends Controller
             $result['date']         = $dateNow;
             $result['request']      = $request->all();
             $result['signature']    = hash('sha256', $request->merchantCode . $request->paymentAmount . $dateNow . $request->apiKey);
+
+            if ($request->type == 'callback') {
+                $result['signature']    = hash('sha256', $request->merchantCode . $request->paymentAmount . $request->merchantOrderId . $request->apiKey);
+            }
             return ResponseHelper::successResponse($result, 'Success Create DuitkuEncrpyt');
         } catch (Exception $ex) {
             LogHelper::sendErrorLog($ex);

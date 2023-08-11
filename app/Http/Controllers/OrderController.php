@@ -20,6 +20,8 @@ use Carbon\Carbon;
 use Duitku\Pop;
 use Xendit\Xendit;
 use Exception;
+use Midtrans\Config;
+use Midtrans\Notification;
 
 class OrderController extends Controller
 {
@@ -416,31 +418,18 @@ class OrderController extends Controller
                     "message" => "Order not found"
                 ], 200);
             }
-            
-            $callback = Pop::callback($duitkuConfig);
-
-            header('Content-Type: application/json');
-            $notif = json_decode($callback);
-
-            // var_dump($callback);
-
-            if ($notif->resultCode == "00") {
-                // Action Success
-            } else if ($notif->resultCode == "01") {
-                // Action Failed
-            }
 
             if ($order->mode == "sandbox") {
-                \Midtrans\Config::$isProduction   = false;
-                \Midtrans\Config::$serverKey      = Setting::where("key", "serverkey_sandbox")->first()->value;
+                Config::$isProduction   = false;
+                Config::$serverKey      = Setting::where("key", "serverkey_sandbox")->first()->value;
             }
             if ($order->mode == "prod") {
-                \Midtrans\Config::$isProduction   = true;
-                \Midtrans\Config::$serverKey      = Setting::where("key", "serverkey_prod")->first()->value;
+                Config::$isProduction   = true;
+                Config::$serverKey      = Setting::where("key", "serverkey_prod")->first()->value;
             }
 
-            $notif =  new \Midtrans\Notification();
-            $notif = $notif->getResponse();
+            $notifs =  new Notification();
+            $notif = $notifs->getResponse();
             $transaction = $notif->transaction_status;
             $type = $notif->payment_type;
             $reference = $notif->order_id;
@@ -541,6 +530,32 @@ class OrderController extends Controller
             $error['file']      = $ex->getFile();
             Log::error($error);
             DB::rollback();
+            return response()->json([
+                "message" => $ex->getMessage()
+            ], 400);
+        }
+    }
+
+    public function callbackDuitku(Request $request)
+    {
+        try {
+
+            $now                = Carbon::now();
+            $dateBefore         = date("Y-m-d", strtotime("-1 week"));
+            $order = Order::where("reference", $request->merchantOrderId)
+                ->whereBetween('created_at', [$dateBefore, $now])
+                ->orderBy('id', 'DESC')->first();
+            if (!$order) {
+                return response()->json([
+                    "message" => "Order not found",
+                ], 200);
+            }
+            return DuitkuService::callback($order, $request);
+        } catch (Exception $ex) {
+            $error['line']      = $ex->getLine();
+            $error['message']   = $ex->getMessage();
+            $error['file']      = $ex->getFile();
+            Log::error($error);
             return response()->json([
                 "message" => $ex->getMessage()
             ], 400);
