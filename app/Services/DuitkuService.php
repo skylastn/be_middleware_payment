@@ -147,20 +147,13 @@ class DuitkuService
             $response = json_decode($createInvoice);
             LogHelper::sendLog(
                 'Response Order Duitku',
-                $params,
+                $response,
                 $project->id,
                 'response_order_duitku'
             );
-            DB::table('orders')
-                ->where('id', $merchantOrderId)
-                ->limit(1)
-                ->update(
-                    [
-                        'response'      => json_encode($response),
-                        'updated_at'    => $dateNow,
-                        "url"           => $response->paymentUrl,
-                    ]
-                );
+            $order->response = json_encode($response);
+            $order->url = $response->paymentUrl;
+            $order->save();
             $msg    = "Success Create Order Duitku";
             $result['link']             = $response->paymentUrl;
             $result['result']           = $response;
