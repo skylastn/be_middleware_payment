@@ -554,6 +554,7 @@ class OrderController extends Controller
             $error['message']   = $ex->getMessage();
             $error['file']      = $ex->getFile();
             Log::error($error);
+            LogHelper::sendErrorLog($ex);
             return ResponseHelper::failedResponse($error, $ex->getMessage(), 400, $ex->getLine());
         }
     }
