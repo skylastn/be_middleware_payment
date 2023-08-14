@@ -195,10 +195,10 @@ class DuitkuService
             $reference              = $request->merchantOrderId;
             $order->callback        = json_encode($request->all());
             $order->status          = $status;
-            $paymentMethod          = PaymentMethod::where("key", $request->paymentMethod)->first();
+            $paymentMethod          = PaymentMethod::where("key", $request->paymentCode)->first();
 
             if (empty($paymentMethod)) {
-                throw new Exception('Payment not found : ' . $request->paymentMethod);
+                throw new Exception('Payment not found : ' . $request->paymentCode);
             }
 
             $order->payment_method  = $paymentMethod->value;
