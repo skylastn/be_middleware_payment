@@ -12,7 +12,7 @@ class LogHelper
     public static function sendErrorLog(
         Exception $ex,
         string $idProject = '',
-        string $key = '',
+        string $key = ''
     ) {
         $error['line']      = $ex->getLine();
         $error['ip']        = LogHelper::getClientIP();
@@ -34,7 +34,7 @@ class LogHelper
         String $msg,
         $data = '',
         string $idProject = '',
-        string $key = '',
+        string $key = ''
     ) {
         $info['ip']        = LogHelper::getClientIP();
         $info['key']       = $key;

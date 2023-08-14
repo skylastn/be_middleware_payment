@@ -536,7 +536,7 @@ class OrderController extends Controller
     public function callbackDuitku(Request $request)
     {
         try {
-
+            LogHelper::sendLog('callback', $request);
             $now                = Carbon::now();
             $dateBefore         = date("Y-m-d", strtotime("-1 week"));
             $order = Order::where("reference", $request->merchantOrderId)
@@ -551,6 +551,7 @@ class OrderController extends Controller
             $error['message']   = $ex->getMessage();
             $error['file']      = $ex->getFile();
             Log::error($error);
+            LogHelper::sendErrorLog($ex);
             return ResponseHelper::failedResponse($error, $ex->getMessage(), 400, $ex->getLine());
         }
     }
