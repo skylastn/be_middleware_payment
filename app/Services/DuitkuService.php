@@ -198,7 +198,7 @@ class DuitkuService
             $paymentMethod          = PaymentMethod::where("key", $request->paymentMethod)->first();
 
             if (empty($paymentMethod)) {
-                throw new Exception('Payment not found');
+                throw new Exception('Payment not found : ' . $request->paymentMethod);
             }
 
             $order->payment_method  = $paymentMethod->value;
