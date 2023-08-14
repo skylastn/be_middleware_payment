@@ -12,6 +12,7 @@ use App\Models\Setting;
 use Duitku\Config;
 use Duitku\Pop;
 use Exception;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -197,9 +198,7 @@ class DuitkuService
             $paymentMethod          = PaymentMethod::where("key", $request->paymentMethod)->first();
 
             if (empty($paymentMethod)) {
-                return response()->json([
-                    "message" => "Payment not found"
-                ], 200);
+                throw new Exception('Payment not found');
             }
 
             $order->payment_method  = $paymentMethod->value;
@@ -230,5 +229,47 @@ class DuitkuService
             LogHelper::sendErrorLog($ex);
             return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400, $ex->getLine());
         }
+    }
+
+    public static function syncPaymentDuitku()
+    // : Collection
+    {
+        $duitkuConfig = DuitkuService::setEnv('sandbox');
+        $paymentAmount = "10000"; //"YOUR_AMOUNT";
+        $paymentsDuitku = json_decode(Pop::getPaymentMethod($paymentAmount, $duitkuConfig));
+
+        // header('Content-Type: application/json');
+
+        $payments = PaymentMethod::where('from', 'duitku')->get();
+        $temps = [];
+        foreach ($paymentsDuitku->paymentFee as $duitku) {
+            // return $payment->key;
+            $check = false;
+            if (count($payments) == 0) {
+                $check = true;
+            }
+            if (!$check) {
+                foreach ($payments as $payment) {
+                    if ($duitku->paymentMethod == $payment->key) {
+                        $check = true;
+                        break;
+                    }
+                }
+            }
+
+            if ($check) {
+                $temps[] = PaymentMethod::create([
+                    'key' => $duitku->paymentMethod,
+                    'value' => $duitku->paymentMethod,
+                    'name' => $duitku->paymentName,
+                    'type' => '',
+                    'from' => 'duitku',
+                ]);
+            }
+        }
+        foreach ($temps as $temp) {
+            $payments[] = $temp;
+        }
+        return $payments;
     }
 }
