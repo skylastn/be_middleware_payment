@@ -220,7 +220,7 @@ class DuitkuService
                     continue;
                 }
                 if ($i == 1) {
-                    $idsend = $split[$i];
+                    $idSend = $split[$i];
                     continue;
                 }
                 $idSend = $idSend . '-' . $split[$i];
