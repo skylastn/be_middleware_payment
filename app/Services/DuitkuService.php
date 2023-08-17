@@ -214,7 +214,18 @@ class DuitkuService
                 $project->id,
                 'callback_order_midtrans'
             );
-            $params['merchantOrderId']  = $split[1] . "-" . $split[2];
+            $idSend = '';
+            for ($i = 0; $i <= count($split) - 1; $i++) {
+                if ($i == 0) {
+                    continue;
+                }
+                if ($i == 1) {
+                    $idsend = $split[$i];
+                    continue;
+                }
+                $idSend = $idSend . '-' . $split[$i];
+            }
+            $params['merchantOrderId']  = $idSend;
             $params['paymentCode']      = $order->payment_method;
             $params['resultCode']       = $notif->resultCode;
             $callback                   = RequestHelper::sendCallback($project->value, $params, $project->callback);
