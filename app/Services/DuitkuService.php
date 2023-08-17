@@ -180,7 +180,6 @@ class DuitkuService
             header('Content-Type: application/json');
             $notif = json_decode($callback);
 
-
             // var_dump($callback);
             $status = '';
             if ($notif->resultCode == "00") {
@@ -217,7 +216,7 @@ class DuitkuService
             );
             $params['merchantOrderId']  = $split[1] . "-" . $split[2];
             $params['paymentCode']      = $order->payment_method;
-            $params['resultCode']       = "00";
+            $params['resultCode']       = $notif->resultCode;
             $callback                   = RequestHelper::sendCallback($project->value, $params, $project->callback);
 
             $response['message']    = "Success Send Callback";
