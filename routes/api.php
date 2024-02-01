@@ -31,6 +31,7 @@ Route::post('createProject', [ProjectController::class, 'store']);
 
 //Other
 Route::post('other/duitkuEncrpyt', [OtherController::class, 'duitkuEncrpyt']);
+Route::get('other/duitkuPaymentSync', [OtherController::class, 'duitkuPaymentSync']);
 
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {

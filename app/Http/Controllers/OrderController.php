@@ -29,13 +29,10 @@ class OrderController extends Controller
     {
         try {
             $cek        = (new ProjectController)->checkKey();
-            if (!$cek['status']) {
-                return response()->json($cek, 403);
-            }
             $page       = $request->page ?? "0";
             $limit      = $request->limit ?? "10";
             $response['message'] = "Success Get Order";
-            $response['data']   = Order::forPage($page, $limit)->where('type', $cek['data']->type)->get();
+            $response['data']   = Order::forPage($page, $limit)->where('type', $cek->type)->latest()->get();
             return response()->json($response, 200);
         } catch (\Exception $ex) {
             $error['line']      = $ex->getLine();
@@ -539,7 +536,7 @@ class OrderController extends Controller
     public function callbackDuitku(Request $request)
     {
         try {
-            LogHelper::sendLog('callback', $request);
+            LogHelper::sendLog('callback', $request->all());
             $now                = Carbon::now();
             $dateBefore         = date("Y-m-d", strtotime("-1 week"));
             $order = Order::where("reference", $request->merchantOrderId)

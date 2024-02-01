@@ -12,6 +12,7 @@ use App\Models\Setting;
 use Duitku\Config;
 use Duitku\Pop;
 use Exception;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -56,14 +57,15 @@ class DuitkuService
             $invID = DB::table('orders')->whereDate('created_at', $date)->orderBy('created_at', 'desc')->first();
             $invIDCount                         = substr($invID->id ?? 00000, -5);
             $invID_num                          = (int)$invIDCount + 1;
-            $merchantOrderId                    = date("Ymd") . "-" . str_pad($invID_num, 5, '0', STR_PAD_LEFT);
+            $idSystem                           = date("Ymd") . "-" . str_pad($invID_num, 5, '0', STR_PAD_LEFT);
 
-            $req['id']                          = $merchantOrderId;
+            $req['id']                          = $idSystem;
             $req['reference']                   = $project->type . '-' . $request->merchantOrderId;
             $req['type']                        = $project->type;
             $req['mode']                        = $request->mode ?? "sandbox";
             $req['payment_method']              = $request->paymentMethod ?? '';
-            $paymentAmount      = 10000; // Amount
+
+            $paymentAmount      = $request->paymentAmount; // Amount
             $email              = $request->email ?? "admin@ngudek.com"; // your customer email
             $phoneNumber        = $request->phone ?? "081512356123"; // your customer phone number (optional)
             $productDetails     = $request->productDetails;
@@ -131,45 +133,40 @@ class DuitkuService
                 'expiryPeriod'      => $expiryPeriod
             );
 
-            $req['request']                     = json_encode($params);
-            $order                              = Order::create($req);
+            $req['request']         = json_encode($params);
+            $order                  = Order::create($req);
+
             LogHelper::sendLog(
                 'Request Order Duitku',
-                json_encode($order),
+                $req,
                 $project->id,
                 'request_order_duitku'
             );
-
 
             $duitkuConfig = DuitkuService::setEnv($request->mode);
             // createInvoice Request
             $createInvoice = Pop::createInvoice($params, $duitkuConfig);
             $response = json_decode($createInvoice);
+
             LogHelper::sendLog(
                 'Response Order Duitku',
-                json_encode($response),
+                $response,
                 $project->id,
                 'response_order_duitku'
             );
-            DB::table('orders')
-                ->where('id', $merchantOrderId)
-                ->limit(1)
-                ->update(
-                    [
-                        'response'      => json_encode($response),
-                        'updated_at'    => $dateNow,
-                        "url"           => $response->paymentUrl,
-                    ]
-                );
-            $msg    = "Success Create Order Duitku";
-            $result['link']             = $response->paymentUrl;
-            $result['result']           = $response;
+            $order->response        = json_encode($response);
+            $order->url             = $response->paymentUrl;
+            $order->save();
+
+            $msg                    = "Success Create Order Duitku";
+            $result['link']         = $response->paymentUrl;
+            $result['result']       = $response;
             DB::commit();
             return ResponseHelper::successResponse($result, $msg);
         } catch (Exception $ex) {
             DB::rollback();
             LogHelper::sendErrorLog($ex);
-            return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400, $ex->getLine());
+            return ResponseHelper::failedResponse($ex->getFile(), $ex->getMessage(), 400, $ex->getLine());
         }
     }
 
@@ -182,7 +179,6 @@ class DuitkuService
             $callback = Pop::callback($duitkuConfig);
             header('Content-Type: application/json');
             $notif = json_decode($callback);
-
 
             // var_dump($callback);
             $status = '';
@@ -198,12 +194,10 @@ class DuitkuService
             $reference              = $request->merchantOrderId;
             $order->callback        = json_encode($request->all());
             $order->status          = $status;
-            $paymentMethod          = PaymentMethod::where("key", $request->paymentMethod)->first();
+            $paymentMethod          = PaymentMethod::where("key", $request->paymentCode)->first();
 
             if (empty($paymentMethod)) {
-                return response()->json([
-                    "message" => "Payment not found"
-                ], 200);
+                throw new Exception('Payment not found : ' . $request->paymentCode);
             }
 
             $order->payment_method  = $paymentMethod->value;
@@ -220,9 +214,20 @@ class DuitkuService
                 $project->id,
                 'callback_order_midtrans'
             );
-            $params['merchantOrderId']  = $split[1] . "-" . $split[2];
+            $idSend = '';
+            for ($i = 0; $i <= count($split) - 1; $i++) {
+                if ($i == 0) {
+                    continue;
+                }
+                if ($i == 1) {
+                    $idSend = $split[$i];
+                    continue;
+                }
+                $idSend = $idSend . '-' . $split[$i];
+            }
+            $params['merchantOrderId']  = $idSend;
             $params['paymentCode']      = $order->payment_method;
-            $params['resultCode']       = "00";
+            $params['resultCode']       = $notif->resultCode;
             $callback                   = RequestHelper::sendCallback($project->value, $params, $project->callback);
 
             $response['message']    = "Success Send Callback";
@@ -234,5 +239,47 @@ class DuitkuService
             LogHelper::sendErrorLog($ex);
             return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400, $ex->getLine());
         }
+    }
+
+    public static function syncPaymentDuitku()
+    // : Collection
+    {
+        $duitkuConfig = DuitkuService::setEnv('sandbox');
+        $paymentAmount = "10000"; //"YOUR_AMOUNT";
+        $paymentsDuitku = json_decode(Pop::getPaymentMethod($paymentAmount, $duitkuConfig));
+
+        // header('Content-Type: application/json');
+
+        $payments = PaymentMethod::where('from', 'duitku')->get();
+        $temps = [];
+        foreach ($paymentsDuitku->paymentFee as $duitku) {
+            // return $payment->key;
+            $check = false;
+            if (count($payments) == 0) {
+                $check = true;
+            }
+            if (!$check) {
+                foreach ($payments as $payment) {
+                    if ($duitku->paymentMethod == $payment->key) {
+                        $check = true;
+                        break;
+                    }
+                }
+            }
+
+            if ($check) {
+                $temps[] = PaymentMethod::create([
+                    'key' => $duitku->paymentMethod,
+                    'value' => $duitku->paymentMethod,
+                    'name' => $duitku->paymentName,
+                    'type' => '',
+                    'from' => 'duitku',
+                ]);
+            }
+        }
+        foreach ($temps as $temp) {
+            $payments[] = $temp;
+        }
+        return $payments;
     }
 }
