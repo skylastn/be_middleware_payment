@@ -29,7 +29,7 @@ class SPNPayService
         // $duitkuConfig->setSanitizedMode(false);
         return $result;
     }
-    static function orderDuitku(Request $request, Project $project)
+    static function orderSPNPay(Request $request, Project $project)
     {
         $dateNow = date("Y-m-d H:i:s");
         $date = date("Y-m-d");

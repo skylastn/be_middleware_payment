@@ -14,6 +14,7 @@ use App\Models\Project;
 use App\Models\Setting;
 use App\Models\PaymentMethod;
 use App\Services\DuitkuService;
+use App\Services\SPNPayService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
@@ -60,7 +61,7 @@ class OrderController extends Controller
                 return DuitkuService::orderDuitku($request, $project);
             }
             if ($project->slug == "spnpay") {
-                return DuitkuService::orderDuitku($request, $project);
+                return SPNPayService::orderSPNPay($request, $project);
             }
             $response['message']    = "Undefined Project";
             return response()->json($response, 403);
