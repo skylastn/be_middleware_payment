@@ -84,7 +84,7 @@ class SPNPayService
                 'Accept: application/json',
                 'Content-Type: application/json'
             );
-            $req['header']  = $header;
+            $req['header']  = json_encode($header);
             LogHelper::sendLog(
                 'Request Order SPNPay',
                 $req,
