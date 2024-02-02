@@ -86,7 +86,7 @@ class SPNPayService
                 CURLOPT_HTTPHEADER => array(
                     'On-Key: ' . $config['secretKey'],
                     'On-Token: ' . $config['token'],
-                    'On-Signature: ' . hash_hmac('sha512',  $config['secretKey'] + json_encode($params), $config['token']),
+                    'On-Signature: ' . hash_hmac('sha512',  $config['secretKey'] . json_encode($params), $config['token']),
                     'Accept: application/json',
                     'Content-Type: application/json'
                 ),
