@@ -59,6 +59,9 @@ class OrderController extends Controller
             if ($project->slug == "duitku") {
                 return DuitkuService::orderDuitku($request, $project);
             }
+            if ($project->slug == "spnpay") {
+                return DuitkuService::orderDuitku($request, $project);
+            }
             $response['message']    = "Undefined Project";
             return response()->json($response, 403);
         } catch (Exception $ex) {

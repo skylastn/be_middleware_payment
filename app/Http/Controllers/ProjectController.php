@@ -34,7 +34,7 @@ class ProjectController extends Controller
         if (!isset($project)) {
             $result['status'] = false;
             $result['message'] = "Unauthorized";
-            throw 'Unauthorized';
+            throw new Exception('Unauthorized');
         }
         return $project;
     }

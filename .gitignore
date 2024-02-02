@@ -16,3 +16,5 @@ yarn-error.log
 /.vscode
 .well-known/
 public/.user.ini
+.env andalansoftware prod
+.env ngudek prod
