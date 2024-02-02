@@ -43,22 +43,26 @@ class SPNPayService
             $invID_num                          = (int)$invIDCount + 1;
             $idSystem                           = date("Ymd") . "-" . str_pad($invID_num, 5, '0', STR_PAD_LEFT);
 
-            // $req['id']                          = $idSystem;
-            // $req['reference']                   = $project->type . '-' . $request->merchantOrderId;
-            // $req['type']                        = $project->type;
-            // $req['mode']                        = $request->mode ?? "sandbox";
-            // $req['payment_method']              = $request->paymentMethod ?? '';
+            $req['id']                          = $idSystem;
+            $req['reference']                   = $project->type . '-' . $request->merchantOrderId;
+            $req['type']                        = $project->type;
+            $req['mode']                        = $request->mode ?? "sandbox";
+            $req['payment_method']              = $request->paymentMethod ?? '';
 
-            // $params['bankCode']                 = '014';
-            // $params['singleUse']                = true;
-            // $params['type']                     = 'ClosedAmount';
-            // $params['reference']                = $idSystem;
-            // $params['amount']                   = $request->paymentAmount;
-            // $params['expiryMinutes']            = 60;
-            // $params['viewName']                 = $request->firstName ?? "AndalanSoftware";
-            // $params['additionalInfo']           = array(
-            //     'callback' => env('APP_URL') . '/api/callbackSPNPay',
-            // );
+            $params['bankCode']                 = '014';
+            $params['singleUse']                = true;
+            $params['type']                     = 'ClosedAmount';
+            $params['reference']                = $idSystem;
+            $params['amount']                   = $request->paymentAmount;
+            $params['expiryMinutes']            = 60;
+            $params['viewName']                 = $request->firstName ?? "AndalanSoftware";
+            $params['additionalInfo']           = array(
+                'callback' => env('APP_URL') . '/api/callbackSPNPay',
+            );
+
+
+            $req['request']         = json_encode($params);
+            $order                  = Order::create($req);
             $params = '{
     "paymentAmount": 15000,
     "paymentMethod": "",
@@ -72,10 +76,6 @@ class SPNPayService
     "address" : "klaten",
     "phone" : "08815123766"
 }';
-
-            $req['request']         = json_encode($params);
-            $order                  = Order::create($req);
-
             $config = SPNPayService::setEnv($request->mode);
             $header = array(
                 'On-Key: ' . $config['secretKey'],
