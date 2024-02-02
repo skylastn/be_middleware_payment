@@ -92,7 +92,7 @@ class SPNPayService
                 ),
             ));
 
-            $$createInvoice = curl_exec($curl);
+            $createInvoice = curl_exec($curl);
 
             curl_close($curl);
 
