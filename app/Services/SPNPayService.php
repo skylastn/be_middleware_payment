@@ -63,14 +63,21 @@ class SPNPayService
             $req['request']         = json_encode($params);
             $order                  = Order::create($req);
 
+            $config = SPNPayService::setEnv($request->mode);
+            $header = array(
+                'On-Key: ' . $config['secretKey'],
+                'On-Token: ' . $config['token'],
+                'On-Signature: ' . hash_hmac('sha512',  $config['secretKey'] . json_encode($params), $config['token']),
+                'Accept: application/json',
+                'Content-Type: application/json'
+            );
+            $req['header']  = $header;
             LogHelper::sendLog(
-                'Request Order Duitku',
+                'Request Order SPNPay',
                 $req,
                 $project->id,
-                'request_order_duitku'
+                'request_order_spnpay'
             );
-
-            $config = SPNPayService::setEnv($request->mode);
             $curl = curl_init();
 
             curl_setopt_array($curl, array(
@@ -83,13 +90,7 @@ class SPNPayService
                 CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
                 CURLOPT_CUSTOMREQUEST => 'POST',
                 CURLOPT_POSTFIELDS => json_encode($params),
-                CURLOPT_HTTPHEADER => array(
-                    'On-Key: ' . $config['secretKey'],
-                    'On-Token: ' . $config['token'],
-                    'On-Signature: ' . hash_hmac('sha512',  $config['secretKey'] . json_encode($params), $config['token']),
-                    'Accept: application/json',
-                    'Content-Type: application/json'
-                ),
+                CURLOPT_HTTPHEADER => $header,
             ));
 
             $createInvoice = curl_exec($curl);
