@@ -77,6 +77,7 @@ class SPNPayService
     "phone" : "08815123766"
 }';
             $config = SPNPayService::setEnv($request->mode);
+            $url = $config['url'] . '/virtual-account';
             $header = array(
                 'On-Key: ' . $config['secretKey'],
                 'On-Token: ' . $config['token'],
@@ -85,16 +86,19 @@ class SPNPayService
                 'Content-Type: application/json'
             );
             $req['header']  = json_encode($header);
+            $req['url']  = $url;
+            
             LogHelper::sendLog(
                 'Request Order SPNPay',
                 $req,
                 $project->id,
                 'request_order_spnpay'
             );
+            
             $curl = curl_init();
 
             curl_setopt_array($curl, array(
-                CURLOPT_URL => $config['url'] . '/virtual-account',
+                CURLOPT_URL => $url,
                 CURLOPT_RETURNTRANSFER => true,
                 CURLOPT_ENCODING => '',
                 CURLOPT_MAXREDIRS => 10,
