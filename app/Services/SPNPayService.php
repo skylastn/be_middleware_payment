@@ -87,14 +87,14 @@ class SPNPayService
             );
             $req['header']  = json_encode($header);
             $req['url']  = $url;
-            
+
             LogHelper::sendLog(
                 'Request Order SPNPay',
                 $req,
                 $project->id,
                 'request_order_spnpay'
             );
-            
+
             $curl = curl_init();
 
             curl_setopt_array($curl, array(
@@ -137,5 +137,49 @@ class SPNPayService
             LogHelper::sendErrorLog($ex);
             return ResponseHelper::failedResponse($ex->getFile(), $ex->getMessage(), 400, $ex->getLine());
         }
+    }
+
+    static function sendCurlRequest()
+    {
+        $url = 'https://api.sandbox.cronosengine.com/api/qris';
+        $key = 'SC-3DEIIWDRNN77W6MG'; // sandbox
+        $token = '8qJKU9FA1Y8uBpLsWU3cRg1n0uh8rGLy';
+
+        $codeSignature = hash_hmac('sha512', $key, $token);
+        $data = json_encode([
+            'reference' => 'qrisstestCRONOS2-MPAY' . time(),
+            'amount' => 10000,
+            'expiryMinutes' => 30,
+            'viewName' => 'Antzyn',
+            'additionalInfo' => [
+                'callback' => 'https://kraken.free.beeceptor.com/notify',
+            ],
+        ]);
+        $codeSignature = hash_hmac('sha512', $key . $data, $token);
+        $headers = [
+            "On-Key: $key",
+            "On-Token: $token",
+            "On-Signature: " . $codeSignature,
+            "Content-Type: application/json",
+        ];
+
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'POST');
+
+        $response = json_decode(curl_exec($ch));
+        curl_close($ch);
+
+        $imageUrl = $response->responseData->qris->image;
+        $content = $response->responseData->qris->content;
+
+        echo "<div style='text-align: center; margin-top: 150px;'>";
+        echo "<img src='$imageUrl' alt='QR Code' />";
+        echo "$content";
+        echo "<br><br>";
+
+        var_dump($response);
     }
 }

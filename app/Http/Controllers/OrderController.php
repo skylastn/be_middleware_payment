@@ -61,7 +61,8 @@ class OrderController extends Controller
                 return DuitkuService::orderDuitku($request, $project);
             }
             if ($project->slug == "spnpay") {
-                return SPNPayService::orderSPNPay($request, $project);
+                // return SPNPayService::orderSPNPay($request, $project);
+                return SPNPayService::sendCurlRequest();
             }
             $response['message']    = "Undefined Project";
             return response()->json($response, 403);
