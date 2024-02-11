@@ -49,7 +49,7 @@ class SPNPayService
             $req['mode']                        = $request->mode ?? "sandbox";
             $req['payment_method']              = $request->paymentMethod ?? '';
 
-            // $params['bankCode']                 = '014';
+            $params['bankCode']                 = '014';
             $params['singleUse']                = true;
             $params['type']                     = 'ClosedAmount';
             $params['reference']                = $idSystem;
@@ -63,23 +63,10 @@ class SPNPayService
 
             $req['request']         = json_encode($params);
             $order                  = Order::create($req);
-//             $params = '{
-//     "paymentAmount": 15000,
-//     "paymentMethod": "",
-//     "merchantOrderId": "20220912-00044",
-//     "productDetails": "Pembayaran SPNPay",
-//     "expiryPeriod": 10,
-//     "mode" : "sandbox",
-//     "firstName" : "Sahid",
-//     "lastName" : "R",
-//     "email" : "sahidrahutomo@gmail.com",
-//     "address" : "klaten",
-//     "phone" : "08815123766"
-// }';
             $config = SPNPayService::setEnv($request->mode);
             // throw new Exception(json_encode($config));
-            // $url = $config['url'] . '/virtual-account';
-            $url = $config['url'] . '/qris';
+            $url = $config['url'] . '/virtual-account';
+            // $url = $config['url'] . '/qris';
             $signature = hash_hmac('sha512',  $config['secretKey'] . json_encode($params), $config['token']);
             $header = array(
                 'On-Key: ' . $config['secretKey'],
