@@ -49,7 +49,7 @@ class SPNPayService
             $req['mode']                        = $request->mode ?? "sandbox";
             $req['payment_method']              = $request->paymentMethod ?? '';
 
-            $params['bankCode']                 = '014';
+            // $params['bankCode']                 = '014';
             $params['singleUse']                = true;
             $params['type']                     = 'ClosedAmount';
             $params['reference']                = $idSystem;
@@ -77,8 +77,9 @@ class SPNPayService
 //     "phone" : "08815123766"
 // }';
             $config = SPNPayService::setEnv($request->mode);
-            throw new Exception(json_encode($config));
-            $url = $config['url'] . '/virtual-account';
+            // throw new Exception(json_encode($config));
+            // $url = $config['url'] . '/virtual-account';
+            $url = $config['url'] . '/qris';
             $signature = hash_hmac('sha512',  $config['secretKey'] . json_encode($params), $config['token']);
             $header = array(
                 'On-Key: ' . $config['secretKey'],
