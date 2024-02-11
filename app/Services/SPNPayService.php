@@ -63,25 +63,27 @@ class SPNPayService
 
             $req['request']         = json_encode($params);
             $order                  = Order::create($req);
-            $params = '{
-    "paymentAmount": 15000,
-    "paymentMethod": "",
-    "merchantOrderId": "20220912-00044",
-    "productDetails": "Pembayaran SPNPay",
-    "expiryPeriod": 10,
-    "mode" : "sandbox",
-    "firstName" : "Sahid",
-    "lastName" : "R",
-    "email" : "sahidrahutomo@gmail.com",
-    "address" : "klaten",
-    "phone" : "08815123766"
-}';
+//             $params = '{
+//     "paymentAmount": 15000,
+//     "paymentMethod": "",
+//     "merchantOrderId": "20220912-00044",
+//     "productDetails": "Pembayaran SPNPay",
+//     "expiryPeriod": 10,
+//     "mode" : "sandbox",
+//     "firstName" : "Sahid",
+//     "lastName" : "R",
+//     "email" : "sahidrahutomo@gmail.com",
+//     "address" : "klaten",
+//     "phone" : "08815123766"
+// }';
             $config = SPNPayService::setEnv($request->mode);
+            throw new Exception(json_encode($config));
             $url = $config['url'] . '/virtual-account';
+            $signature = hash_hmac('sha512',  $config['secretKey'] . json_encode($params), $config['token']);
             $header = array(
                 'On-Key: ' . $config['secretKey'],
                 'On-Token: ' . $config['token'],
-                'On-Signature: ' . hash_hmac('sha512',  $config['secretKey'] . json_encode($params), $config['token']),
+                'On-Signature: ' . $signature,
                 'Accept: application/json',
                 'Content-Type: application/json'
             );
