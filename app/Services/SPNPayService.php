@@ -7,6 +7,7 @@ use App\Http\Helper\ResponseHelper;
 use App\Models\Order;
 use App\Models\Project;
 use App\Models\Setting;
+use App\Repository\SPNPayRepository;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -49,7 +50,7 @@ class SPNPayService
             $req['mode']                        = $request->mode ?? "sandbox";
             $req['payment_method']              = $request->paymentMethod ?? '';
 
-            $params['bankCode']                 = '014';
+            // $params['bankCode']                 = '014';
             $params['singleUse']                = true;
             $params['type']                     = 'ClosedAmount';
             $params['reference']                = $idSystem;
@@ -65,8 +66,8 @@ class SPNPayService
             $order                  = Order::create($req);
             $config = SPNPayService::setEnv($request->mode);
             // throw new Exception(json_encode($config));
-            $url = $config['url'] . '/virtual-account';
-            // $url = $config['url'] . '/qris';
+            // $url = $config['url'] . '/virtual-account';
+            $url = $config['url'] . '/qris';
             $signature = hash_hmac('sha512',  $config['secretKey'] . json_encode($params), $config['token']);
             $header = array(
                 'On-Key: ' . $config['secretKey'],
@@ -113,13 +114,13 @@ class SPNPayService
                 'response_order_spnpay'
             );
 
-            $order->response        = json_encode($response);
+            $order->response        = json_encode(SPNPayRepository::responseOrderFilter($response));
             $order->url             = $response->paymentUrl ?? '';
             $order->save();
 
             $msg                    = "Success Create Order SPNPay";
             $result['link']         = $response->paymentUrl ?? '';
-            $result['result']       = $response;
+            $result['result']       = SPNPayRepository::responseOrderFilter($response);
             DB::commit();
             return ResponseHelper::successResponse($result, $msg);
         } catch (Exception $ex) {
@@ -127,49 +128,5 @@ class SPNPayService
             LogHelper::sendErrorLog($ex);
             return ResponseHelper::failedResponse($ex->getFile(), $ex->getMessage(), 400, $ex->getLine());
         }
-    }
-
-    static function sendCurlRequest()
-    {
-        $url = 'https://api.sandbox.cronosengine.com/api/qris';
-        $key = 'SC-3DEIIWDRNN77W6MG'; // sandbox
-        $token = '8qJKU9FA1Y8uBpLsWU3cRg1n0uh8rGLy';
-
-        $codeSignature = hash_hmac('sha512', $key, $token);
-        $data = json_encode([
-            'reference' => 'qrisstestCRONOS2-MPAY' . time(),
-            'amount' => 10000,
-            'expiryMinutes' => 30,
-            'viewName' => 'Antzyn',
-            'additionalInfo' => [
-                'callback' => 'https://kraken.free.beeceptor.com/notify',
-            ],
-        ]);
-        $codeSignature = hash_hmac('sha512', $key . $data, $token);
-        $headers = [
-            "On-Key: $key",
-            "On-Token: $token",
-            "On-Signature: " . $codeSignature,
-            "Content-Type: application/json",
-        ];
-
-        $ch = curl_init($url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
-        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'POST');
-
-        $response = json_decode(curl_exec($ch));
-        curl_close($ch);
-
-        $imageUrl = $response->responseData->qris->image;
-        $content = $response->responseData->qris->content;
-
-        echo "<div style='text-align: center; margin-top: 150px;'>";
-        echo "<img src='$imageUrl' alt='QR Code' />";
-        echo "$content";
-        echo "<br><br>";
-
-        var_dump($response);
     }
 }
