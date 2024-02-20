@@ -40,7 +40,7 @@ class SPNPayService
 
             DB::beginTransaction();
 
-            $invID = DB::table('orders')->whereDate('created_at', $date)->orderBy('created_at', 'desc')->first();
+            $invID = Order::whereDate('created_at', $date)->orderBy('created_at', 'desc')->first();
             $invIDCount                         = substr($invID->id ?? 00000, -5);
             $invID_num                          = (int)$invIDCount + 1;
             $idSystem                           = date("Ymd") . "-" . str_pad($invID_num, 5, '0', STR_PAD_LEFT);
@@ -117,13 +117,14 @@ class SPNPayService
                 $project->id,
                 'response_order_spnpay'
             );
-
+            // return gettype();
             $order->response        = json_encode(SPNPayRepository::responseOrderFilter($response));
             $order->url             = $response->paymentUrl ?? '';
             $order->save();
 
             $msg                    = "Success Create Order SPNPay";
-            $result['link']         = $response->paymentUrl ?? '';
+
+            $result['link']         = env('PAYMENT_URL') . '/home' . '?reference=' . $request->merchantOrderId;
             $result['result']       = SPNPayRepository::responseOrderFilter($response);
             DB::commit();
             return ResponseHelper::successResponse($result, $msg);

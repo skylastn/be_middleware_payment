@@ -32,18 +32,29 @@ class OrderController extends Controller
             $cek        = (new ProjectController)->checkKey();
             $page       = $request->page ?? "0";
             $limit      = $request->limit ?? "10";
-            $response['message'] = "Success Get Order";
-            $response['data']   = Order::forPage($page, $limit)->where('type', $cek->type)->latest()->get();
-            return response()->json($response, 200);
+            $response   = Order::forPage($page, $limit)->where('type', $cek->type)->latest()->get();
+            return ResponseHelper::successResponse($response);
         } catch (\Exception $ex) {
             $error['line']      = $ex->getLine();
             $error['message']   = $ex->getMessage();
             $error['file']      = $ex->getFile();
             Log::error($error);
-            DB::rollback();
-            return response()->json([
-                "message" => $ex->getMessage()
-            ], 400);
+            return ResponseHelper::failedResponse($ex->getMessage());
+        }
+    }
+
+    public function detail(Request $request)
+    {
+        try {
+            $cek        = (new ProjectController)->checkKey();
+            $response   = Order::where('reference', $request->reference)->where('type', $cek->type)->latest()->first();
+            return ResponseHelper::successResponse($response);
+        } catch (\Exception $ex) {
+            $error['line']      = $ex->getLine();
+            $error['message']   = $ex->getMessage();
+            $error['file']      = $ex->getFile();
+            Log::error($error);
+            return ResponseHelper::failedResponse($ex->getMessage());
         }
     }
 
