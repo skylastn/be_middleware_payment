@@ -8,19 +8,19 @@ class SPNPayRepository
     static function responseOrderFilter(array $data): array
     {
         $value['id']     = $data['id'] ?? '';
-        if (empty($data['virtualAccount'])) {
-            array_merge($value, self::fillEmptyResponseOrder('virtualAccount', $data));
+        if (empty($data['virtual-account'])) {
+            array_merge($value, self::fillEmptyResponseOrder('virtual-account', $data));
         }
         if (empty($data['qris'])) {
             array_merge($value, self::fillEmptyResponseOrder('qris', $data));
         }
-        if (empty($data['eWallet'])) {
+        if (empty($data['e-wallet'])) {
             array_merge($value, self::fillEmptyResponseOrder('eWallet', $data));
         }
         if (empty($data['retail'])) {
             array_merge($value, self::fillEmptyResponseOrder('retail', $data));
         }
-        if (empty($data['creditCard'])) {
+        if (empty($data['credit-card'])) {
             array_merge($value, self::fillEmptyResponseOrder('creditCard', $data));
         }
         return $value;
@@ -29,7 +29,7 @@ class SPNPayRepository
     static function fillEmptyResponseOrder(string $type, array $data): array
     {
         switch ($type) {
-            case 'virtualAccount':
+            case 'virtual-account':
                 return array(
                     'virtualAccount' => array(
                         'bankCode'      => $data['bankCode'] ?? '',
@@ -44,7 +44,7 @@ class SPNPayRepository
                         'url'           => $data['url'] ?? '',
                     ),
                 );
-            case 'eWallet':
+            case 'e-wallet':
                 return array(
                     'eWallet' => array(
                         'viewName'      => $data['viewName'] ?? '',
@@ -60,7 +60,7 @@ class SPNPayRepository
                         'paymentCode'   => $data['paymentCode'] ?? '',
                     ),
                 );
-            case 'creditCard':
+            case 'credit-card':
                 return array(
                     'creditCard' => array(
                         'url'      => $data['url'] ?? '',
