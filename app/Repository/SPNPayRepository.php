@@ -29,7 +29,7 @@ class SPNPayRepository
     static function fillEmptyResponseOrder(string $type, object $data): array
     {
         switch ($type) {
-            case 'virtualAccount':
+            case 'virtual-account':
                 return array(
                     'virtualAccount' => array(
                         'bankCode'      => $data->bankCode ?? '',
@@ -44,7 +44,7 @@ class SPNPayRepository
                         'url'           => $data->url ?? '',
                     ),
                 );
-            case 'eWallet':
+            case 'e-wallet':
                 return array(
                     'eWallet' => array(
                         'viewName'      => $data->viewName ?? '',
@@ -60,7 +60,7 @@ class SPNPayRepository
                         'paymentCode'   => $data->paymentCode ?? '',
                     ),
                 );
-            case 'creditCard':
+            case 'credit-card':
                 return array(
                     'creditCard' => array(
                         'url'      => $data->url ?? '',

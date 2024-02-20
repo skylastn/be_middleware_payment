@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Http\Helper\LogHelper;
 use App\Http\Helper\ResponseHelper;
 use App\Models\Order;
+use App\Models\PaymentMethod;
 use App\Models\Project;
 use App\Models\Setting;
 use App\Repository\SPNPayRepository;
@@ -88,9 +89,12 @@ class SPNPayService
 
             $req['request']         = json_encode($params);
             $config = SPNPayService::setEnv($request->mode);
-            // throw new Exception(json_encode($config));
-            // $url = $config['url'] . '/virtual-account';
-            $url = $config['url'] . '/qris';
+            $paymemtMethod = PaymentMethod::where('value', $request->paymentMethod)->where('from', 'spnpay')->first();
+            if (empty($paymemtMethod)) {
+                throw new Exception("Sorry Payment Method Unavailable");
+            }
+            
+            $url = $config['url'] . '/' . $paymemtMethod->key;
             $signature = hash_hmac('sha512',  $config['secretKey'] . json_encode($params), $config['token']);
             $header = array(
                 'On-Key: ' . $config['secretKey'],
@@ -145,4 +149,29 @@ class SPNPayService
             return ResponseHelper::failedResponse($ex->getFile(), $ex->getMessage(), 400, $ex->getLine());
         }
     }
+
+    // static function getUrlPathPayment(string $paymentType): string
+    // {
+    //     switch ($paymentType) {
+    //         case 'virtual-account':
+    //             return 'virtual-account';
+    //             break;
+    //         case 'qris':
+    //             return 'qris';
+    //             break;
+    //         case 'e-wallet':
+    //             return 'e-wallet';
+    //             break;
+    //         case 'retail':
+    //             return 'retail';
+    //             break;
+    //         case 'credit-card':
+    //             return 'credit-card';
+
+    //         default:
+    //             # code...
+    //             break;
+    //     }
+    //     return '';
+    // }
 }

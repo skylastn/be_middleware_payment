@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\OtherController;
+use App\Http\Controllers\PaymentController;
 use App\Models\Project;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -28,6 +29,9 @@ Route::post('callbackDuitku', [OrderController::class, 'callbackDuitku']);
 //project
 Route::get('project', [ProjectController::class, 'index']);
 Route::post('createProject', [ProjectController::class, 'store']);
+
+//payment
+Route::get('payment/getPaymentCategory', [PaymentController::class, 'getPaymentCategory']);
 
 //Other
 Route::post('other/duitkuEncrpyt', [OtherController::class, 'duitkuEncrpyt']);
