@@ -21,10 +21,14 @@ use App\Http\Controllers\ProjectController;
 
 //order
 Route::get('order', [OrderController::class, 'index']);
+Route::get('order/detail', [OrderController::class, 'detail']);
 Route::post('createOrder', [OrderController::class, 'store']);
+Route::post('order/createPayment', [OrderController::class, 'createPayment']);
 Route::post('Callback', [OrderController::class, 'Callback']);
 Route::post('callbackMidtrans', [OrderController::class, 'callbackMidtrans']);
 Route::post('callbackDuitku', [OrderController::class, 'callbackDuitku']);
+
+Route::post('payment/callbackSPNPay', [PaymentController::class, 'callbackSPNPay']);
 
 //project
 Route::get('project', [ProjectController::class, 'index']);
@@ -32,6 +36,8 @@ Route::post('createProject', [ProjectController::class, 'store']);
 
 //payment
 Route::get('payment/getPaymentCategory', [PaymentController::class, 'getPaymentCategory']);
+Route::get('payment/getPaymentMethod', [PaymentController::class, 'getPaymentMethod']);
+Route::get('payment/getDetailPaymentMethod', [PaymentController::class, 'getDetailPaymentMethod']);
 
 //Other
 Route::post('other/duitkuEncrpyt', [OtherController::class, 'duitkuEncrpyt']);

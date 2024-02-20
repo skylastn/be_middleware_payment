@@ -50,8 +50,20 @@ class SPNPayService
             $req['type']                        = $project->type;
             $req['mode']                        = $request->mode ?? "sandbox";
             $req['payment_method']              = $request->paymentMethod ?? '';
-            $paymentUrl                         = env('PAYMENT_URL') . '/home' . '?reference=' . $request->merchantOrderId;
+            $paymentUrl                         = env('PAYMENT_URL') . '/home' . '?reference=' . $req['reference'];
             $req['url']                         = $paymentUrl;
+
+            $params['singleUse']                = true;
+            $params['type']                     = 'ClosedAmount';
+            $params['reference']                = $req['reference'];
+            $params['amount']                   = $request->paymentAmount;
+            $params['expiryMinutes']            = 60;
+            $params['viewName']                 = $request->firstName ?? "AndalanSoftware";
+            $params['additionalInfo']           = array(
+                'callback' => env('APP_URL') . '/api/payment/callbackSPNPay',
+            );
+
+            $req['request']                     = json_encode($params);
             $order                              = Order::create($req);
 
             // $order->response                    = json_encode(SPNPayRepository::responseOrderFilter($response));
@@ -76,26 +88,27 @@ class SPNPayService
         $date = date("Y-m-d");
         try {
             DB::beginTransaction();
-            $reference                          = $request->reference;
-            $params['singleUse']                = true;
-            $params['type']                     = 'ClosedAmount';
-            $params['reference']                = $reference;
-            $params['amount']                   = $request->paymentAmount;
-            $params['expiryMinutes']            = 60;
-            $params['viewName']                 = $request->firstName ?? "AndalanSoftware";
-            $params['additionalInfo']           = array(
-                'callback' => env('APP_URL') . '/api/callbackSPNPay',
-            );
-
-            $req['request']         = json_encode($params);
-            $config = SPNPayService::setEnv($request->mode);
+            $config = SPNPayService::setEnv($order->mode);
             $paymemtMethod = PaymentMethod::where('value', $request->paymentMethod)->where('from', 'spnpay')->first();
             if (empty($paymemtMethod)) {
                 throw new Exception("Sorry Payment Method Unavailable");
             }
-            
+
             $url = $config['url'] . '/' . $paymemtMethod->key;
+            $requestOrder = json_decode($order->request);
+
+            $params['bankCode']                 = $paymemtMethod->bankCode;
+            $params['singleUse']                = $requestOrder->singleUse;
+            $params['type']                     = $requestOrder->type;
+            $params['reference']                = $requestOrder->reference;
+            $params['amount']                   = $requestOrder->amount;
+            $params['expiryMinutes']            = $requestOrder->expiryMinutes;
+            $params['viewName']                 = $requestOrder->viewName;
+            $params['additionalInfo']           = array(
+                'callback' => env('APP_URL') . '/api/payment/callbackSPNPay',
+            );
             $signature = hash_hmac('sha512',  $config['secretKey'] . json_encode($params), $config['token']);
+            // $signature = hash_hmac('sha512',  $config['secretKey'] . $order->request, $config['token']);
             $header = array(
                 'On-Key: ' . $config['secretKey'],
                 'On-Token: ' . $config['token'],
@@ -112,6 +125,7 @@ class SPNPayService
                 $project->id,
                 'request_order_spnpay'
             );
+            // return $req;
 
             $curl = curl_init();
 
@@ -140,7 +154,10 @@ class SPNPayService
                 $project->id,
                 'response_order_spnpay'
             );
-            $result['result'] = $response;
+            $order->response        = json_encode(SPNPayRepository::responseOrderFilter($response->responseData));
+            $order->save();
+
+            $result['result'] = SPNPayRepository::responseOrderFilter($response->responseData);
             DB::commit();
             return ResponseHelper::successResponse($result);
         } catch (Exception $ex) {

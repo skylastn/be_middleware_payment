@@ -46,8 +46,10 @@ class OrderController extends Controller
     public function detail(Request $request)
     {
         try {
-            $cek        = (new ProjectController)->checkKey();
-            $response   = Order::where('reference', $request->reference)->where('type', $cek->type)->latest()->first();
+            if (env('PAYMENT_APP_KEY') != request()->header('Key')) {
+                throw new Exception("Unauthorized", 403);
+            }
+            $response   = Order::where('reference', $request->reference)->latest()->first();
             return ResponseHelper::successResponse($response);
         } catch (\Exception $ex) {
             $error['line']      = $ex->getLine();
@@ -86,12 +88,15 @@ class OrderController extends Controller
     public function createPayment(Request $request)
     {
         try {
+            if (env('PAYMENT_APP_KEY') != request()->header('Key')) {
+                throw new Exception("Unauthorized", 403);
+            }
             $order                  = Order::where('reference', $request->reference)->latest()->first();
             if (empty($order)) {
                 throw new Exception("Order Not Found", 403);
             }
-            $project = Project::where('type', $order->slug)->first();
-            if (empty($order)) {
+            $project = Project::where('type', $order->type)->first();
+            if (empty($project)) {
                 throw new Exception("Project Not Found", 403);
             }
             // if ($project->slug == "xendit") {
