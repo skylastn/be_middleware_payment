@@ -30,7 +30,7 @@ class SPNPayService
         // $duitkuConfig->setSanitizedMode(false);
         return $result;
     }
-    static function orderSPNPay(Request $request, Project $project)
+    static function createOrderSPNPay(Request $request, Project $project)
     {
         $dateNow = date("Y-m-d H:i:s");
         $date = date("Y-m-d");
@@ -49,11 +49,36 @@ class SPNPayService
             $req['type']                        = $project->type;
             $req['mode']                        = $request->mode ?? "sandbox";
             $req['payment_method']              = $request->paymentMethod ?? '';
+            $paymentUrl                         = env('PAYMENT_URL') . '/home' . '?reference=' . $request->merchantOrderId;
+            $req['url']                         = $paymentUrl;
+            $order                              = Order::create($req);
 
-            // $params['bankCode']                 = '014';
+            // $order->response                    = json_encode(SPNPayRepository::responseOrderFilter($response));
+            $order->url                         = $paymentUrl;
+            $order->save();
+
+            $msg                                = "Success Create Order SPNPay";
+            $result['link']                     = $paymentUrl;
+            $result['result']                   = $order;
+            DB::commit();
+            return ResponseHelper::successResponse($result, $msg);
+        } catch (Exception $ex) {
+            DB::rollback();
+            LogHelper::sendErrorLog($ex);
+            return ResponseHelper::failedResponse($ex->getFile(), $ex->getMessage(), 400, $ex->getLine());
+        }
+    }
+
+    static function createOrderPaymentSPNPay(Request $request, Project $project, Order $order)
+    {
+        $dateNow = date("Y-m-d H:i:s");
+        $date = date("Y-m-d");
+        try {
+            DB::beginTransaction();
+            $reference                          = $request->reference;
             $params['singleUse']                = true;
             $params['type']                     = 'ClosedAmount';
-            $params['reference']                = $idSystem;
+            $params['reference']                = $reference;
             $params['amount']                   = $request->paymentAmount;
             $params['expiryMinutes']            = 60;
             $params['viewName']                 = $request->firstName ?? "AndalanSoftware";
@@ -61,9 +86,7 @@ class SPNPayService
                 'callback' => env('APP_URL') . '/api/callbackSPNPay',
             );
 
-
             $req['request']         = json_encode($params);
-            $order                  = Order::create($req);
             $config = SPNPayService::setEnv($request->mode);
             // throw new Exception(json_encode($config));
             // $url = $config['url'] . '/virtual-account';
@@ -113,17 +136,9 @@ class SPNPayService
                 $project->id,
                 'response_order_spnpay'
             );
-            // return gettype();
-            $order->response        = json_encode(SPNPayRepository::responseOrderFilter($response));
-            $order->url             = $response->paymentUrl ?? '';
-            $order->save();
-
-            $msg                    = "Success Create Order SPNPay";
-
-            $result['link']         = env('PAYMENT_URL') . '/home' . '?reference=' . $request->merchantOrderId;
-            $result['result']       = SPNPayRepository::responseOrderFilter($response);
+            $result['result'] = $response;
             DB::commit();
-            return ResponseHelper::successResponse($result, $msg);
+            return ResponseHelper::successResponse($result);
         } catch (Exception $ex) {
             DB::rollback();
             LogHelper::sendErrorLog($ex);

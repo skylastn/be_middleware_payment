@@ -72,10 +72,41 @@ class OrderController extends Controller
                 return DuitkuService::orderDuitku($request, $project);
             }
             if ($project->slug == "spnpay") {
-                return SPNPayService::orderSPNPay($request, $project);
+                return SPNPayService::createOrderSPNPay($request, $project);
                 // return SPNPayService::sendCurlRequest();
             }
             $response['message']    = "Undefined Project";
+            return response()->json($response, 403);
+        } catch (Exception $ex) {
+            LogHelper::sendErrorLog($ex);
+            return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400, $ex->getLine());
+        }
+    }
+
+    public function createPayment(Request $request)
+    {
+        try {
+            $order                  = Order::where('reference', $request->reference)->latest()->first();
+            if (empty($order)) {
+                throw new Exception("Order Not Found", 403);
+            }
+            $project = Project::where('type', $order->slug)->first();
+            if (empty($order)) {
+                throw new Exception("Project Not Found", 403);
+            }
+            // if ($project->slug == "xendit") {
+            //     return $this->orderXendit($request, $project);
+            // }
+            // if ($project->slug == "midtrans") {
+            //     return $this->orderMidtrans($request, $project);
+            // }
+            // if ($project->slug == "duitku") {
+            //     return DuitkuService::orderDuitku($request, $project);
+            // }
+            if ($project->slug == "spnpay") {
+                return SPNPayService::createOrderPaymentSPNPay($request, $project, $order);
+            }
+            $response['message']    = "Undefined Request";
             return response()->json($response, 403);
         } catch (Exception $ex) {
             LogHelper::sendErrorLog($ex);
