@@ -55,6 +55,7 @@ class SPNPayService
             $req['notes']                       = $request->productDetails;
             $req['address']                     = $request->address;
             $req['phone']                       = $request->phone;
+            $req['email']                       = $request->email;
 
             $params['singleUse']                = true;
             $params['type']                     = 'ClosedAmount';
