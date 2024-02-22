@@ -11,4 +11,15 @@ class Order extends Model
     public $incrementing = false;
     protected $casts = ['id' => 'string'];
     protected $fillable = ['id', 'mode', 'type', "reference", "payment_method", 'request', 'response', "callback", "url"];
+    protected $with = ['payment_methods', 'project'];
+
+    function payment_methods()
+    {
+        return $this->hasOne(PaymentMethod::class, 'value', 'payment_method');
+    }
+
+    function project()
+    {
+        return $this->hasOne(Project::class, 'type', 'type');
+    }
 }
