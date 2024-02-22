@@ -41,7 +41,7 @@ class PaymentController extends Controller
             return $query->where('value', $value);
         })->when($from, function ($query) use ($from) {
             return $query->where('from', $from);
-        })->get();
+        })->first();
         return ResponseHelper::successResponse($result);
     }
 
