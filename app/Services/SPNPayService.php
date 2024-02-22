@@ -52,13 +52,20 @@ class SPNPayService
             $req['payment_method']              = $request->paymentMethod ?? '';
             $paymentUrl                         = env('PAYMENT_URL') . '/home' . '?reference=' . $req['reference'];
             $req['url']                         = $paymentUrl;
+            $req['notes']                       = $request->productDetails;
+            $req['address']                     = $request->address;
+            $req['phone']                       = $request->phone;
 
             $params['singleUse']                = true;
             $params['type']                     = 'ClosedAmount';
             $params['reference']                = $req['reference'];
             $params['amount']                   = $request->paymentAmount;
             $params['expiryMinutes']            = 60;
-            $params['viewName']                 = $request->firstName ?? "AndalanSoftware";
+            $userName                           = $request->firstName ?? "AndalanSoftware";
+            if (empty($request->lastName)) {
+                $userName = $userName . ' ' . $request->lastName;
+            }
+            $params['viewName']                 = $userName;
             $params['additionalInfo']           = array(
                 'callback' => env('APP_URL') . '/api/payment/callbackSPNPay',
             );
