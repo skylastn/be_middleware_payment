@@ -116,8 +116,9 @@ class SPNPayService
                 'Accept: application/json',
                 'Content-Type: application/json'
             );
-            $req['header']  = json_encode($header);
-            $req['url']  = $url;
+            $req['header']      = json_encode($header);
+            $req['url']         = $url;
+            $req['request']     = $params;
 
             LogHelper::sendLog(
                 'Request Order SPNPay',
