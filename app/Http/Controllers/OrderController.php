@@ -50,6 +50,9 @@ class OrderController extends Controller
                 throw new Exception("Unauthorized", 403);
             }
             $response   = Order::where('reference', $request->reference)->latest()->first();
+            if(empty($response)){
+                throw new Exception("Unknown Order", 400);
+            }
             return ResponseHelper::successResponse($response);
         } catch (\Exception $ex) {
             $error['line']      = $ex->getLine();
