@@ -59,7 +59,7 @@ class PaymentController extends Controller
                 '0',
                 'callback_order_spnpay'
             );
-            $order = Order::where("reference", $request->responseData->merchantRef)->orderBy('id', 'DESC')->first();
+            $order = Order::where("reference", $request->responseData['merchantRef'])->orderBy('id', 'DESC')->first();
 
             if (empty($order)) {
                 return response()->json([
@@ -70,7 +70,7 @@ class PaymentController extends Controller
             $order->callback = json_encode($request->all());
             $status = 'PENDING';
             $resultCode = '00';
-            switch ($request->responseData->status) {
+            switch ($request->responseData['status']) {
                 case 'success':
                     $status = 'PAID';
                     break;
