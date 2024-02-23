@@ -50,7 +50,7 @@ class SPNPayService
             $req['type']                        = $project->type;
             $req['mode']                        = $request->mode ?? "sandbox";
             $req['payment_method']              = $request->paymentMethod ?? '';
-            $paymentUrl                         = env('PAYMENT_URL') . '/home' . '?reference=' . $req['reference'];
+            $paymentUrl                         = env('PAYMENT_URL') . '/#/home' . '?reference=' . $req['reference'];
             $req['url']                         = $paymentUrl;
             $req['notes']                       = $request->productDetails;
             $req['address']                     = $request->address;
