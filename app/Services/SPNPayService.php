@@ -76,6 +76,7 @@ class SPNPayService
 
             // $order->response                    = json_encode(SPNPayRepository::responseOrderFilter($response));
             $order->url                         = $paymentUrl;
+            $order->status                      = 'pending';
             $order->save();
 
             $msg                                = "Success Create Order SPNPay";
