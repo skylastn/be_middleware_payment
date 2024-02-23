@@ -10,12 +10,8 @@ use App\Models\PaymentCategory;
 use App\Models\PaymentMethod;
 use App\Models\Project;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
-use Exception;
 
 class PaymentController extends Controller
 {
