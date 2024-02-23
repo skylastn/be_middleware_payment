@@ -70,6 +70,12 @@ class PaymentController extends Controller
             $order->callback = json_encode($request->all());
             $status = 'PENDING';
             $resultCode = '00';
+            LogHelper::sendLog(
+                'Callback SPNPay',
+                json_encode($request->responseData),
+                '0',
+                'callback_order_spnpay'
+            );
             switch ($request->responseData->status) {
                 case 'success':
                     $status = 'PAID';
