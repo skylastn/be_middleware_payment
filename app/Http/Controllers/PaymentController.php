@@ -66,11 +66,11 @@ class PaymentController extends Controller
                     "message" => "Order not found"
                 ], 200);
             }
-            
+
             $order->callback = json_encode($request->all());
             $status = 'PENDING';
             $resultCode = '00';
-            switch ($request->status) {
+            switch ($request->responseData->status) {
                 case 'success':
                     $status = 'PAID';
                     break;
