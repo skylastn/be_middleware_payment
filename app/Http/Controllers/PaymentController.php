@@ -3,10 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Http\Helper\LogHelper;
+use App\Http\Helper\RequestHelper;
 use App\Http\Helper\ResponseHelper;
 use App\Models\Order;
 use App\Models\PaymentCategory;
 use App\Models\PaymentMethod;
+use App\Models\Project;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
@@ -57,82 +59,43 @@ class PaymentController extends Controller
                 '0',
                 'callback_order_spnpay'
             );
-            $order = Order::where("reference", $request->reference)->orderBy('id', 'DESC')->first();
+            $order = Order::where("reference", $request->merchantRef)->orderBy('id', 'DESC')->first();
 
-            if (!$order) {
+            if (empty($order)) {
                 return response()->json([
                     "message" => "Order not found"
                 ], 200);
             }
-
-            // $notifs =  new Notification();
-            // $notif = $notifs->getResponse();
-            // $transaction = $notif->transaction_status;
-            // $type = $notif->payment_type;
-            // $reference = $notif->order_id;
-            // $fraud = $notif->fraud_status;
-            // $status = "";
-            // if ($transaction == 'capture') {
-            //     // For credit card transaction, we need to check whether transaction is challenge by FDS or not
-            //     if ($type == 'credit_card') {
-            //         if ($fraud == 'challenge') {
-            //             // TODO set payment status in merchant's database to 'Challenge by FDS'
-            //             // TODO merchant should decide whether this transaction is authorized or not in MAP
-            //             // echo "Transaction order_id: " . $order_id ." is challenged by FDS";
-            //             $status = strtoupper($transaction);
-            //         } else {
-            //             // TODO set payment status in merchant's database to 'Success'
-            //             // echo "Transaction order_id: " . $order_id ." successfully captured using " . $type;
-            //             $status = "PAID";
-            //         }
-            //     }
-            // } else if ($transaction == 'settlement') {
-            //     // TODO set payment status in merchant's database to 'Settlement'
-            //     // echo "Transaction order_id: " . $order_id ." successfully transfered using " . $type;
-            //     $status = "PAID";
-            // } else if ($transaction == 'pending') {
-            //     // TODO set payment status in merchant's database to 'Pending'
-            //     // echo "Waiting customer to finish transaction order_id: " . $order_id . " using " . $type;
-            //     $status = strtoupper($transaction);
-            // } else if ($transaction == 'deny') {
-            //     // TODO set payment status in merchant's database to 'Denied'
-            //     // echo "Payment using " . $type . " for transaction order_id: " . $order_id . " is denied.";
-            //     $status = strtoupper($transaction);
-            // } else if ($transaction == 'expire') {
-            //     // TODO set payment status in merchant's database to 'expire'
-            //     // echo "Payment using " . $type . " for transaction order_id: " . $order_id . " is expired.";
-            //     $status = strtoupper($transaction);
-            // } else if ($transaction == 'cancel') {
-            //     // TODO set payment status in merchant's database to 'Denied'
-            //     // echo "Payment using " . $type . " for transaction order_id: " . $order_id . " is canceled.";
-            //     $status = strtoupper($transaction);
-            // }
-
+            
+            $order->callback = json_encode($request->all());
+            $status = 'PENDING';
+            $resultCode = '00';
+            switch ($request->status) {
+                case 'success':
+                    $status = 'PAID';
+                    break;
+                case 'failed':
+                    $status = 'FAILED';
+                    $resultCode = '01';
+                    break;
+                case 'expired':
+                    $status = 'Expired';
+                    $resultCode = '02';
+                    break;
+                default:
+                    break;
+            }
             if (empty($status)) {
                 return response()->json([
                     "message" => "Status Undefined"
                 ], 403);
             }
 
-            if ($status != "PAID") {
-                return response()->json([
-                    "message" => "Status $status"
-                ], 200);
-            }
-
-
             $order->callback        = json_encode($request->all());
             $order->status          = $status;
+            $order->save();
 
-            if ($type == "bank_transfer") {
-                if (empty($request->bank) || $request->bank == "permata") {
-                    $paymentMethod          = PaymentMethod::where("key", $type)->where("type", "permata")->first();
-                } else {
-                    $paymentMethod          = PaymentMethod::where("key", $type)->where("type", $request->bank)->first();
-                }
-            } else {
-                $paymentMethod          = PaymentMethod::where("key", $type)->first();
-            }
+            $paymentMethod          = PaymentMethod::where("value", $order->payment_method)->first();
 
             if (empty($paymentMethod)) {
                 return response()->json([
@@ -140,20 +103,17 @@ class PaymentController extends Controller
                 ], 200);
             }
 
-            $order->payment_method  = $paymentMethod->value;
-            $order->save();
-
-            $split              = explode("-", $reference);
+            $split              = explode("-", $order->reference);
             $project            = Project::where("type", $split[0])->first();
             LogHelper::sendLog(
-                'Callback Midtrans',
+                'Callback SPNPay',
                 json_encode($order->callback),
                 $project->id,
-                'callback_order_midtrans'
+                'callback_order_spnpay'
             );
             $params['merchantOrderId']  = $split[1] . "-" . $split[2];
             $params['paymentCode']      = $order->payment_method;
-            $params['resultCode']       = "00";
+            $params['resultCode']       = $resultCode;
             $callback                   = RequestHelper::sendCallback($project->value, $params, $project->callback);
 
             DB::commit();
