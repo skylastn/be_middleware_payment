@@ -116,7 +116,8 @@ class SPNPayService
             $params['additionalInfo']           = array(
                 'callback' => env('APP_URL') . '/api/payment/callbackSPNPay',
             );
-            $order->request     = json_encode($params);
+            $order->request         = json_encode($params);
+            $order->payment_method  = $request->paymentMethod ?? '';
             $signature = hash_hmac('sha512',  $config['secretKey'] . json_encode($params), $config['token']);
             // $signature = hash_hmac('sha512',  $config['secretKey'] . $order->request, $config['token']);
             $header = array(
