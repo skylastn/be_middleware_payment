@@ -18,6 +18,7 @@ class SPNPayService
     static function setEnv(string $mode): array
     {
         $result = array();
+        dd($mode);
         if ($mode == 'prod') {
             $result['secretKey']    = Setting::where('key', 'spnpay_secretkey_sandbox')->first()->value ?? '';
             $result['token']        = Setting::where('key', 'spnpay_token_sandbox')->first()->value ?? '';
