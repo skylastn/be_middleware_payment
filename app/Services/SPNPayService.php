@@ -20,12 +20,12 @@ class SPNPayService
         $result = array();
         dd($mode);
         if ($mode == 'prod') {
-            $result['secretKey']    = Setting::where('key', 'spnpay_secretkey_sandbox')->first()->value ?? '';
-            $result['token']        = Setting::where('key', 'spnpay_token_sandbox')->first()->value ?? '';
-            $result['url']          = Setting::where('key', 'url_spnpay_prod')->first()->value ?? '';
-        } else {
             $result['secretKey']    = Setting::where('key', 'spnpay_secretkey_prod')->first()->value ?? '';
             $result['token']        = Setting::where('key', 'spnpay_token_prod')->first()->value ?? '';
+            $result['url']          = Setting::where('key', 'url_spnpay_prod')->first()->value ?? '';
+        } else {
+            $result['secretKey']    = Setting::where('key', 'spnpay_secretkey_sandbox')->first()->value ?? '';
+            $result['token']        = Setting::where('key', 'spnpay_token_sandbox')->first()->value ?? '';
             $result['url']          = Setting::where('key', 'url_spnpay_sandbox')->first()->value ?? '';
         }
         // set sanitizer (default : true)
