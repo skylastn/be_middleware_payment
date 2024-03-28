@@ -27,7 +27,7 @@ class SPNPayService
             $result['token']        = Setting::where('key', 'spnpay_token_sandbox')->first()->value ?? '';
             $result['url']          = Setting::where('key', 'url_spnpay_sandbox')->first()->value ?? '';
         }
-        dd($result);
+        // dd($result);
         // set sanitizer (default : true)
         // $duitkuConfig->setSanitizedMode(false);
         return $result;
