@@ -1,13 +1,29 @@
+include .env
+export $(shell sed 's/=.*//' .env)
+
+copyEnvLocal:
+	cp ".env.local" ".env"
+
+copyEnvDocker:
+	cp ".env.docker" ".env"
+
+copyEnvProd:
+	cp ".env.docker" ".env"
+
 deployProduction:
 	make copyEnvProd
 	make running
 
-deployDevelopment:
-	make copyEnvDev
+deployLocalDocker:
+	make copyEnvDocker
 	make running
 
+run:
+	make copyEnvLocal
+	./run.sh
+
 running:
-	chmod +x deploy_log.sh
 	chmod +x deploy.sh
 	> docker-compose.log
-	> run_output.log
+	> deploy.log
+	nohup ./deploy.sh > deploy.log 2>&1 &

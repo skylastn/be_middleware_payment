@@ -18,3 +18,9 @@ yarn-error.log
 public/.user.ini
 .env andalansoftware prod
 .env ngudek prod
+.env.production
+.env.local
+.env.docker
+docker-compose.log
+deploy.log
+run_output.log

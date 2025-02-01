@@ -1,9 +1,7 @@
 <?php
 
 namespace App\Http\Controllers;
-// namespace Midtrans;
 
-use Midtrans\Midtrans;
 use App\Models\Order;
 use Illuminate\Http\Request;
 use App\Http\Controllers\ProjectController;
@@ -18,11 +16,12 @@ use App\Services\SPNPayService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
-use Duitku\Pop;
-use Xendit\Xendit;
 use Exception;
 use Midtrans\Config;
 use Midtrans\Notification;
+use Xendit\Configuration;
+use Xendit\Invoice\CreateInvoiceRequest;
+use Xendit\Invoice\InvoiceApi;
 
 class OrderController extends Controller
 {
@@ -50,7 +49,7 @@ class OrderController extends Controller
                 throw new Exception("Unauthorized", 403);
             }
             $response   = Order::where('reference', $request->reference)->latest()->first();
-            if(empty($response)){
+            if (empty($response)) {
                 throw new Exception("Unknown Order", 400);
             }
             return ResponseHelper::successResponse($response);
@@ -223,7 +222,10 @@ class OrderController extends Controller
                 $secretKey = Setting::where("key", "xendit_secretkey_prod")->first()->value;
             }
             $urlSuccess = Setting::where("key", "url_success")->first()->value;
-            Xendit::setApiKey($secretKey);
+            // Xendit::setApiKey($secretKey);
+            Configuration::setXenditKey($secretKey);
+
+            $apiInstance = new InvoiceApi();
 
             $invID = DB::table('orders')->whereDate('created_at', Carbon::today())->orderBy('created_at', 'desc')->first();
             $invIDCount                 = substr($invID->id ?? 00000, -5);
@@ -237,7 +239,8 @@ class OrderController extends Controller
             $req['payment_method']      = "";
 
             $expired                    = ($request->expiryPeriod ?? 0) * 60;
-            // return $request;
+
+
             $params = [
                 'external_id' => $req['reference'] ?? $project->type . '-' . $req['id'],
                 'amount' => $request->paymentAmount ?? 0,
@@ -303,9 +306,11 @@ class OrderController extends Controller
                 //         'type' => 'ADMIN',
                 //         'value' => 5000
                 //     ]
-                // ]
+                // ],
+                'reminder_time' => 1,
             ];
 
+            $create_invoice_request = new CreateInvoiceRequest($params);
             $req['request']             = json_encode($params);
             $order                      = Order::create($req);
             LogHelper::sendLog(
@@ -315,7 +320,8 @@ class OrderController extends Controller
                 'request_order_xendit'
             );
 
-            $createInvoice = \Xendit\Invoice::create($params);
+            // $createInvoice = \Xendit\Invoice::create($params);
+            $createInvoice = $apiInstance->createInvoice($create_invoice_request);
             $result = json_encode($createInvoice);
             LogHelper::sendLog(
                 'Response Order Xendit',
@@ -393,7 +399,7 @@ class OrderController extends Controller
         return $result;
     }
 
-    public function Callback(Request $request)
+    public function callbackXendit(Request $request)
     {
         try {
             DB::beginTransaction();
@@ -428,7 +434,7 @@ class OrderController extends Controller
             $split              = explode("-", $request->external_id);
             $project            = Project::where("type", $split[0])->first();
             LogHelper::sendLog(
-                'Callback Midtrans',
+                'Callback Xendit',
                 json_encode($request->all()),
                 $project->id,
                 'callback_order_xendit'
@@ -481,7 +487,7 @@ class OrderController extends Controller
             }
 
             $notifs =  new Notification();
-            $notif = $notifs->getResponse();
+            $notif = (object) $notifs->getResponse();
             $transaction = $notif->transaction_status;
             $type = $notif->payment_type;
             $reference = $notif->order_id;

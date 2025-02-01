@@ -45,8 +45,6 @@ class DuitkuService
 
     static function orderDuitku(Request $request, Project $project)
     {
-
-
         $dateNow = date("Y-m-d H:i:s");
         $date = date("Y-m-d");
 
@@ -69,7 +67,7 @@ class DuitkuService
             $email              = $request->email ?? "admin@ngudek.com"; // your customer email
             $phoneNumber        = $request->phone ?? "081512356123"; // your customer phone number (optional)
             $productDetails     = $request->productDetails;
-            $merchantOrderId    = $req['reference'] ?? $project->type . '-' . $req['id']; // from merchant, unique   
+            $merchantOrderId    = $req['reference'] ?? $project->type . '-' . $req['id']; // from merchant, unique
             $additionalParam    = ''; // optional
             $merchantUserInfo   = ''; // optional
             $customerVaName     = $request->firstName ?? ""; // display name on bank confirmation display
@@ -145,6 +143,7 @@ class DuitkuService
 
             $duitkuConfig = DuitkuService::setEnv($request->mode);
             // createInvoice Request
+            // dd($duitkuConfig);
             $createInvoice = Pop::createInvoice($params, $duitkuConfig);
             $response = json_decode($createInvoice);
 
@@ -177,8 +176,8 @@ class DuitkuService
 
             $duitkuConfig = DuitkuService::setEnv($order->mode);
             $callback = Pop::callback($duitkuConfig);
-            header('Content-Type: application/json');
-            $notif = json_decode($callback);
+            // header('Content-Type: application/json');
+            $notif = json_decode((string)$callback);
 
             // var_dump($callback);
             $status = '';

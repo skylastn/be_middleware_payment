@@ -1,0 +1,17 @@
+services:
+  middleware-payment:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ${APP_NAME}-${APP_ENV}
+    entrypoint: php artisan octane:frankenphp --max-requests=5
+    ports:
+      - "${SERVER_PORT}:8000"
+    volumes:
+      - .:/app
+    networks:
+      - lugu-middleware-payment # Gunakan network yang didefinisikan di bawah
+
+networks:
+  lugu-middleware-payment:
+    driver: bridge # Gunakan driver bridge (default untuk komunikasi antar-container)
