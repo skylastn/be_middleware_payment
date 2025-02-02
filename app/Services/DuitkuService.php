@@ -71,8 +71,8 @@ class DuitkuService
             $additionalParam    = ''; // optional
             $merchantUserInfo   = ''; // optional
             $customerVaName     = $request->firstName ?? ""; // display name on bank confirmation display
-            $callbackUrl        = env('APP_URL') . '/api/callbackDuitku'; // url for callback
-            $returnUrl          = env('APP_URL') . '/api/callbackDuitku'; // url for redirect
+            $callbackUrl        = env('APP_URL') . '/api/callback/duitku'; // url for callback
+            $returnUrl          = env('APP_URL') . '/api/callback/duitku'; // url for redirect
             $expiryPeriod       = $request->expiryPeriod ?? 180; // set the expired time in minutes
 
             // Customer Detail
