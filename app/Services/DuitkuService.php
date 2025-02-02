@@ -153,6 +153,7 @@ class DuitkuService
                 $project->id,
                 'response_order_duitku'
             );
+
             $order->response        = json_encode($response);
             $order->url             = $response->paymentUrl;
             $order->save();
