@@ -8,7 +8,7 @@ copyEnvDocker:
 	cp ".env.docker" ".env"
 
 copyEnvProd:
-	cp ".env.docker" ".env"
+	cp ".env.production" ".env"
 
 deployProduction:
 	make copyEnvProd
