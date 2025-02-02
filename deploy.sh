@@ -6,7 +6,7 @@ nohup bash -c 'docker compose down && docker compose build && docker compose up 
 
 # Tunggu hingga perintah nohup selesai
 wait $!
-DISCORD_TOKEN="https://discord.com/api/webhooks/1334857158956814346/fcZZRfMh8cUDnmZUo7QjRbh6Ow4ODpR0hdp5ZNZNGE6PrXsXG1VnH7AA0SJdT_Fh0GYD"
+DISCORD_TOKEN="https://discord.com/api/webhooks/1335524843843616842/Apk0MtQvVhr85gCZwsCl0CIeuCgAWFNPQw7swgc5Vfr1Gu_Z5TjYsM9Ito0a6HE8SRHM"
 # Cek status keluar
 if [ $? -ne 0 ]; then
     # Jika terjadi error, kirim notifikasi ke Discord dengan file log

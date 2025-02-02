@@ -1,0 +1,22 @@
+image: alpine:latest
+
+stages:
+  - deploy
+
+before_script:
+  - apk add --no-cache openssh-client sshpass
+  - mkdir -p ~/.ssh
+  - echo "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_rsa
+  - chmod 600 ~/.ssh/id_rsa
+  - eval $(ssh-agent -s)
+  - ssh-add ~/.ssh/id_rsa
+  - ssh-keyscan -H lugu.id >> ~/.ssh/known_hosts
+
+# Job untuk branch 'main'
+deploy_main:
+  stage: deploy
+  script:
+    - echo "Deploying to production..."
+    - ssh -o StrictHostKeyChecking=no adminlugu@lugu.id "cd public_html/client/middleware/payment && git pull && php artisan migrate --force && php artisan optimize:clear && make deployProduction"
+  only:
+    - main

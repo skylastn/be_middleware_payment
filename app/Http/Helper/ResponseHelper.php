@@ -33,7 +33,7 @@ class ResponseHelper
     public static function failedResponse($data, String $msg = 'Failed', $code = 400, $line = 0)
     {
         $response = [
-            'status'        => true,
+            'status'        => false,
             'code'          => $code,
             'message'       => $msg,
             'line'          => $line,
@@ -45,7 +45,7 @@ class ResponseHelper
     public static function unauthorizedResponse($data, String $msg = 'Unauthorized')
     {
         $response = [
-            'status'        => true,
+            'status'        => false,
             'code'          => 403,
             'message'       => $msg,
             'data'          => $data,
