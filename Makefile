@@ -12,6 +12,7 @@ copyEnvProd:
 
 freshInstall:
 	php artisan migrate:refresh
+	php artisan db:seed --class=InitSeeder
 
 deployProduction:
 	make copyEnvProd
