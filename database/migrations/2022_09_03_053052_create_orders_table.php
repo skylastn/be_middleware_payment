@@ -15,19 +15,19 @@ return new class extends Migration
     {
         Schema::create('orders', function (Blueprint $table) {
             $table->string("id", 15);
-            $table->string('type');
-            $table->text('reference');
-            $table->string('payment_method', 10);
+            $table->string('type')->unique();
+            $table->text('reference')->unique();
+            $table->string('payment_method', 10)->nullable();
+            $table->text('address')->nullable();
+            $table->text('phone')->nullable();
             $table->string('status', 10)->nullable();
             $table->string('mode', 10);
             $table->text('email')->nullable();
-            $table->text('request');
-            $table->text('response');
-            $table->text('callback');
-            $table->text('url');
+            $table->text('request')->nullable();
+            $table->text('response')->nullable();
+            $table->text('callback')->nullable();
+            $table->text('url')->nullable();
             $table->text('notes')->nullable();
-            $table->text('address')->nullable();
-            $table->text('phone')->nullable();
             $table->timestamps();
         });
     }

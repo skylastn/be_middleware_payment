@@ -12,7 +12,6 @@ use App\Models\Setting;
 use Duitku\Config;
 use Duitku\Pop;
 use Exception;
-use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
