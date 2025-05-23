@@ -10,6 +10,9 @@ copyEnvDocker:
 copyEnvProd:
 	cp ".env.production" ".env"
 
+freshInstall:
+	php artisan migrate:refresh
+
 deployProduction:
 	make copyEnvProd
 	make running
