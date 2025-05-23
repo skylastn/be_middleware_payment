@@ -19,6 +19,9 @@ return new class extends Migration
             $table->string('key');
             $table->text('value');
             $table->text('type');
+            $table->string('from');
+            $table->string('name');
+            $table->string('bankCode')->nullable();
             $table->timestamps();
         });
     }

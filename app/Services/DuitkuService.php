@@ -59,7 +59,7 @@ class DuitkuService
             $invIDCount                         = substr($invID->id ?? 00000, -5);
             $invID_num                          = (int)$invIDCount + 1;
             $idSystem                           = date("Ymd") . "-" . str_pad($invID_num, 5, '0', STR_PAD_LEFT);
-            
+
             $req['id']                          = $idSystem;
             $req['reference']                   = $project->type . '-' . $request->merchantOrderId;
             $req['type']                        = $project->type;
@@ -135,6 +135,7 @@ class DuitkuService
             );
 
             $req['request']         = json_encode($params);
+            $req['status']          = 'PENDING';
             $order                  = Order::create($req);
 
             LogHelper::sendLog(

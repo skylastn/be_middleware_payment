@@ -18,12 +18,16 @@ return new class extends Migration
             $table->string('type');
             $table->text('reference');
             $table->string('payment_method', 10);
-            $table->string('status', 10);
+            $table->string('status', 10)->nullable();
             $table->string('mode', 10);
+            $table->text('email')->nullable();
             $table->text('request');
             $table->text('response');
             $table->text('callback');
             $table->text('url');
+            $table->text('notes')->nullable();
+            $table->text('address')->nullable();
+            $table->text('phone')->nullable();
             $table->timestamps();
         });
     }
