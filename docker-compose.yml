@@ -10,8 +10,8 @@ services:
     volumes:
       - .:/app
     networks:
-      - lugu-middleware-payment # Gunakan network yang didefinisikan di bawah
+      - middleware-payment # Gunakan network yang didefinisikan di bawah
 
 networks:
-  lugu-middleware-payment:
+  middleware-payment:
     driver: bridge # Gunakan driver bridge (default untuk komunikasi antar-container)

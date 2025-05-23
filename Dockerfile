@@ -14,4 +14,4 @@ COPY . /app
 WORKDIR /app
 
 # Jalankan supervisord untuk Horizon
-CMD ["php", "artisan", "octane:frankenphp", '--workers', '20', '--port', '8000']
+CMD ["php", "artisan", "octane:frankenphp", '--workers', '5', '--port', '8000']
