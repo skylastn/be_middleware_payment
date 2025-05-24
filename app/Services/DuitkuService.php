@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Http\Helper\FormatHelper;
 use App\Http\Helper\LogHelper;
 use App\Http\Helper\RequestHelper;
 use App\Http\Helper\ResponseHelper;
@@ -9,11 +10,14 @@ use App\Models\Order;
 use App\Models\PaymentMethod;
 use App\Models\Project;
 use App\Models\Setting;
+use App\Repository\DuitkuRepository;
 use Duitku\Config;
 use Duitku\Pop;
 use Exception;
+use GuzzleHttp\Exception\RequestException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use stdClass;
 
 class DuitkuService
 {
@@ -42,6 +46,14 @@ class DuitkuService
         return $duitkuConfig;
     }
 
+    static function checkStatus(Order $order): stdClass
+    {
+        $duitkuConfig = DuitkuService::setEnv($order->mode);
+        $createInvoice = Pop::transactionStatus($order->reference, $duitkuConfig);
+        $response = json_decode($createInvoice);
+        return $response;
+    }
+
     static function orderDuitku(Request $request, Project $project)
     {
         $dateNow = date("Y-m-d H:i:s");
@@ -50,7 +62,7 @@ class DuitkuService
         try {
 
             DB::beginTransaction();
-
+            $duitkuConfig = DuitkuService::setEnv($request->mode);
             $invID = DB::table('orders')->whereDate('created_at', $date)
                 ->orderBy('created_at', 'desc')
                 ->orderBy('id', 'desc')
@@ -65,6 +77,7 @@ class DuitkuService
             $req['mode']                        = $request->mode ?? "sandbox";
             $req['payment_method']              = $request->paymentMethod ?? '';
 
+            $defaultUrl         = env('APP_URL') . '/api/callback/duitku';
             $paymentAmount      = $request->paymentAmount; // Amount
             $email              = $request->email ?? "admin@ngudek.com"; // your customer email
             $phoneNumber        = $request->phone ?? "081512356123"; // your customer phone number (optional)
@@ -73,9 +86,9 @@ class DuitkuService
             $additionalParam    = ''; // optional
             $merchantUserInfo   = ''; // optional
             $customerVaName     = $request->firstName ?? ""; // display name on bank confirmation display
-            $callbackUrl        = env('APP_URL') . '/api/callback/duitku'; // url for callback
-            $returnUrl          = env('APP_URL') . '/api/callback/duitku'; // url for redirect
-            $expiryPeriod       = $request->expiryPeriod ?? 180; // set the expired time in minutes
+            $callbackUrl        = $defaultUrl;
+            $returnUrl          = $request->returnUrl ?? $defaultUrl;
+            $expiryPeriod       = $request->expiryPeriod ?? 60; // set the expired time in minutes
 
             // Customer Detail
             $firstName          = $request->firstName ?? "";
@@ -117,7 +130,12 @@ class DuitkuService
                 $item1
             );
 
+            $signature = md5($duitkuConfig->getMerchantCode() . $merchantOrderId . $paymentAmount . $duitkuConfig->getApiKey());
+            // dd($signature);
+
             $params = array(
+                'merchantCode'      => $duitkuConfig->getMerchantCode(),
+                'signature'         => $signature,
                 'paymentAmount'     => $paymentAmount,
                 'merchantOrderId'   => $merchantOrderId,
                 'productDetails'    => $productDetails,
@@ -132,6 +150,9 @@ class DuitkuService
                 'returnUrl'         => $returnUrl,
                 'expiryPeriod'      => $expiryPeriod
             );
+            if (FormatHelper::isNotEmpty($request->paymentMethod)) {
+                $params['paymentMethod'] = $request->paymentMethod;
+            }
 
             $req['request']         = json_encode($params);
             $req['status']          = 'PENDING';
@@ -144,10 +165,15 @@ class DuitkuService
                 'request_order_duitku'
             );
 
-            $duitkuConfig = DuitkuService::setEnv($request->mode);
+            if (FormatHelper::isNotEmpty($request->paymentMethod)) {
+                $createInvoice = (new DuitkuRepository($duitkuConfig))
+                    ->createInvoice($params, $duitkuConfig);
+            } else {
+                $createInvoice = Pop::createInvoice($params, $duitkuConfig);
+            }
             // createInvoice Request
             // dd($duitkuConfig);
-            $createInvoice = Pop::createInvoice($params, $duitkuConfig);
+
             $response = json_decode($createInvoice);
 
             LogHelper::sendLog(

@@ -25,6 +25,7 @@ use App\Http\Controllers\ProjectController;
 Route::prefix('order')->group(function () {
     Route::get('/', [OrderController::class, 'index']);
     Route::get('/detail', [OrderController::class, 'detail']);
+    Route::get('/checkOrderStatus', [OrderController::class, 'checkOrderStatus']);
     Route::post('/create', [OrderController::class, 'store']);
 });
 

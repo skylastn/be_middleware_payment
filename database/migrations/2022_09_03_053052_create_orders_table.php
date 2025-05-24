@@ -15,7 +15,7 @@ return new class extends Migration
     {
         Schema::create('orders', function (Blueprint $table) {
             $table->string("id", 15);
-            $table->string('type')->unique();
+            $table->string('type');
             $table->string('reference')->unique();
             $table->string('payment_method', 10)->nullable();
             $table->text('address')->nullable();

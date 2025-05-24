@@ -89,13 +89,25 @@ class SettingsTableSeeder extends Seeder
                 'updated_at' => now(),
             ],
             [
-                'key' => 'duitku_mk_sanbox',
+                'key' => 'duitku_mk_sandbox',
                 'value' => '7d07b87ceeb77cbdb80asdw3b35ee9e36364',
                 'created_at' => now(),
                 'updated_at' => now(),
             ],
             [
-                'key' => 'duitku_mc_sanbox',
+                'key' => 'duitku_mc_sandbox',
+                'value' => 'DS21819',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'key' => 'duitku_mk_prod',
+                'value' => '7d07b87ceeb77cbdb80asdw3b35ee9e36364',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'key' => 'duitku_mc_prod',
                 'value' => 'DS21819',
                 'created_at' => now(),
                 'updated_at' => now(),

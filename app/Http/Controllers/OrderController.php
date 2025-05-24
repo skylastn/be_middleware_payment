@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Enum\ProjectSlug;
 use App\Models\Order;
 use Illuminate\Http\Request;
 use App\Http\Controllers\ProjectController;
+use App\Http\Helper\FormatHelper;
 use App\Http\Helper\LogHelper;
 use App\Http\Helper\RequestHelper;
 use App\Http\Helper\ResponseHelper;
@@ -17,6 +19,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 use Exception;
+use Illuminate\Http\JsonResponse;
 use Midtrans\Config;
 use Midtrans\Notification;
 use Xendit\Configuration;
@@ -59,6 +62,34 @@ class OrderController extends Controller
             $error['file']      = $ex->getFile();
             Log::error($error);
             return ResponseHelper::failedResponse($ex->getMessage());
+        }
+    }
+
+    public function checkOrderStatus(Request $request): JsonResponse
+    {
+        try {
+            $project        = (new ProjectController)->checkKey();
+            $reference      = $request->reference;
+            $order       = Order::where('reference', $reference)->latest()->first();
+            if (!FormatHelper::isNotEmpty($order)) {
+                return ResponseHelper::failedResponse('Order Not Found');
+            }
+            $slug = ProjectSlug::fromName($project->slug);
+            $result = null;
+            switch ($slug) {
+                case ProjectSlug::DUITKU:
+                    $result =  DuitkuService::checkStatus($order);
+                    break;
+
+                default:
+                    # code...
+                    break;
+            }
+            $response['message']    = "Undefined Project";
+            return ResponseHelper::successResponse($result);
+        } catch (Exception $ex) {
+            LogHelper::sendErrorLog($ex);
+            return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400, $ex->getLine());
         }
     }
 
