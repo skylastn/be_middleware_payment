@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Enum\ProjectSlug;
+use App\Enums\ProjectSlug;
 use App\Models\Order;
 use Illuminate\Http\Request;
 use App\Http\Controllers\ProjectController;
