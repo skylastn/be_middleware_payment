@@ -15,6 +15,7 @@ class InitSeeder extends Seeder
     {
         $this->call([
             SettingsTableSeeder::class,
+            PaymentMethodSeeder::class
         ]);
     }
 }

@@ -8,10 +8,11 @@ use Illuminate\Database\Eloquent\Model;
 class PaymentMethod extends Model
 {
     use HasFactory;
-    protected $fillable = ['id', 'key' ,'value', "type", 'from', 'name'];
+    protected $fillable = ['key', 'name', "type", 'from', 'bankCode', 'value'];
     protected $with = ['category'];
 
-    function category() {
+    function category()
+    {
         return $this->hasOne(PaymentCategory::class, 'key', 'key');
     }
 }

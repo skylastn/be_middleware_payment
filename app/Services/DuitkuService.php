@@ -217,15 +217,15 @@ class DuitkuService
                 $status = 'FAILED';
             }
 
-            if (empty($status)) {
+            if (!FormatHelper::isNotEmpty($status)) {
                 throw new Exception("Status Undefined : $status");
             }
             $reference              = $request->merchantOrderId;
             $order->callback        = json_encode($request->all());
             $order->status          = $status;
-            $paymentMethod          = PaymentMethod::where("key", $request->paymentCode)->first();
+            $paymentMethod          = PaymentMethod::where("key", $request->paymentCode)->where('from', 'duitku')->first();
 
-            if (empty($paymentMethod)) {
+            if (!FormatHelper::isNotEmpty($paymentMethod)) {
                 throw new Exception('Payment not found : ' . $request->paymentCode);
             }
 
