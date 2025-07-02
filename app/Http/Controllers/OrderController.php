@@ -48,10 +48,10 @@ class OrderController extends Controller
     public function detail(Request $request)
     {
         try {
-            if (env('PAYMENT_APP_KEY') != request()->header('Key')) {
-                throw new Exception("Unauthorized", 403);
-            }
-            $response   = Order::where('reference', $request->reference)->latest()->first();
+            $project        = (new ProjectController)->checkKey();
+            $response   = Order::where('reference', $request->reference)
+            ->where('type', $project->type)
+            ->latest()->first();
             if (empty($response)) {
                 throw new Exception("Unknown Order", 400);
             }
