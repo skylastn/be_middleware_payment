@@ -262,6 +262,12 @@ class DuitkuService
             $params['resultCode']       = $notif->resultCode;
             $callback                   = RequestHelper::sendCallback($project->value, $params, $project->callback);
 
+            try {
+                NotificationService::sendNotification($reference);
+            } catch (Exception $ex) {
+                LogHelper::sendErrorLog($ex);
+            }
+            
             $response['message']    = "Success Send Callback";
             $response['data']       = $callback;
             DB::commit();
