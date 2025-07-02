@@ -190,7 +190,7 @@ class DuitkuService
             $msg                    = "Success Create Order Duitku";
             $result['link']         = $response->paymentUrl;
             if (FormatHelper::isNotEmpty($request->version) && $request->version == '2') {
-                $result['link']         = env('PAYMENT_URL') . '/home?token=' . $project->value . '&reference=' . $order->reference;
+                $result['link']         = env('PAYMENT_URL') . '/detailpayment?token=' . $project->value . '&reference=' . $order->reference;
             }
             $result['result']       = $response;
             DB::commit();
