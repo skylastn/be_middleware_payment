@@ -2,8 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Models\Setting;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class InitSeeder extends Seeder
@@ -15,7 +13,8 @@ class InitSeeder extends Seeder
     {
         $this->call([
             SettingsTableSeeder::class,
-            PaymentMethodSeeder::class
+            PaymentMethodSeeder::class,
+            PaymentRepoSeeder::class,
         ]);
     }
 }

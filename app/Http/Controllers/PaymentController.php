@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Helper\FormatHelper;
 use App\Http\Helper\LogHelper;
 use App\Http\Helper\RequestHelper;
 use App\Http\Helper\ResponseHelper;
@@ -9,26 +10,28 @@ use App\Models\Order;
 use App\Models\PaymentCategory;
 use App\Models\PaymentMethod;
 use App\Models\Project;
+use App\Services\Payment\PaymentService;
+use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class PaymentController extends Controller
 {
+    private PaymentService $paymentService;
+    public function __construct()
+    {
+        $this->paymentService = new PaymentService();
+    }
+
     function getPaymentCategory()
     {
-        return ResponseHelper::successResponse(PaymentCategory::get());
+        return ResponseHelper::successResponse($this->paymentService->getListPaymentCategory());
     }
 
     function getPaymentMethod(Request $request)
     {
-        $categoriesKey  = $request->categoriesKey;
-        $from           = $request->from;
-        $result         = PaymentMethod::when($categoriesKey, function ($query) use ($categoriesKey) {
-            return $query->whereIn('key', $categoriesKey);
-        })->when($from, function ($query) use ($from) {
-            return $query->where('from', $from);
-        })->get();
+        $result         = $this->paymentService->getListPaymentMethod($request);
         return ResponseHelper::successResponse($result);
     }
 
@@ -36,96 +39,46 @@ class PaymentController extends Controller
     {
         $value          = $request->value;
         $from           = $request->from;
-        $result         = PaymentMethod::when($value, function ($query) use ($value) {
-            return $query->where('value', $value);
-        })->when($from, function ($query) use ($from) {
-            return $query->where('from', $from);
-        })->first();
+        $result         = $this->paymentService->getDetailPaymentMethod($value, $from);
         return ResponseHelper::successResponse($result);
     }
 
-    public function callbackSPNPay(Request $request)
+
+
+    public function createPayment(Request $request)
     {
         try {
-
             DB::beginTransaction();
-            LogHelper::sendLog(
-                'Callback SPNPay',
-                json_encode($request->all()),
-                '0',
-                'callback_order_spnpay'
-            );
-            $order = Order::where("reference", $request->responseData['merchantRef'])->orderBy('id', 'DESC')->first();
-
-            if (empty($order)) {
-                return response()->json([
-                    "message" => "Order not found"
-                ], 200);
+            $result = null;
+            if (env('PAYMENT_APP_KEY') != request()->header('Key')) {
+                throw new Exception("Unauthorized", 403);
             }
-
-            $order->callback = json_encode($request->all());
-            $status = 'PENDING';
-            $resultCode = '00';
-            switch ($request->responseData['status']) {
-                case 'success':
-                    $status = 'PAID';
-                    break;
-                case 'failed':
-                    $status = 'FAILED';
-                    $resultCode = '01';
-                    break;
-                case 'expired':
-                    $status = 'Expired';
-                    $resultCode = '02';
-                    break;
-                default:
-                    break;
+            $order                  = Order::where('reference', $request->reference)->latest()->first();
+            if (!FormatHelper::isNotEmpty($order)) {
+                throw new Exception("Order Not Found", 403);
             }
-            if (empty($status)) {
-                return response()->json([
-                    "message" => "Status Undefined"
-                ], 403);
+            $project = Project::where('type', $order->type)->first();
+            if (!FormatHelper::isNotEmpty($project)) {
+                throw new Exception("Project Not Found", 403);
             }
-
-            $order->callback        = json_encode($request->all());
-            $order->status          = $status;
-            $order->save();
-
-            $paymentMethod          = PaymentMethod::where("value", $order->payment_method)->first();
-
-            if (empty($paymentMethod)) {
-                return response()->json([
-                    "message" => "Payment not found"
-                ], 200);
+            // if ($project->slug == "xendit") {
+            //     return $this->orderXendit($request, $project);
+            // }
+            // if ($project->slug == "midtrans") {
+            //     return $this->orderMidtrans($request, $project);
+            // }
+            // if ($project->slug == "duitku") {
+            //     return DuitkuService::orderDuitku($request, $project);
+            // }
+            if ($project->slug == "spnpay") {
+                $result = $this->paymentService->createPayment($request);
             }
-
-            $split              = explode("-", $order->reference);
-            $project            = Project::where("type", $split[0])->first();
-            LogHelper::sendLog(
-                'Callback SPNPay',
-                json_encode($order->callback),
-                $project->id,
-                'callback_order_spnpay'
-            );
-            $params['merchantOrderId']  = $split[1] . "-" . $split[2];
-            $params['paymentCode']      = $order->payment_method;
-            $params['resultCode']       = $resultCode;
-            $callback                   = RequestHelper::sendCallback($project->value, $params, $project->callback);
-
             DB::commit();
-            $response['message']    = "Success Send Callback";
-            $response['data']       = $callback;
-
-            return response()->json($response, 200);
-        } catch (\Exception $ex) {
-            $error['line']      = $ex->getLine();
-            $error['message']   = $ex->getMessage();
-            $error['file']      = $ex->getFile();
-            Log::error($error);
-            DB::rollback();
-            return response()->json([
-                "message" => $ex->getMessage()
-            ], 400);
+            return ResponseHelper::successResponse($result);
+        } catch (Exception $ex) {
+            DB::rollBack();
+            LogHelper::sendErrorLog($ex);
+            return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400, $ex->getLine());
         }
     }
 }

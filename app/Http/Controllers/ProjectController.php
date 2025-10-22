@@ -2,55 +2,39 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Helper\LogHelper;
+use App\Http\Helper\ResponseHelper;
 use App\Models\Project;
+use App\Services\ProjectService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 use Exception;
 
 class ProjectController extends Controller
 {
+    private ProjectService $projectService;
+    public function __construct()
+    {
+        $this->projectService = new ProjectService();
+    }
+
     public function index(Request $request)
     {
-        $page       = $request->page ?? 0;
-        $limit      = $request->limit ?? 10;
-        $response['message'] = "Success Get Project";
-        $response['data']   = Project::forPage($page, $limit)->get();
-        return response()->json($response, 200);
+        return ResponseHelper::formatPagination($this->projectService->getListProject($request));
     }
 
     public function show($id)
     {
-        return Project::find($id);
-    }
-    public function checkKey(): Project
-    {
-        $result['status'] = true;
-        $where['value'] = request()->header('Token');
-        $project        = Project::where($where)->first();
-        if (!isset($project)) {
-            $result['status'] = false;
-            $result['message'] = "Unauthorized";
-            throw new Exception('Unauthorized');
-        }
-        return $project;
+        return ResponseHelper::successResponse($this->projectService->getProjectById($id));
     }
 
     public function store(Request $request)
     {
         try {
             DB::beginTransaction();
-            $data['name']       = $request->name;
-            $data['type']       = $request->type;
-            $data['slug']       = $request->slug;
-            $data['key']        = Str::random(10);
-            $data['secure']     = Str::random(20);
-            $data['callback']   = $request->callback;
-            $data['value']      = Str::random(60);
-            $insert = Project::create($data);
+            $insert = $this->projectService->create($request);
             DB::commit();
             Schema::create('log__' . $insert->id, function (Blueprint $table) {
                 $table->increments('id');
@@ -59,17 +43,11 @@ class ProjectController extends Controller
                 $table->text('ip');
                 $table->timestamps();
             });
-            $response['message']    = "Success Create Project";
-            $response['data']       = $insert;
-            return response()->json($response, 200);
-        } catch (\Exception $ex) {
-            $error['line']      = $ex->getLine();
-            $error['message']   = $ex->getMessage();
-            Log::error($error);
+            return ResponseHelper::successResponse($insert, "Success Create Project");
+        } catch (Exception $ex) {
             DB::rollback();
-            return response()->json([
-                "message" => $ex->getMessage()
-            ], 400);
+            LogHelper::sendErrorLog($ex);
+            return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400, $ex->getLine());
         }
     }
 
@@ -78,26 +56,25 @@ class ProjectController extends Controller
         try {
 
             DB::beginTransaction();
-            $project = Project::where("value", $request->header('Token'));
-            $project->update($request->all());
-            $response['data']   = $project;
-            return response()->json($response, 200);
-        } catch (\Exception $ex) {
-            $error['line']      = $ex->getLine();
-            $error['message']   = $ex->getMessage();
-            Log::error($error);
+            $project = $this->projectService->update($request, $id);
+            return ResponseHelper::successResponse($project);
+        } catch (Exception $ex) {
             DB::rollback();
-            return response()->json([
-                "message" => $ex->getMessage()
-            ], 400);
+            LogHelper::sendErrorLog($ex);
+            return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400, $ex->getLine());
         }
     }
 
-    public function delete(Request $request, $id)
+    public function delete($id)
     {
-        $article = Project::findOrFail($id);
-        $article->delete();
-
-        return 204;
+        try {
+            DB::beginTransaction();
+            $project = $this->projectService->delete($id);
+            return ResponseHelper::successResponse($project);
+        } catch (Exception $ex) {
+            DB::rollback();
+            LogHelper::sendErrorLog($ex);
+            return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400, $ex->getLine());
+        }
     }
 }

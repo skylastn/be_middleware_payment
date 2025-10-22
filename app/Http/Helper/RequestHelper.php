@@ -3,10 +3,12 @@
 namespace App\Http\Helper;
 
 use Illuminate\Support\Facades\Log;
+use stdClass;
 
 class RequestHelper
 {
-    public static function sendCallback($token, $params, $urlCallback)
+
+    public static function sendCallback($token, $params, $urlCallback): stdClass
     {
 
         $curl = curl_init();
@@ -32,8 +34,7 @@ class RequestHelper
         curl_close($curl);
 
         Log::info("Result Callback", [$response]);
-        return json_decode($response);
+        return json_decode($response, true);
         // echo $response;
-
     }
 }

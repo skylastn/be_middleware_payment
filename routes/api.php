@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\CallbackController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\OtherController;
 use App\Http\Controllers\PaymentController;
@@ -30,22 +31,24 @@ Route::prefix('order')->group(function () {
 });
 
 Route::prefix('payment')->group(function () {
-    Route::post('/createPayment', [OrderController::class, 'createPayment']);
+    Route::post('/createPayment', [PaymentController::class, 'createPayment']);
     Route::get('/getPaymentCategory', [PaymentController::class, 'getPaymentCategory']);
     Route::get('/getPaymentMethod', [PaymentController::class, 'getPaymentMethod']);
     Route::get('/getDetailPaymentMethod', [PaymentController::class, 'getDetailPaymentMethod']);
 });
 
 Route::prefix('callback')->group(function () {
-    Route::post('/duitku', [OrderController::class, 'callbackDuitku']);
-    Route::post('/midtrans', [OrderController::class, 'callbackMidtrans']);
-    Route::post('/xendit', [OrderController::class, 'callbackXendit']);
-    Route::post('/spnpay', [PaymentController::class, 'callbackSPNPay']);
+    Route::post('/duitku', [CallbackController::class, 'callbackDuitku']);
+    Route::post('/midtrans', [CallbackController::class, 'callbackMidtrans']);
+    Route::post('/xendit', [CallbackController::class, 'callbackXendit']);
+    Route::post('/spnpay', [CallbackController::class, 'callbackSPNPay']);
 });
 
 //project
 Route::get('project', [ProjectController::class, 'index']);
-Route::post('createProject', [ProjectController::class, 'store']);
+Route::get('project/{id}', [ProjectController::class, 'show']);
+Route::post('project/create', [ProjectController::class, 'store']);
+Route::put('project/{id}', [ProjectController::class, 'update']);
 
 //Other
 Route::prefix('other')->group(function () {
