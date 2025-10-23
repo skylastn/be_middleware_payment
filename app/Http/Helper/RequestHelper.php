@@ -34,7 +34,7 @@ class RequestHelper
         curl_close($curl);
 
         Log::info("Result Callback", [$response]);
-        return json_decode($response, true);
+        return json_decode($response);
         // echo $response;
     }
 }
