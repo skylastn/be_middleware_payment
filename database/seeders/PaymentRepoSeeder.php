@@ -56,6 +56,7 @@ class PaymentRepoSeeder extends Seeder
                     'mode' => $mode->value,
                 ],
                 [
+                    'key' => 'default_duitku_'. $mode->value,
                     'value' => json_encode([
                         'duitku_mk' => '7d07b87ceeb77cbdb80asdw3b35ee9e36364',
                         'duitku_mc' => 'DS21819',
@@ -69,6 +70,7 @@ class PaymentRepoSeeder extends Seeder
                     'mode' => $mode->value,
                 ],
                 [
+                    'key' => 'default_xendit_'. $mode->value,
                     'value' => json_encode([
                         'xendit_publickey' => 'xnd_public_development_2vNvQzut12UkEmLSY01ITVIIAdL...',
                         'xendit_secretkey' => 'xnd_development_7KBmCLH0wEJ6dPn50b8U02ToOFEvNetLO...',
@@ -83,6 +85,7 @@ class PaymentRepoSeeder extends Seeder
                     'mode' => $mode->value,
                 ],
                 [
+                    'key' => 'default_spnpay_'. $mode->value,
                     'value' => json_encode([
                         'url_spnpay' => $mode->value === 'sandbox'
                             ? 'https://api.sanbox.cronosengine.com/api'
@@ -99,6 +102,7 @@ class PaymentRepoSeeder extends Seeder
                     'mode' => $mode->value,
                 ],
                 [
+                    'key' => 'default_midtrans_'. $mode->value,
                     'value' => json_encode([
                         'midtrans_serverkey' => 'SB-Mid-server-7d07b87ceeb77cbdb80asdw3b35ee9e3',
                         'midtrans_clientkey'  => 'SB-Mid-client-7d07b87ceeb77cbdb80asdw3b35ee9e3',
