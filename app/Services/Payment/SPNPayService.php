@@ -7,36 +7,33 @@ use App\Http\Helper\LogHelper;
 use App\Http\Helper\RequestHelper;
 use App\Models\Order;
 use App\Models\PaymentMethod;
+use App\Models\PaymentRepository;
 use App\Models\Project;
-use App\Models\Setting;
 use App\Repository\SPNPayRepository;
 use Exception;
 use Illuminate\Http\Request;
 
 class SPNPayService
 {
-    static function setEnv(string $mode): array
+    private PaymentRepositoryService $paymentRepositoryService;
+    public function __construct()
     {
-        $result = array();
-        if ($mode == 'prod') {
-            $result['secretKey']    = Setting::where('key', 'spnpay_secretkey_prod')->first()->value ?? '';
-            $result['token']        = Setting::where('key', 'spnpay_token_prod')->first()->value ?? '';
-            $result['url']          = Setting::where('key', 'url_spnpay_prod')->first()->value ?? '';
-        } else {
-            $result['secretKey']    = Setting::where('key', 'spnpay_secretkey_sandbox')->first()->value ?? '';
-            $result['token']        = Setting::where('key', 'spnpay_token_sandbox')->first()->value ?? '';
-            $result['url']          = Setting::where('key', 'url_spnpay_sandbox')->first()->value ?? '';
-        }
-        // dd($result);
-        // set sanitizer (default : true)
-        // $duitkuConfig->setSanitizedMode(false);
-        return $result;
+        $this->paymentRepositoryService = new PaymentRepositoryService();
     }
-    static function createOrderSPNPay(Request $request, Project $project): array
+
+    public function getPaymentRepo(string $mode, $id): ?PaymentRepository
+    {
+        if (FormatHelper::isNotEmpty($id)) {
+            return $this->paymentRepositoryService->getById($id);
+        }
+        return $this->paymentRepositoryService->getByPaymentGatewayKey('spnpay', $mode);
+    }
+
+    public function createOrderSPNPay(Request $request, Project $project): array
     {
         $date = date("Y-m-d");
 
-        $invID = Order::whereDate('created_at', $date)->orderBy('created_at', 'desc')->first();
+        $invID                              = Order::whereDate('created_at', $date)->orderBy('created_at', 'desc')->first();
         $invIDCount                         = substr($invID->id ?? 00000, -5);
         $invID_num                          = (int)$invIDCount + 1;
         $idSystem                           = date("Ymd") . "-" . str_pad($invID_num, 5, '0', STR_PAD_LEFT);
@@ -82,15 +79,13 @@ class SPNPayService
 
     public function createOrderPaymentSPNPay(Request $request, Project $project, Order $order)
     {
-        // $dateNow = date("Y-m-d H:i:s");
-        // $date = date("Y-m-d");
-        $config = SPNPayService::setEnv($order->mode);
+        $paymentRepo = $this->getPaymentRepo($order->mode, $request->paymentGatewayId);
         $paymemtMethod = PaymentMethod::where('value', $request->paymentMethod)->where('from', 'spnpay')->first();
         if (!FormatHelper::isNotEmpty($paymemtMethod)) {
             throw new Exception("Sorry Payment Method Unavailable");
         }
 
-        $url = $config['url'] . '/' . $paymemtMethod->key;
+        $url = $paymentRepo['url_spnpay'] . '/' . $paymemtMethod->key;
         $requestOrder = json_decode($order->request);
 
         $params['bankCode']                 = $paymemtMethod->bankCode;
@@ -103,13 +98,13 @@ class SPNPayService
         $params['additionalInfo']           = array(
             'callback' => env('APP_URL') . '/api/payment/callbackSPNPay',
         );
-        $order->request         = json_encode($params);
-        $order->payment_method  = $request->paymentMethod ?? '';
-        $signature = hash_hmac('sha512',  $config['secretKey'] . json_encode($params), $config['token']);
+        $order->setRequest(json_encode($params));
+        $order->setPaymentMethod($request->paymentMethod ?? '');
+        $signature = hash_hmac('sha512',  $paymentRepo['spnpay_secretkey'] . json_encode($params), $paymentRepo['spnpay_token']);
         // $signature = hash_hmac('sha512',  $config['secretKey'] . $order->request, $config['token']);
         $header = array(
-            'On-Key: ' . $config['secretKey'],
-            'On-Token: ' . $config['token'],
+            'On-Key: ' . $paymentRepo['spnpay_secretkey'],
+            'On-Token: ' . $paymentRepo['spnpay_token'],
             'On-Signature: ' . $signature,
             'Accept: application/json',
             'Content-Type: application/json'
@@ -153,7 +148,8 @@ class SPNPayService
             $project->id,
             'response_order_spnpay'
         );
-        $order->response        = json_encode(SPNPayRepository::responseOrderFilter($response->responseData));
+        $order->setPaymentRepositoryId($paymentRepo->id);
+        $order->setResponse(json_encode(SPNPayRepository::responseOrderFilter($response->responseData)));
         $order->save();
 
         $result['result'] = SPNPayRepository::responseOrderFilter($response->responseData);
@@ -198,8 +194,8 @@ class SPNPayService
         if (!FormatHelper::isNotEmpty($order)) {
             throw new Exception('Order not found');
         }
+        $order = Order::findOrFailCustom($order->id);
 
-        $order->callback = json_encode($request->all());
         $status = 'PENDING';
         $resultCode = '00';
         switch ($request->responseData['status']) {
@@ -221,8 +217,8 @@ class SPNPayService
             throw new Exception('Status not found');
         }
 
-        $order->callback        = json_encode($request->all());
-        $order->status          = $status;
+        $order->setCallback(json_encode($request->all()));
+        $order->setStatus($status);
         $order->save();
 
         $paymentMethod          = PaymentMethod::where("value", $order->payment_method)->first();

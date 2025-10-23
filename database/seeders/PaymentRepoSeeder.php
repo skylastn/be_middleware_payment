@@ -101,7 +101,10 @@ class PaymentRepoSeeder extends Seeder
                 [
                     'value' => json_encode([
                         'midtrans_serverkey' => 'SB-Mid-server-7d07b87ceeb77cbdb80asdw3b35ee9e3',
-                        'midtrans_clientkey' => 'SB-Mid-client-7d07b87ceeb77cbdb80asdw3b35ee9e3',
+                        'midtrans_clientkey'  => 'SB-Mid-client-7d07b87ceeb77cbdb80asdw3b35ee9e3',
+                        'url_midtrans' =>  $mode->value === 'sandbox' ?
+                            'https://app.sandbox.midtrans.com/snap/v1/transactions'
+                            : 'https://app.midtrans.com/snap/v1/transactions',
                     ]),
                 ]
             );

@@ -2,11 +2,12 @@
 
 namespace App\Services\Payment;
 
+use App\Http\Helper\FormatHelper;
 use App\Http\Helper\LogHelper;
 use App\Http\Helper\RequestHelper;
 use App\Models\Order;
+use App\Models\PaymentRepository;
 use App\Models\Project;
-use App\Models\Setting;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\Request;
@@ -18,20 +19,29 @@ use Xendit\Invoice\InvoiceApi;
 class XenditService
 {
     private InvoiceApi $apiInstance;
+    private PaymentRepositoryService $paymentRepositoryService;
     public function __construct()
     {
         $this->apiInstance = new InvoiceApi();
+        $this->paymentRepositoryService = new PaymentRepositoryService();
+    }
+
+    public function getPaymentRepo(string $mode, $id): ?PaymentRepository
+    {
+        if (FormatHelper::isNotEmpty($id)) {
+            return $this->paymentRepositoryService->getById($id);
+        }
+        return $this->paymentRepositoryService->getByPaymentGatewayKey('xendit', $mode);
     }
 
     public function order(Request $request, Project $project): array
     {
-
-        $dateNow = date("Y-m-d H:i:s");
-        $secretKey = Setting::where("key", "xendit_secretkey_sandbox")->first()->value;
-        if ($request->mode == "prod") {
-            $secretKey = Setting::where("key", "xendit_secretkey_prod")->first()->value;
+        $paymentRepo = $this->getPaymentRepo($request->mode, $request->paymentRepositoryId);
+        if (!FormatHelper::isNotEmpty($paymentRepo)) {
+            throw new Exception('Payment Repository Not Found');
         }
-        $urlSuccess = Setting::where("key", "url_success")->first()->value;
+        $secretKey = $paymentRepo->getValue()['xendit_secretkey'] ?? '';
+        $urlSuccess = $request->returnUrl ?? '';
         // Xendit::setApiKey($secretKey);
         Configuration::setXenditKey($secretKey);
 
@@ -121,6 +131,7 @@ class XenditService
         $create_invoice_request = new CreateInvoiceRequest($params);
         $req['request']             = json_encode($params);
         $order                      = Order::create($req);
+        $order                      = Order::findOrFailCustom($order->id);
         LogHelper::sendLog(
             'Request Order Xendit',
             json_encode($order),
@@ -136,8 +147,9 @@ class XenditService
             $project->id,
             'response_order_xendit'
         );
-        $order->response = $result;
-        $order->url = $createInvoice['invoice_url'];
+        $order->setResponse($result);
+        $order->setUrl($createInvoice['invoice_url']);
+        $order->setPaymentRepositoryId($paymentRepo->id);
         $order->save();
 
         $response['message']    = "Success Create Order";
@@ -152,11 +164,10 @@ class XenditService
         if (!$order) {
             throw new Exception('Order not found');
         }
+        $order = Order::findOrFailCustom($order->id);
+        $paymentRepo = $this->getPaymentRepo($order->mode, $order->getPaymentRepositoryId());
 
-        $xenditToken = Setting::where("key", "xendit_tokencallback_sandbox")->first()->value;
-        if ($order->mode == "prod") {
-            $xenditToken = Setting::where("key", "xendit_tokencallback")->first()->value;
-        }
+        $xenditToken = $paymentRepo->getValue()['xendit_tokencallback'] ?? '';
         $reqHeaders = getallheaders();
         $incomingTokenXendit = isset($reqHeaders['X-Callback-Token']) ? $reqHeaders['X-Callback-Token'] : "";
 
@@ -164,9 +175,9 @@ class XenditService
             throw new Exception('You are not permitted perform this action');
         }
 
-        $order->callback        = json_encode($request->all());
-        $order->status          = $request->status;
-        $order->payment_method  = $request->payment_channel;
+        $order->setCallback(json_encode($request->all()));
+        $order->setStatus($request->status);
+        $order->setPaymentMethod($request->payment_channel);
         $order->save();
 
         $split              = explode("-", $request->external_id);

@@ -9,8 +9,6 @@ use Exception;
 
 class PaymentRepositoryService
 {
-    public function __construct() {}
-
     public function getById($id): PaymentRepository
     {
         return PaymentRepository::findOrFailCustom($id);

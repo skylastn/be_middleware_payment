@@ -69,7 +69,7 @@ class Order extends Model
         return $this->payment_repository_id;
     }
 
-    public function setPaymentRepositoryId(string $value): void
+    public function setPaymentRepositoryId(?string $value): void
     {
         $this->payment_repository_id = $value;
     }

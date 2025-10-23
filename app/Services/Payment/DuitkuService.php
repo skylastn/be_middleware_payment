@@ -27,35 +27,27 @@ class DuitkuService
         $this->paymentRepositoryService = new PaymentRepositoryService();
     }
 
-    public function getPayment(string $mode, $id): ?PaymentRepository
+    public function getPaymentRepo(string $mode, $id): ?PaymentRepository
     {
-        dd($id);
         if (FormatHelper::isNotEmpty($id)) {
             return $this->paymentRepositoryService->getById($id);
         }
         return $this->paymentRepositoryService->getByPaymentGatewayKey('duitku', $mode);
     }
 
-    public function setEnv(string $mode, ?string $id): Config
+    public function setEnv(string $mode, PaymentRepository $paymentRepo): Config
     {
-        $merchantKey = '';
-        $merchantCode = '';
-        $paymentRepo = $this->getPayment($id, $mode);
         if (!FormatHelper::isNotEmpty($paymentRepo)) {
             throw new Exception('Payment Repository Not Found');
         }
         $merchantKey = $paymentRepo->getValue()['duitku_mk'] ?? '';
         $merchantCode = $paymentRepo->getValue()['duitku_mc'] ?? '';
         if ($mode == 'prod') {
-            // $merchantKey = Setting::where('key', 'duitku_mk_prod')->first()->value ?? '';
-            // $merchantCode = Setting::where('key', 'duitku_mc_prod')->first()->value ?? '';
             $duitkuConfig = new Config($merchantKey, $merchantCode);
             $duitkuConfig->setSandboxMode(false);
             // set log parameter (default : true)
             $duitkuConfig->setDuitkuLogs(false);
         } else {
-            // $merchantKey = Setting::where('key', 'duitku_mk_sandbox')->first()->value ?? '';
-            // $merchantCode = Setting::where('key', 'duitku_mc_sandbox')->first()->value ?? '';
             $duitkuConfig = new Config($merchantKey, $merchantCode);
             $duitkuConfig->setSandboxMode(true);
             // set log parameter (default : true)
@@ -68,7 +60,8 @@ class DuitkuService
 
     public function checkStatus(Order $order): stdClass
     {
-        $duitkuConfig = $this->setEnv($order->mode, $order->getPaymentRepositoryId());
+        $paymentRepo = $this->getPaymentRepo($order->mode, $order->getPaymentRepositoryId());
+        $duitkuConfig = $this->setEnv($order->mode, $paymentRepo);
         $createInvoice = Pop::transactionStatus($order->reference, $duitkuConfig);
         $response = json_decode($createInvoice);
         return $response;
@@ -76,9 +69,9 @@ class DuitkuService
 
     public function orderDuitku(Request $request, Project $project)
     {
-        // $dateNow = date("Y-m-d H:i:s");
         $date = date("Y-m-d");
-        $duitkuConfig = $this->setEnv($request->mode, $request->paymentRepositoryId);
+        $paymentRepo = $this->getPaymentRepo($request->mode, $request->paymentRepositoryId);
+        $duitkuConfig = $this->setEnv($request->mode, $paymentRepo);
         $invID = DB::table('orders')->whereDate('created_at', $date)
             ->orderBy('created_at', 'desc')
             ->orderBy('id', 'desc')
@@ -187,8 +180,6 @@ class DuitkuService
         } else {
             $createInvoice = Pop::createInvoice($params, $duitkuConfig);
         }
-        // createInvoice Request
-        // dd($duitkuConfig);
 
         $response = json_decode($createInvoice);
 
@@ -201,7 +192,7 @@ class DuitkuService
 
         $order->setResponse(json_encode($response));
         $order->setUrl($response->paymentUrl);
-        $order->setPaymentRepositoryId($request->paymentRepositoryId);
+        $order->setPaymentRepositoryId($paymentRepo->id);
         $order->save();
 
         $msg                    = "Success Create Order Duitku";
@@ -226,8 +217,8 @@ class DuitkuService
             throw new Exception('Order not found');
         }
         $order = Order::findOrFailCustom($order->id);
-
-        $duitkuConfig = $this->setEnv($order->getMode(), $order->getPaymentRepositoryId());
+        $paymentRepo = $this->getPaymentRepo($order->mode, $order->getPaymentRepositoryId());
+        $duitkuConfig = $this->setEnv($order->getMode(), $paymentRepo);
         $callback = Pop::callback($duitkuConfig);
         // header('Content-Type: application/json');
         $notif = json_decode((string)$callback);

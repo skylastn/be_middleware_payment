@@ -7,8 +7,8 @@ use App\Http\Helper\LogHelper;
 use App\Http\Helper\RequestHelper;
 use App\Models\Order;
 use App\Models\PaymentMethod;
+use App\Models\PaymentRepository;
 use App\Models\Project;
-use App\Models\Setting;
 use Exception;
 use Illuminate\Http\Request;
 use Midtrans\Config;
@@ -16,9 +16,23 @@ use Midtrans\Notification;
 
 class MidtransService
 {
+    private PaymentRepositoryService $paymentRepositoryService;
+    public function __construct()
+    {
+        $this->paymentRepositoryService = new PaymentRepositoryService();
+    }
+
+    public function getPaymentRepo(string $mode, $id): ?PaymentRepository
+    {
+        if (FormatHelper::isNotEmpty($id)) {
+            return $this->paymentRepositoryService->getById($id);
+        }
+        return $this->paymentRepositoryService->getByPaymentGatewayKey('midtrans', $mode);
+    }
+
     public function orderMidtrans($request, $project): array
     {
-        $dateNow = date("Y-m-d H:i:s");
+        $paymentRepo        = $this->getPaymentRepo($request->mode, $request->paymentGatewayId);
         $date = date("Y-m-d");
         $invID = Order::whereDate('created_at', $date)->orderBy('created_at', 'desc')->first();
         $invIDCount                         = substr($invID->id ?? 00000, -5);
@@ -53,7 +67,8 @@ class MidtransService
             $project->id,
             'request_order_midtrans'
         );
-        $createInvoice                      = $this->createTransactionMidtrans($params, $request->mode);
+
+        $createInvoice                      = $this->createTransactionMidtrans($params, $paymentRepo);
         $result = json_encode($createInvoice);
         LogHelper::sendLog(
             'Response Order Midtrans',
@@ -65,6 +80,7 @@ class MidtransService
             throw new Exception($createInvoice['response']->error_messages[0], $createInvoice['statusCode']);
         }
         $order->setResponse($result);
+        $order->setPaymentRepositoryId($paymentRepo->id);
         $order->setUrl($createInvoice['response']->redirect_url);
         $order->save();
 
@@ -73,19 +89,11 @@ class MidtransService
         return $response;
     }
 
-    public function createTransactionMidtrans($body, $mode)
+    public function createTransactionMidtrans(array $body, PaymentRepository $paymentRepo)
     {
         $curl = curl_init();
-        $urlOrderMidtrans   = "";
-        $serverKey          = "";
-        if ($mode == "sandbox") {
-            $urlOrderMidtrans   = Setting::where("key", "url_sandbox_ordermidtrans")->first()->value;
-            $serverKey          = Setting::where("key", "serverkey_sandbox")->first()->value;
-        }
-        if ($mode == "prod") {
-            $urlOrderMidtrans   = Setting::where("key", "url_prod_ordermidtrans")->first()->value;
-            $serverKey          = Setting::where("key", "serverkey_prod")->first()->value;
-        }
+        $urlOrderMidtrans   = $paymentRepo->getValue()['midtrans_url'];
+        $serverKey          = $paymentRepo->getValue()['midtrans_serverkey'];
         $serverKey = base64_encode($serverKey . ":");
 
         curl_setopt_array(
@@ -124,14 +132,13 @@ class MidtransService
         }
 
         $order = Order::findOrFailCustom($order->id);
-
+        $paymentRepo = $this->getPaymentRepo($order->mode, $order->getPaymentRepositoryId());
+        Config::$serverKey      = $paymentRepo->getValue()['midtrans_serverkey'];
         if ($order->mode == "sandbox") {
             Config::$isProduction   = false;
-            Config::$serverKey      = Setting::where("key", "serverkey_sandbox")->first()->value;
         }
         if ($order->mode == "prod") {
             Config::$isProduction   = true;
-            Config::$serverKey      = Setting::where("key", "serverkey_prod")->first()->value;
         }
 
         $notifs =  new Notification();
