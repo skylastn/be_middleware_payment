@@ -59,7 +59,7 @@ class SPNPayService
         $params['amount']                   = $request->paymentAmount;
         $params['expiryMinutes']            = 60;
         $userName                           = $request->firstName ?? "AndalanSoftware";
-        if (empty($request->lastName)) {
+        if (FormatHelper::isNotEmpty($request->lastName)) {
             $userName = $userName . ' ' . $request->lastName;
         }
         $params['viewName']                 = $userName;
@@ -68,7 +68,7 @@ class SPNPayService
         );
 
         $req['request']                     = json_encode($params);
-        $order                              = Order::create($req);
+        $order                              = Order::createAndFind($req);
 
         // $order->response                    = json_encode(SPNPayRepository::responseOrderFilter($response));
         $order->url                         = $paymentUrl;

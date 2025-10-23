@@ -30,13 +30,14 @@ class ResponseHelper
         return response()->json($response, 200);
     }
 
-    public static function failedResponse($data, String $msg = 'Failed', $code = 400, $line = 0)
+    public static function failedResponse($data, String $msg = 'Failed', int $code = 400, int $line = 0, $filePath = '')
     {
         $response = [
             'status'        => false,
             'code'          => $code,
             'message'       => $msg,
             'line'          => $line,
+            'file'          => $filePath,
             'data'          => $data,
         ];
         return response()->json($response, 400);

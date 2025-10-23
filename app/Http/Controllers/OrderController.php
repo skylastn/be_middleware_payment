@@ -75,7 +75,7 @@ class OrderController extends Controller
         } catch (Exception $ex) {
             DB::rollback();
             LogHelper::sendErrorLog($ex);
-            return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400, $ex->getLine());
+            return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400, $ex->getLine(), $ex->getFile());
         }
     }
 }

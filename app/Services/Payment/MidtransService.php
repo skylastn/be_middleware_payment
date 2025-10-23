@@ -46,23 +46,13 @@ class MidtransService
         ];
 
         $req['request']                     = json_encode($params);
-        $order                              = Order::create($req);
+        $order                              = Order::createAndFind($req);
         LogHelper::sendLog(
             'Request Order Midtrans',
             json_encode($order),
             $project->id,
             'request_order_midtrans'
         );
-        // if ($request->mode == "sandbox") {
-        //     \Midtrans\Config::$isProduction   = false;
-        //     \Midtrans\Config::$serverKey      = Setting::where("key", "serverkey_sandbox")->first()->value;
-        // }
-        // if ($request->mode == "prod") {
-        //     \Midtrans\Config::$isProduction   = true;
-        //     \Midtrans\Config::$serverKey      = Setting::where("key", "serverkey_prod")->first()->value;
-        // }
-
-        // $createInvoice                      = \Midtrans\Snap::getSnapToken($params);
         $createInvoice                      = $this->createTransactionMidtrans($params, $request->mode);
         $result = json_encode($createInvoice);
         LogHelper::sendLog(
@@ -74,9 +64,8 @@ class MidtransService
         if ($createInvoice['statusCode'] != 201) {
             throw new Exception($createInvoice['response']->error_messages[0], $createInvoice['statusCode']);
         }
-        $order->response    = $result;
-        $order->updated_at  = $dateNow;
-        $order->url         = $createInvoice['response']->redirect_url;
+        $order->setResponse($result);
+        $order->setUrl($createInvoice['response']->redirect_url);
         $order->save();
 
         $response['link']       = $createInvoice['response']->redirect_url;
@@ -133,6 +122,8 @@ class MidtransService
         if (!$order) {
             throw new Exception('Order not found');
         }
+
+        $order = Order::findOrFailCustom($order->id);
 
         if ($order->mode == "sandbox") {
             Config::$isProduction   = false;
@@ -195,8 +186,8 @@ class MidtransService
         }
 
 
-        $order->callback        = json_encode($request->all());
-        $order->status          = $status;
+        $order->setCallback(json_encode($request->all()));
+        $order->setStatus($status);
 
         if ($type == "bank_transfer") {
             if (empty($request->bank) || $request->bank == "permata") {
@@ -212,7 +203,7 @@ class MidtransService
             throw new Exception('Payment Method not found');
         }
 
-        $order->payment_method  = $paymentMethod->value;
+        $order->setPaymentMethod($paymentMethod->value);
         $order->save();
 
         $split              = explode("-", $reference);
@@ -224,7 +215,7 @@ class MidtransService
             'callback_order_midtrans'
         );
         $params['merchantOrderId']  = $split[1] . "-" . $split[2];
-        $params['paymentCode']      = $order->payment_method;
+        $params['paymentCode']      = $order->getPaymentMethod();
         $params['resultCode']       = "00";
         $callback                   = RequestHelper::sendCallback($project->value, $params, $project->callback);
 

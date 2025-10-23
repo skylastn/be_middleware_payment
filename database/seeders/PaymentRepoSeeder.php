@@ -14,65 +14,97 @@ class PaymentRepoSeeder extends Seeder
      */
     public function run(): void
     {
-        $duitku = PaymentGateway::create([
-            'key' => 'duitku',
-            'name' => 'Duitku',
-            'description' => 'Duitku',
-        ]);
-        $xendit = PaymentGateway::create([
-            'key' => 'xendit',
-            'name' => 'Xendit',
-            'description' => 'Xendit',
-        ]);
-        $spnpay = PaymentGateway::create([
-            'key' => 'spnpay',
-            'name' => 'SPNPay',
-            'description' => 'SPNPay',
-        ]);
-        $midtrans = PaymentGateway::create([
-            'key' => 'midtrans',
-            'name' => 'Midtrans',
-            'description' => 'Midtrans',
-        ]);
+        // --- Payment Gateways ---
+        $duitku = PaymentGateway::firstOrCreate(
+            ['key' => 'duitku'],
+            [
+                'name' => 'Duitku',
+                'description' => 'Duitku',
+            ]
+        );
 
-        foreach (PaymentModeType::cases() as $key) {
-            PaymentRepository::create([
-                'payment_gateway_id' => $duitku->id,
-                'mode' => $key,
-                'value' => json_encode([
-                    'duitku_mk' => '7d07b87ceeb77cbdb80asdw3b35ee9e36364',
-                    'duitku_mc' => 'DS21819',
-                ]),
-            ]);
+        $xendit = PaymentGateway::firstOrCreate(
+            ['key' => 'xendit'],
+            [
+                'name' => 'Xendit',
+                'description' => 'Xendit',
+            ]
+        );
 
-            PaymentRepository::create([
-                'payment_gateway_id' => $xendit->id,
-                'mode' => $key,
-                'value' => json_encode([
-                    'xendit_publickey' => 'xnd_public_development_2vNvQzut12UkEmLSY01ITVIIAdL...',
-                    'xendit_secretkey' => 'xnd_development_7KBmCLH0wEJ6dPn50b8U02ToOFEvNetLO...',
-                    'xendit_tokencallback' => '5e949270191351b30093c72bdea90555/7ea80195a90ce8131...',
-                ]),
-            ]);
+        $spnpay = PaymentGateway::firstOrCreate(
+            ['key' => 'spnpay'],
+            [
+                'name' => 'SPNPay',
+                'description' => 'SPNPay',
+            ]
+        );
 
-            PaymentRepository::create([
-                'payment_gateway_id' => $spnpay->id,
-                'mode' => $key,
-                'value' => json_encode([
-                    'url_spnpay' => $key == 'sandbox' ? 'https://api.sanbox.cronosengine.com/api' : 'https://partner.api.spnpay.com/api',
-                    'spnpay_token' => '8qJKU9FA17kuBpLaWU3cRg1nDuh8rGLy',
-                    'spnpay_secretkey' => 'SC-3DEIWDRNN77WGMasdwaQ',
-                ]),
-            ]);
+        $midtrans = PaymentGateway::firstOrCreate(
+            ['key' => 'midtrans'],
+            [
+                'name' => 'Midtrans',
+                'description' => 'Midtrans',
+            ]
+        );
 
-            PaymentRepository::create([
-                'payment_gateway_id' => $midtrans->id,
-                'mode' => $key,
-                'value' => json_encode([
-                    'midtrans_serverkey' => 'SB-Mid-server-7d07b87ceeb77cbdb80asdw3b35ee9e3',
-                    'midtrans_clientkey' => 'SB-Mid-client-7d07b87ceeb77cbdb80asdw3b35ee9e3',
-                ]),
-            ]);
+        // --- Payment Repositories ---
+        foreach (PaymentModeType::cases() as $mode) {
+
+            PaymentRepository::firstOrCreate(
+                [
+                    'payment_gateway_id' => $duitku->id,
+                    'mode' => $mode->value,
+                ],
+                [
+                    'value' => json_encode([
+                        'duitku_mk' => '7d07b87ceeb77cbdb80asdw3b35ee9e36364',
+                        'duitku_mc' => 'DS21819',
+                    ]),
+                ]
+            );
+
+            PaymentRepository::firstOrCreate(
+                [
+                    'payment_gateway_id' => $xendit->id,
+                    'mode' => $mode->value,
+                ],
+                [
+                    'value' => json_encode([
+                        'xendit_publickey' => 'xnd_public_development_2vNvQzut12UkEmLSY01ITVIIAdL...',
+                        'xendit_secretkey' => 'xnd_development_7KBmCLH0wEJ6dPn50b8U02ToOFEvNetLO...',
+                        'xendit_tokencallback' => '5e949270191351b30093c72bdea90555/7ea80195a90ce8131...',
+                    ]),
+                ]
+            );
+
+            PaymentRepository::firstOrCreate(
+                [
+                    'payment_gateway_id' => $spnpay->id,
+                    'mode' => $mode->value,
+                ],
+                [
+                    'value' => json_encode([
+                        'url_spnpay' => $mode->value === 'sandbox'
+                            ? 'https://api.sanbox.cronosengine.com/api'
+                            : 'https://partner.api.spnpay.com/api',
+                        'spnpay_token' => '8qJKU9FA17kuBpLaWU3cRg1nDuh8rGLy',
+                        'spnpay_secretkey' => 'SC-3DEIWDRNN77WGMasdwaQ',
+                    ]),
+                ]
+            );
+
+            PaymentRepository::firstOrCreate(
+                [
+                    'payment_gateway_id' => $midtrans->id,
+                    'mode' => $mode->value,
+                ],
+                [
+                    'value' => json_encode([
+                        'midtrans_serverkey' => 'SB-Mid-server-7d07b87ceeb77cbdb80asdw3b35ee9e3',
+                        'midtrans_clientkey' => 'SB-Mid-client-7d07b87ceeb77cbdb80asdw3b35ee9e3',
+                    ]),
+                ]
+            );
         }
     }
 }
