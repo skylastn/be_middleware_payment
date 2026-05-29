@@ -1,5 +1,5 @@
-# Gunakan gambar dasar dari frankenphp
-FROM dunglas/frankenphp
+# Gunakan gambar dasar dari frankenphp dengan PHP 8.4
+FROM dunglas/frankenphp:php8.4
 
 # Install ekstensi yang diperlukan untuk Laravel
 RUN install-php-extensions pcntl mbstring bcmath curl openssl gd pdo_mysql
