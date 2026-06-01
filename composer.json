@@ -15,6 +15,7 @@
         "laravel/tinker": "^3.0",
         "midtrans/midtrans-php": "^2.6.1",
         "opcodesio/log-viewer": "^3.24",
+        "predis/predis": "^3.4",
         "stripe/stripe-php": "^17.0",
         "xendit/xendit-php": "^6.1.0"
     },

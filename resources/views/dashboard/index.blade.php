@@ -58,6 +58,55 @@
         </div>
     </section>
 
+    @php
+        $totalStatuses = max((int) collect($statusCounts)->sum(), 1);
+        $successTotal = (int) ($statusCounts[\App\Enums\OrderStatus::SUCCESS->value] ?? 0);
+        $pendingTotal = (int) ($statusCounts[\App\Enums\OrderStatus::PENDING->value] ?? 0);
+        $failedTotal = (int) (($statusCounts[\App\Enums\OrderStatus::FAILED->value] ?? 0) + ($statusCounts[\App\Enums\OrderStatus::EXPIRED->value] ?? 0));
+        $successDeg = round(($successTotal / $totalStatuses) * 360, 2);
+        $pendingDeg = round(($pendingTotal / $totalStatuses) * 360, 2);
+        $maxMode = max((int) collect($modeCounts)->max('total'), 1);
+    @endphp
+    <section class="chart-grid">
+        <div class="panel">
+            <div class="panel-header">
+                <div>
+                    <h2 class="panel-title">Status Mix</h2>
+                    <div class="panel-kicker">Success, pending, and failed distribution</div>
+                </div>
+            </div>
+            <div class="donut" style="--success-deg: {{ $successDeg }}deg; --pending-deg: {{ $pendingDeg }}deg;"></div>
+            <div class="list">
+                <div class="list-row"><span class="list-title">Success</span><strong>{{ number_format($successTotal) }}</strong></div>
+                <div class="list-row"><span class="list-title">Pending</span><strong>{{ number_format($pendingTotal) }}</strong></div>
+                <div class="list-row"><span class="list-title">Failed / Expired</span><strong>{{ number_format($failedTotal) }}</strong></div>
+            </div>
+        </div>
+        <div class="panel">
+            <div class="panel-header">
+                <div>
+                    <h2 class="panel-title">Mode Volume</h2>
+                    <div class="panel-kicker">Order traffic by environment</div>
+                </div>
+            </div>
+            <div class="bar-list">
+                @forelse ($modeCounts as $mode)
+                    @php
+                        $modeName = $mode->mode ?: 'UNKNOWN';
+                        $modeWidth = max(4, round(((int) $mode->total / $maxMode) * 100));
+                    @endphp
+                    <div class="bar-row">
+                        <span class="list-title">{{ $modeName }}</span>
+                        <span class="bar-track"><span class="bar-fill {{ $modeName === 'prod' ? 'blue' : 'warning' }}" style="width: {{ $modeWidth }}%;"></span></span>
+                        <strong>{{ number_format($mode->total) }}</strong>
+                    </div>
+                @empty
+                    <div class="empty">No mode data yet.</div>
+                @endforelse
+            </div>
+        </div>
+    </section>
+
     <section class="grid columns">
         <div class="panel">
             <div class="panel-header">

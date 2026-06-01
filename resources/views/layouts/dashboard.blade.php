@@ -116,6 +116,33 @@
             .button:active { transform: translateY(1px); }
             .button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
             .button.primary:hover { background: var(--accent-strong); border-color: var(--accent-strong); }
+            .button.danger { border-color: #fecdca; color: var(--danger); background: #fffbfa; }
+            .tabs {
+                max-width: 1240px;
+                margin: 0 auto;
+                padding: 0 20px 12px;
+                display: flex;
+                gap: 8px;
+                overflow-x: auto;
+            }
+            .tab {
+                display: inline-flex;
+                align-items: center;
+                min-height: 34px;
+                border: 1px solid var(--border);
+                border-radius: 999px;
+                padding: 7px 12px;
+                color: var(--muted);
+                background: rgba(255, 255, 255, .74);
+                white-space: nowrap;
+                font-size: 12px;
+                font-weight: 800;
+            }
+            .tab.active {
+                color: #ffffff;
+                border-color: var(--accent);
+                background: var(--accent);
+            }
             .content { max-width: 1240px; margin: 0 auto; padding: 26px 20px 46px; }
             .page-title {
                 display: flex;
@@ -250,6 +277,116 @@
             .list-title { display: block; font-weight: 760; color: var(--text); }
             .muted { color: var(--muted); }
             .empty { padding: 22px; color: var(--muted); text-align: center; }
+            .actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+            .flash {
+                margin-bottom: 14px;
+                border: 1px solid #abefc6;
+                border-radius: 8px;
+                background: #ecfdf3;
+                color: var(--success);
+                padding: 10px 12px;
+                font-weight: 750;
+            }
+            .form-grid { padding: 18px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px; }
+            .field.full { grid-column: 1 / -1; }
+            .detail-list {
+                padding: 18px;
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 0;
+            }
+            .detail-row {
+                min-height: 66px;
+                padding: 12px 0;
+                border-bottom: 1px solid var(--border);
+                display: grid;
+                gap: 7px;
+            }
+            .detail-row:nth-last-child(-n + 2) { border-bottom: 0; }
+            .detail-row.wide { grid-column: 1 / -1; }
+            textarea.input { min-height: 118px; resize: vertical; }
+            select.input { appearance: none; }
+            .pagination { margin-top: 14px; }
+            .pagination nav { display: grid; gap: 10px; }
+            .pagination nav > div:first-child { display: none; }
+            .pagination nav > div:last-child {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 12px;
+                flex-wrap: wrap;
+            }
+            .pagination nav > div:last-child > div:first-child { color: var(--text-soft); }
+            .pagination nav > div:last-child > div:last-child,
+            .pagination span[aria-disabled],
+            .pagination span[aria-current],
+            .pagination a[rel],
+            .pagination a[href*="page="] {
+                display: inline-flex;
+                align-items: center;
+            }
+            .pagination nav > div:last-child > div:last-child { gap: 0; }
+            .pagination a,
+            .pagination span[aria-disabled] span,
+            .pagination span[aria-current] span {
+                min-width: 38px;
+                min-height: 38px;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                border: 1px solid var(--border);
+                background: var(--surface);
+                color: var(--text-soft);
+                padding: 8px 11px;
+                font-size: 13px;
+                font-weight: 800;
+                line-height: 1;
+            }
+            .pagination span[aria-current] span {
+                color: #ffffff;
+                border-color: var(--accent);
+                background: var(--accent);
+            }
+            .pagination span[aria-disabled] span {
+                color: #98a2b3;
+                background: #f8fafc;
+            }
+            .pagination a:hover { background: var(--surface-soft); }
+            .pagination svg {
+                width: 18px;
+                height: 18px;
+                display: block;
+                flex: 0 0 18px;
+            }
+            .chart-grid { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: 14px; margin-bottom: 14px; }
+            .donut {
+                width: min(220px, 72vw);
+                aspect-ratio: 1;
+                border-radius: 50%;
+                margin: 18px auto;
+                background:
+                    conic-gradient(
+                        var(--success) 0 var(--success-deg),
+                        var(--warning) var(--success-deg) calc(var(--success-deg) + var(--pending-deg)),
+                        var(--danger) calc(var(--success-deg) + var(--pending-deg)) 360deg
+                    );
+                position: relative;
+            }
+            .donut::after {
+                content: "";
+                position: absolute;
+                inset: 24%;
+                border-radius: 50%;
+                background: var(--surface);
+                box-shadow: inset 0 0 0 1px var(--border);
+            }
+            .bar-list { padding: 16px; display: grid; gap: 12px; }
+            .bar-row { display: grid; grid-template-columns: 120px minmax(0, 1fr) 54px; align-items: center; gap: 12px; }
+            .bar-track { height: 10px; border-radius: 999px; background: #e9eff5; overflow: hidden; }
+            .bar-fill { display: block; height: 100%; border-radius: inherit; background: var(--accent); }
+            .bar-fill.warning { background: var(--warning); }
+            .bar-fill.danger { background: var(--danger); }
+            .bar-fill.blue { background: var(--blue); }
             .login-wrap {
                 width: min(440px, 100%);
                 margin: 62px auto;
@@ -284,11 +421,12 @@
             }
             @media (max-width: 980px) {
                 .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-                .columns { grid-template-columns: 1fr; }
+                .columns, .chart-grid { grid-template-columns: 1fr; }
             }
             @media (max-width: 640px) {
                 .topbar-inner, .page-title { align-items: flex-start; flex-direction: column; }
                 .topbar-inner { padding: 12px 14px; }
+                .tabs { padding: 0 14px 12px; }
                 .content { padding: 20px 14px 34px; }
                 h1 { font-size: 24px; }
                 .stats { grid-template-columns: 1fr; }
@@ -296,6 +434,10 @@
                 .user-chip { max-width: calc(100vw - 150px); }
                 .user-chip span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
                 table { min-width: 760px; }
+                .form-grid, .detail-list { grid-template-columns: 1fr; }
+                .detail-row:nth-last-child(-n + 2) { border-bottom: 1px solid var(--border); }
+                .detail-row:last-child { border-bottom: 0; }
+                .bar-row { grid-template-columns: 82px minmax(0, 1fr) 44px; }
                 .login-wrap { margin: 28px auto; }
             }
         </style>
@@ -324,8 +466,30 @@
                         </div>
                     @endauth
                 </div>
+                @auth
+                    @php
+                        $tabs = [
+                            ['label' => 'Dashboard', 'url' => route('dashboard.index'), 'active' => request()->routeIs('dashboard.index')],
+                            ['label' => 'Orders', 'url' => route('admin.resources.index', 'orders'), 'active' => request()->is('admin/orders*')],
+                            ['label' => 'Projects', 'url' => route('admin.resources.index', 'projects'), 'active' => request()->is('admin/projects*')],
+                            ['label' => 'Gateways', 'url' => route('admin.resources.index', 'payment-gateways'), 'active' => request()->is('admin/payment-gateways*')],
+                            ['label' => 'Repositories', 'url' => route('admin.resources.index', 'payment-repositories'), 'active' => request()->is('admin/payment-repositories*')],
+                            ['label' => 'Methods', 'url' => route('admin.resources.index', 'payment-methods'), 'active' => request()->is('admin/payment-methods*')],
+                            ['label' => 'Categories', 'url' => route('admin.resources.index', 'payment-categories'), 'active' => request()->is('admin/payment-categories*')],
+                            ['label' => 'Settings', 'url' => route('admin.resources.index', 'settings'), 'active' => request()->is('admin/settings*')],
+                        ];
+                    @endphp
+                    <nav class="tabs" aria-label="Admin navigation">
+                        @foreach ($tabs as $tab)
+                            <a class="tab {{ $tab['active'] ? 'active' : '' }}" href="{{ $tab['url'] }}">{{ $tab['label'] }}</a>
+                        @endforeach
+                    </nav>
+                @endauth
             </header>
             <main class="content">
+                @if (session('message'))
+                    <div class="flash">{{ session('message') }}</div>
+                @endif
                 @yield('content')
             </main>
         </div>

@@ -24,6 +24,7 @@ class Order extends Model
 
     protected $fillable = [
         'id',
+        'payment_repository_id',
         'mode',
         'type',
         'reference',
