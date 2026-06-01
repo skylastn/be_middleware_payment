@@ -6,14 +6,13 @@ use App\Enums\OrderStatus;
 use App\Enums\PaymentModeType;
 use App\Http\Helper\FormatHelper;
 use App\Http\Helper\LogHelper;
+use App\Http\Helper\OrderIdGenerator;
 use App\Http\Helper\RequestHelper;
 use App\Model\Entity\Order;
 use App\Model\Entity\PaymentRepository;
 use App\Model\Entity\Project;
-use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Stripe\Checkout\Session as StripeCheckoutSession;
 use Stripe\Exception\SignatureVerificationException;
 use Stripe\Stripe;
@@ -52,10 +51,7 @@ class StripeService
 
         Stripe::setApiKey($secretKey);
 
-        $invID = DB::table('orders')->whereDate('created_at', Carbon::today())->orderBy('created_at', 'desc')->first();
-        $invIDCount = substr($invID->id ?? '00000', -5);
-        $invID_num = (int) $invIDCount + 1;
-        $merchantOrderId = date('Ymd').'-'.str_pad($invID_num, 5, '0', STR_PAD_LEFT);
+        $merchantOrderId = OrderIdGenerator::generate();
 
         $req['id'] = $merchantOrderId;
         $req['reference'] = $project->type.'-'.$request->merchantOrderId;

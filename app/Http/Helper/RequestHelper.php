@@ -2,41 +2,34 @@
 
 namespace App\Http\Helper;
 
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use stdClass;
 
 class RequestHelper
 {
-
     public static function sendCallback(string $token, array $params, string $urlCallback): stdClass
     {
+        Log::info('Sending Request', [$urlCallback, $params, $token]);
 
-        $curl = curl_init();
+        try {
+            $response = Http::timeout(30)
+                ->retry(2, 1000)
+                ->withHeaders([
+                    'Token' => $token,
+                    'Content-Type' => 'application/json',
+                ])
+                ->post($urlCallback, $params);
 
-        curl_setopt_array($curl, array(
-            CURLOPT_URL => $urlCallback,
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_ENCODING => '',
-            CURLOPT_MAXREDIRS => 10,
-            CURLOPT_TIMEOUT => 0,
-            CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-            CURLOPT_CUSTOMREQUEST => 'POST',
-            CURLOPT_POSTFIELDS => json_encode($params),
-            CURLOPT_HTTPHEADER => array(
-                "Token: $token",
-                'Content-Type: application/json'
-            ),
-        ));
-        Log::info("Sending Request", [$urlCallback, $params, $token]);
-        $response = curl_exec($curl);
+            $decoded = $response->json();
 
-        curl_close($curl);
+            Log::info('Result Callback', [$response->body()]);
 
-        Log::info("Result Callback", [$response]);
-        $decoded = json_decode((string) $response);
+            return $decoded instanceof stdClass ? $decoded : (object) $decoded;
+        } catch (\Exception $e) {
+            Log::error('Callback failed', ['url' => $urlCallback, 'error' => $e->getMessage()]);
 
-        return $decoded instanceof stdClass ? $decoded : new stdClass();
-        // echo $response;
+            return new stdClass;
+        }
     }
 }
