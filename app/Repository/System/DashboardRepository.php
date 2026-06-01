@@ -2,6 +2,7 @@
 
 namespace App\Repository\System;
 
+use App\Enums\OrderStatus;
 use App\Model\Entity\Order;
 use App\Model\Entity\PaymentGateway;
 use App\Model\Entity\PaymentMethod;
@@ -44,7 +45,7 @@ class DashboardRepository
             ->groupBy('status')
             ->orderByDesc('total')
             ->get()
-            ->mapWithKeys(fn (object $row): array => [($row->status ?: 'UNKNOWN') => (int) $row->total]);
+            ->mapWithKeys(fn (object $row): array => [($row->status ?: OrderStatus::PENDING->value) => (int) $row->total]);
     }
 
     public function orderModeCounts(): Collection

@@ -88,7 +88,7 @@
                                 <td>
                                     @php
                                         $orderStatus = $order->status instanceof \App\Enums\OrderStatus ? $order->status : \App\Enums\OrderStatus::fromName($order->status);
-                                        $status = $orderStatus?->value ?? 'UNKNOWN';
+                                        $status = $orderStatus?->value ?? \App\Enums\OrderStatus::PENDING->value;
                                         $statusClass = $orderStatus?->isSuccess() ? 'success' : ($orderStatus?->isFailed() ? 'danger' : 'warning');
                                     @endphp
                                     <span class="badge {{ $statusClass }}">{{ $status }}</span>

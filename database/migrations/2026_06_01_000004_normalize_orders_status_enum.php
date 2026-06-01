@@ -18,11 +18,14 @@ return new class extends Migration
         }
 
         DB::statement(
-            "ALTER TABLE orders MODIFY status ENUM('PENDING', 'PAID', 'FAILED', 'Expired', 'SUCCESS', 'CAPTURE', 'DENY', 'EXPIRE', 'CANCEL', 'SETTLED', 'CANCELED', 'REFUNDED') NULL",
+            "ALTER TABLE orders MODIFY status ENUM('', 'PENDING', 'PAID', 'FAILED', 'Expired', 'SUCCESS', 'CAPTURE', 'DENY', 'EXPIRE', 'CANCEL', 'SETTLED', 'CANCELED', 'REFUNDED') NULL",
         );
 
+        DB::table('orders')->where('status', '')->update(['status' => OrderStatus::PENDING->value]);
         DB::table('orders')->where('status', 'PAID')->update(['status' => OrderStatus::SUCCESS->value]);
         DB::table('orders')->where('status', 'Expired')->update(['status' => OrderStatus::EXPIRED->value]);
+        DB::table('orders')->whereIn('status', ['CAPTURE', 'SETTLED'])->update(['status' => OrderStatus::SUCCESS->value]);
+        DB::table('orders')->whereIn('status', ['DENY', 'EXPIRE', 'CANCEL', 'CANCELED', 'REFUNDED'])->update(['status' => OrderStatus::FAILED->value]);
 
         DB::statement(sprintf(
             'ALTER TABLE orders MODIFY status ENUM(%s) NULL',
@@ -41,7 +44,7 @@ return new class extends Migration
         }
 
         DB::statement(
-            "ALTER TABLE orders MODIFY status ENUM('PENDING', 'PAID', 'FAILED', 'Expired', 'SUCCESS', 'CAPTURE', 'DENY', 'EXPIRE', 'CANCEL', 'SETTLED', 'CANCELED', 'REFUNDED') NULL",
+            "ALTER TABLE orders MODIFY status ENUM('', 'PENDING', 'PAID', 'FAILED', 'Expired', 'SUCCESS', 'CAPTURE', 'DENY', 'EXPIRE', 'CANCEL', 'SETTLED', 'CANCELED', 'REFUNDED') NULL",
         );
     }
 

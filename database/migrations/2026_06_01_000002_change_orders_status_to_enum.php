@@ -1,6 +1,5 @@
 <?php
 
-use App\Enums\OrderStatus;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -17,10 +16,9 @@ return new class extends Migration
             return;
         }
 
-        DB::statement(sprintf(
-            'ALTER TABLE orders MODIFY status ENUM(%s) NULL',
-            $this->quotedEnumValues(),
-        ));
+        DB::statement(
+            "ALTER TABLE orders MODIFY status ENUM('', 'PENDING', 'PAID', 'FAILED', 'Expired', 'SUCCESS', 'CAPTURE', 'DENY', 'EXPIRE', 'CANCEL', 'SETTLED', 'CANCELED', 'REFUNDED') NULL",
+        );
     }
 
     public function down(): void
@@ -36,14 +34,4 @@ return new class extends Migration
         DB::statement('ALTER TABLE orders MODIFY status VARCHAR(10) NULL');
     }
 
-    private function quotedEnumValues(): string
-    {
-        return implode(
-            ', ',
-            array_map(
-                fn (string $status): string => DB::getPdo()->quote($status),
-                OrderStatus::values(),
-            ),
-        );
-    }
 };

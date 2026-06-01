@@ -58,6 +58,7 @@ class StripeService
         $req['type'] = $project->type;
         $req['mode'] = $mode->value;
         $req['payment_method'] = '';
+        $req['status'] = OrderStatus::PENDING->value;
 
         $currency = strtolower($request->currency ?? 'idr');
 

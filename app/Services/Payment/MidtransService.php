@@ -48,6 +48,7 @@ class MidtransService
         $req['type'] = $project->type;
         $req['mode'] = $mode->value;
         $req['payment_method'] = '';
+        $req['status'] = OrderStatus::PENDING->value;
 
         $transactionDetails['order_id'] = $req['reference'] ?? $project->type.'-'.$req['id'];
         $transactionDetails['gross_amount'] = $request->paymentAmount ?? 0;

@@ -20,7 +20,7 @@ freshInstall:
 	php artisan migrate:refresh
 	make initSeeder
 
-initSeeder:
+initSeeder: migrate
 	php artisan db:seed --class=InitSeeder
 
 deployProduction:

@@ -58,6 +58,7 @@ class XenditService
         $req['type'] = $project->type;
         $req['mode'] = $mode->value;
         $req['payment_method'] = '';
+        $req['status'] = OrderStatus::PENDING->value;
 
         $expired = ($request->expiryPeriod ?? 0) * 60;
 
