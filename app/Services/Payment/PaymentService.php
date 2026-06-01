@@ -2,8 +2,8 @@
 
 namespace App\Services\Payment;
 
-use App\Http\Helper\FormatHelper;
 use App\Enums\ProjectSlug;
+use App\Http\Helper\FormatHelper;
 use App\Model\Entity\PaymentMethod;
 use App\Repository\Payment\OrderRepository;
 use App\Repository\Payment\PaymentCategoryRepository;
@@ -16,18 +16,25 @@ use Illuminate\Http\Request;
 class PaymentService
 {
     private SPNPayService $spnPayService;
+
+    private StripeService $stripeService;
+
     private OrderRepository $orders;
+
     private PaymentCategoryRepository $paymentCategories;
+
     private PaymentMethodRepository $paymentMethods;
+
     private ProjectRepository $projects;
 
     public function __construct()
     {
-        $this->spnPayService = new SPNPayService();
-        $this->orders = new OrderRepository();
-        $this->paymentCategories = new PaymentCategoryRepository();
-        $this->paymentMethods = new PaymentMethodRepository();
-        $this->projects = new ProjectRepository();
+        $this->spnPayService = new SPNPayService;
+        $this->stripeService = new StripeService;
+        $this->orders = new OrderRepository;
+        $this->paymentCategories = new PaymentCategoryRepository;
+        $this->paymentMethods = new PaymentMethodRepository;
+        $this->projects = new ProjectRepository;
     }
 
     public function getListPaymentCategory(): Collection
@@ -49,15 +56,15 @@ class PaymentService
     {
         $result = null;
         if (env('PAYMENT_APP_KEY') != request()->header('Key')) {
-            throw new Exception("Unauthorized", 403);
+            throw new Exception('Unauthorized', 403);
         }
         $order = $this->orders->latestByReference($request->reference);
-        if (!FormatHelper::isNotEmpty($order)) {
-            throw new Exception("Order Not Found", 403);
+        if (! FormatHelper::isNotEmpty($order)) {
+            throw new Exception('Order Not Found', 403);
         }
         $project = $this->projects->findByType($order->type);
-        if (!FormatHelper::isNotEmpty($project)) {
-            throw new Exception("Project Not Found", 403);
+        if (! FormatHelper::isNotEmpty($project)) {
+            throw new Exception('Project Not Found', 403);
         }
         // if ($project->slug == "xendit") {
         //     return $this->orderXendit($request, $project);
@@ -71,6 +78,10 @@ class PaymentService
         if ($project->getSlug() === ProjectSlug::SPNPAY) {
             $result = $this->spnPayService->createOrderPaymentSPNPay($request, $project, $order);
         }
+        if ($project->getSlug() === ProjectSlug::STRIPE) {
+            $result = $this->stripeService->order($request, $project);
+        }
+
         return $result;
     }
 }

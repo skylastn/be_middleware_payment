@@ -4,10 +4,10 @@ use App\Http\Controllers\Api\CallbackController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\OtherController;
 use App\Http\Controllers\Api\PaymentController;
+use App\Http\Controllers\Api\ProjectController;
 use App\Model\Entity\Project;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Api\ProjectController;
 
 /*
 |--------------------------------------------------------------------------
@@ -20,8 +20,7 @@ use App\Http\Controllers\Api\ProjectController;
 |
 */
 
-//order
-
+// order
 
 Route::prefix('order')->group(function () {
     Route::get('/', [OrderController::class, 'index']);
@@ -42,15 +41,16 @@ Route::prefix('callback')->group(function () {
     Route::post('/midtrans', [CallbackController::class, 'callbackMidtrans']);
     Route::post('/xendit', [CallbackController::class, 'callbackXendit']);
     Route::post('/spnpay', [CallbackController::class, 'callbackSPNPay']);
+    Route::post('/stripe', [CallbackController::class, 'callbackStripe']);
 });
 
-//project
+// project
 Route::get('project', [ProjectController::class, 'index']);
 Route::get('project/{id}', [ProjectController::class, 'show']);
 Route::post('project/create', [ProjectController::class, 'store']);
 Route::put('project/{id}', [ProjectController::class, 'update']);
 
-//Other
+// Other
 Route::prefix('other')->group(function () {
     Route::post('/duitkuEncrpyt', [OtherController::class, 'duitkuEncrpyt']);
     Route::get('/duitkuPaymentSync', [OtherController::class, 'duitkuPaymentSync']);

@@ -8,6 +8,7 @@ enum ProjectSlug: string
     case XENDIT = 'xendit';
     case DUITKU = 'duitku';
     case SPNPAY = 'spnpay';
+    case STRIPE = 'stripe';
 
     public static function toArray(): array
     {
@@ -16,6 +17,7 @@ enum ProjectSlug: string
             self::XENDIT,
             self::DUITKU,
             self::SPNPAY,
+            self::STRIPE,
         ];
     }
 
@@ -30,12 +32,13 @@ enum ProjectSlug: string
                 return 'Duitku';
             case self::SPNPAY:
                 return 'SPNPay';
+            case self::STRIPE:
+                return 'Stripe';
             default:
                 return 'Duitku';
                 break;
         }
     }
-
 
     public static function fromName(string|ProjectSlug $value): ProjectSlug
     {
@@ -52,6 +55,8 @@ enum ProjectSlug: string
                 return ProjectSlug::DUITKU;
             case self::SPNPAY->value:
                 return ProjectSlug::SPNPAY;
+            case self::STRIPE->value:
+                return ProjectSlug::STRIPE;
             default:
                 return ProjectSlug::DUITKU;
         }
