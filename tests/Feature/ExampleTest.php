@@ -68,7 +68,9 @@ class ExampleTest extends TestCase
         $this->actingAs($admin)
             ->get('/admin/projects/create')
             ->assertStatus(200)
-            ->assertSee('Create Project');
+            ->assertSee('Create Project')
+            ->assertDontSee('Secure')
+            ->assertDontSee('Value');
     }
 
     public function test_admin_edit_links_use_primary_keys(): void
@@ -94,6 +96,87 @@ class ExampleTest extends TestCase
                 ->get('/admin/payment-gateways/'.$gateway->getAttribute($gateway->getKeyName()).'/edit')
                 ->assertStatus(200)
                 ->assertSee('Edit Payment Gateway');
+        }
+    }
+
+    public function test_admin_project_create_generates_credentials(): void
+    {
+        $admin = new User([
+            'name' => 'Test Admin',
+            'email' => 'admin@example.com',
+            'role' => UserRole::ADMIN,
+        ]);
+        $admin->id = 1;
+
+        $type = 'TEST'.uniqid();
+
+        try {
+            $this->actingAs($admin)
+                ->post('/admin/projects', [
+                    'name' => 'Generated Credential Test',
+                    'type' => $type,
+                    'slug' => 'duitku',
+                    'callback' => 'https://example.com/callback',
+                ])
+                ->assertRedirect('/admin/projects');
+
+            $project = Project::query()->where('type', $type)->firstOrFail();
+
+            $this->assertSame(10, strlen($project->key));
+            $this->assertSame(20, strlen($project->secure));
+            $this->assertSame(60, strlen($project->value));
+        } finally {
+            Project::query()->where('type', $type)->delete();
+        }
+    }
+
+    public function test_admin_project_credentials_are_not_editable_from_ui(): void
+    {
+        $admin = new User([
+            'name' => 'Test Admin',
+            'email' => 'admin@example.com',
+            'role' => UserRole::ADMIN,
+        ]);
+        $admin->id = 1;
+
+        $project = Project::query()->create([
+            'name' => 'Credential Lock Test',
+            'type' => 'LOCK'.uniqid(),
+            'slug' => 'duitku',
+            'callback' => 'https://example.com/callback',
+            'key' => 'originalkey',
+            'secure' => 'originalsecurevalue',
+            'value' => 'originaltokenvalue',
+        ]);
+
+        try {
+            $projectId = $project->getAttribute($project->getKeyName());
+
+            $this->actingAs($admin)
+                ->get('/admin/projects/'.$projectId.'/edit')
+                ->assertStatus(200)
+                ->assertDontSee('Secure')
+                ->assertDontSee('Value');
+
+            $this->actingAs($admin)
+                ->put('/admin/projects/'.$projectId, [
+                    'name' => 'Credential Lock Test Updated',
+                    'type' => $project->type,
+                    'slug' => 'xendit',
+                    'callback' => 'https://example.com/updated-callback',
+                    'key' => 'changedkey',
+                    'secure' => 'changedsecure',
+                    'value' => 'changedvalue',
+                ])
+                ->assertRedirect('/admin/projects');
+
+            $project->refresh();
+
+            $this->assertSame('originalkey', $project->key);
+            $this->assertSame('originalsecurevalue', $project->secure);
+            $this->assertSame('originaltokenvalue', $project->value);
+        } finally {
+            $project->delete();
         }
     }
 

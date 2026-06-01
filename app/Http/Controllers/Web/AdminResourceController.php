@@ -53,6 +53,9 @@ class AdminResourceController extends Controller
         $this->ensureWritable($definition);
 
         $data = $this->payload($request, $definition);
+        if ($definition['model'] === Project::class) {
+            $data = array_merge($data, $this->generatedProjectCredentials());
+        }
 
         $definition['model']::create($data);
 
@@ -188,9 +191,6 @@ class AdminResourceController extends Controller
                     'name' => ['type' => 'text', 'required' => true],
                     'type' => ['type' => 'text', 'required' => true],
                     'slug' => ['type' => 'select', 'options' => array_map(fn (ProjectSlug $slug): string => $slug->value, ProjectSlug::cases()), 'required' => true],
-                    'key' => ['type' => 'text'],
-                    'secure' => ['type' => 'text'],
-                    'value' => ['type' => 'textarea'],
                     'callback' => ['type' => 'textarea', 'required' => true],
                 ],
             ],
@@ -281,13 +281,19 @@ class AdminResourceController extends Controller
             }
         }
 
-        if ($definition['model'] === Project::class) {
-            $validated['key'] = $validated['key'] ?: Str::random(10);
-            $validated['secure'] = $validated['secure'] ?: Str::random(20);
-            $validated['value'] = $validated['value'] ?: Str::random(60);
-        }
-
         return $validated;
+    }
+
+    /**
+     * @return array{key: string, secure: string, value: string}
+     */
+    private function generatedProjectCredentials(): array
+    {
+        return [
+            'key' => Str::random(10),
+            'secure' => Str::random(20),
+            'value' => Str::random(60),
+        ];
     }
 
     /**
