@@ -11,6 +11,7 @@ use App\Services\Payment\MidtransService;
 use App\Services\Payment\SPNPayService;
 use App\Services\Payment\XenditService;
 use Exception;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -28,7 +29,7 @@ class CallbackController extends Controller
         $this->midtransService = new MidtransService();
     }
 
-    public function callbackSPNPay(Request $request)
+    public function callbackSPNPay(Request $request): JsonResponse
     {
         try {
             DB::beginTransaction();
@@ -42,7 +43,7 @@ class CallbackController extends Controller
         }
     }
 
-    public function callbackXendit(Request $request)
+    public function callbackXendit(Request $request): JsonResponse
     {
         try {
             DB::beginTransaction();
@@ -56,7 +57,7 @@ class CallbackController extends Controller
         }
     }
 
-    public function callbackMidtrans(Request $request)
+    public function callbackMidtrans(Request $request): JsonResponse
     {
         try {
             DB::beginTransaction();
@@ -70,7 +71,7 @@ class CallbackController extends Controller
         }
     }
 
-    public function callbackDuitku(Request $request)
+    public function callbackDuitku(Request $request): JsonResponse
     {
         try {
             DB::beginTransaction();

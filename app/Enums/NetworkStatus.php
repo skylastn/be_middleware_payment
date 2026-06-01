@@ -8,7 +8,7 @@ enum NetworkStatus: string
     case SUCCESS = 'success';
     case ERROR = 'error';
 
-    static function getNetworkStatusFromNetworkCode(NetworkCode $code = NetworkCode::SUCCESS): NetworkStatus
+    public static function getNetworkStatusFromNetworkCode(NetworkCode $code = NetworkCode::SUCCESS): NetworkStatus
     {
         switch ($code) {
             case NetworkCode::SUCCESS:

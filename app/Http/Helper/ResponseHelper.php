@@ -70,7 +70,7 @@ class ResponseHelper
         return response()->json($payload, $status);
     }
 
-    public static function formatPagination($result): JsonResponse
+    public static function formatPagination(LengthAwarePaginator $result): JsonResponse
     {
         $response = [
             'status'        => true,
@@ -79,13 +79,13 @@ class ResponseHelper
             'total'         => $result->total(),
             'perPage'       => $result->perPage(),
             'currentPage'   => $result->currentPage(),
-            'data'          => $result->getCollection(),
+            'data'          => $result->items(),
         ];
 
         return response()->json($response, 200);
     }
 
-    public static function successResponse($data, String $msg = 'Success', $code = 200): JsonResponse
+    public static function successResponse(mixed $data, string $msg = 'Success', int $code = 200): JsonResponse
     {
         $response = [
             'status'        => true,
@@ -96,7 +96,7 @@ class ResponseHelper
         return response()->json($response, 200);
     }
 
-    public static function failedResponse($data, String $msg = 'Failed', int $code = 400, int $line = 0, $filePath = ''): JsonResponse
+    public static function failedResponse(mixed $data, string $msg = 'Failed', int $code = 400, int $line = 0, string $filePath = ''): JsonResponse
     {
         $response = [
             'status'        => false,
@@ -109,7 +109,7 @@ class ResponseHelper
         return response()->json($response, 400);
     }
 
-    public static function unauthorizedResponse($data, String $msg = 'Unauthorized'): JsonResponse
+    public static function unauthorizedResponse(mixed $data, string $msg = 'Unauthorized'): JsonResponse
     {
         $response = [
             'status'        => false,

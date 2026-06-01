@@ -4,6 +4,7 @@ namespace App\Model\Entity;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class PaymentMethod extends Model
 {
@@ -25,7 +26,7 @@ class PaymentMethod extends Model
     // Relationships
     // ------------------------------------------------------------
 
-    public function category()
+    public function category(): HasOne
     {
         return $this->hasOne(PaymentCategory::class, 'key', 'key');
     }

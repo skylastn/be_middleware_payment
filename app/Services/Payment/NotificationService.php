@@ -7,7 +7,7 @@ use App\Services\Socket\MiddlewareSocketService;
 
 class NotificationService
 {
-    public static function sendNotification($reference): void
+    public static function sendNotification(string $reference): void
     {
         $project = 'payment';
         $path = 'notification';

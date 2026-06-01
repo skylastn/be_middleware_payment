@@ -15,6 +15,7 @@ use Carbon\Carbon;
 use Duitku\Config;
 use Duitku\Pop;
 use Exception;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use stdClass;
@@ -27,7 +28,7 @@ class DuitkuService
         $this->paymentRepositoryService = new PaymentRepositoryService();
     }
 
-    public function getPaymentRepo(string $mode, $id): ?PaymentRepository
+    public function getPaymentRepo(string $mode, int|string|null $id): ?PaymentRepository
     {
         if (FormatHelper::isNotEmpty($id)) {
             return $this->paymentRepositoryService->getById($id);
@@ -67,7 +68,7 @@ class DuitkuService
         return $response;
     }
 
-    public function orderDuitku(Request $request, Project $project)
+    public function orderDuitku(Request $request, Project $project): array
     {
         $date = date("Y-m-d");
         $paymentRepo = $this->getPaymentRepo($request->mode, $request->paymentRepositoryId);
@@ -282,8 +283,7 @@ class DuitkuService
         return $order;
     }
 
-    public function duitkuPaymentSync(Request $request)
-    // : Collection
+    public function duitkuPaymentSync(Request $request): Collection
     {
         $duitkuConfig = $this->setEnv('sandbox', $request->paymentRepositoryId);
         $paymentAmount = "10000"; //"YOUR_AMOUNT";

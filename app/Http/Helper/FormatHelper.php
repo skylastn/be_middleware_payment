@@ -3,12 +3,11 @@
 namespace App\Http\Helper;
 
 use Carbon\Carbon;
-use Illuminate\Database\Eloquent\Collection;
-use Laraindo\RupiahFormat;
+use Illuminate\Http\UploadedFile;
 
 class FormatHelper
 {
-    public static function formatFileName($file)
+    public static function formatFileName(UploadedFile $file): string
     {
         $dateNow = Carbon::now();
         $ext = 'png';
@@ -21,8 +20,10 @@ class FormatHelper
         return $name;
     }
 
-    public static function contains(string $string, $value): bool
+    public static function contains(string|int $string, mixed $value): bool
     {
+        $needle = (string) $string;
+
         switch (gettype($value)) {
             case 'array':
                 return in_array($string, $value);
@@ -34,14 +35,14 @@ class FormatHelper
                 // return preg_match("/$ptn/i", $string);
                 // break;
             case 'string':
-                return str_contains($value, $string);
+                return str_contains($value, $needle);
                 break;
             default:
                 return false;
         }
     }
 
-    public static function isEmail($email): bool
+    public static function isEmail(?string $email): bool
     {
         if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
             return true;
@@ -49,7 +50,7 @@ class FormatHelper
         return false;
     }
 
-    public static function getNumberOfMonth(String $value)
+    public static function getNumberOfMonth(string $value): string
     {
         $result = '';
         switch ($value) {
@@ -96,7 +97,7 @@ class FormatHelper
         return $result;
     }
 
-    public static function getPeriode($datenow)
+    public static function getPeriode(string $datenow): string
     {
 
         $month      = date('M', strtotime($datenow));
@@ -105,7 +106,7 @@ class FormatHelper
         return $result;
     }
 
-    public static function generateRandomString($length = 10)
+    public static function generateRandomString(int $length = 10): string
     {
         $characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
         $charactersLength = strlen($characters);
@@ -122,7 +123,7 @@ class FormatHelper
     //     return RupiahFormat::currency($value);
     // }
 
-    static function isValidXml($content)
+    public static function isValidXml(string $content): bool
     {
         $content = trim($content);
         if (empty($content)) {
@@ -141,7 +142,7 @@ class FormatHelper
         return empty($errors);
     }
 
-    static function isNotEmpty($value, bool $isNeedDD = false): bool
+    public static function isNotEmpty(mixed $value, bool $isNeedDD = false): bool
     {
         if ($isNeedDD) {
             dd($value);

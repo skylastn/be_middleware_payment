@@ -8,6 +8,7 @@ use App\Http\Helper\LogHelper;
 use App\Http\Helper\ResponseHelper;
 use App\Model\Entity\Project;
 use App\Services\System\ProjectService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Schema\Blueprint;
@@ -22,17 +23,17 @@ class ProjectController extends Controller
         $this->projectService = new ProjectService();
     }
 
-    public function index(Request $request)
+    public function index(Request $request): JsonResponse
     {
         return ResponseHelper::formatPagination($this->projectService->getListProject($request));
     }
 
-    public function show($id)
+    public function show(int|string $id): JsonResponse
     {
         return ResponseHelper::successResponse($this->projectService->getProjectById($id));
     }
 
-    public function store(Request $request)
+    public function store(Request $request): JsonResponse
     {
         try {
             DB::beginTransaction();
@@ -53,7 +54,7 @@ class ProjectController extends Controller
         }
     }
 
-    public function update(Request $request, $id)
+    public function update(Request $request, int|string $id): JsonResponse
     {
         try {
 
@@ -68,7 +69,7 @@ class ProjectController extends Controller
         }
     }
 
-    public function delete($id)
+    public function delete(int|string $id): JsonResponse
     {
         try {
             DB::beginTransaction();

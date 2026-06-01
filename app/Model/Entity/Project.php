@@ -21,7 +21,7 @@ class Project extends Model
         return $this->name;
     }
 
-    public function setName(string $name)
+    public function setName(string $name): void
     {
         $this->name = $name;
     }
@@ -31,7 +31,7 @@ class Project extends Model
         return $this->type;
     }
 
-    public function setType(string $type)
+    public function setType(string $type): void
     {
         $this->type = $type;
     }
@@ -41,7 +41,7 @@ class Project extends Model
         return $this->key;
     }
 
-    public function setKey(string $key)
+    public function setKey(string $key): void
     {
         $this->key = $key;
     }
@@ -51,7 +51,7 @@ class Project extends Model
         return $this->secure;
     }
 
-    public function setSecure(string $secure)
+    public function setSecure(string $secure): void
     {
         $this->secure = $secure;
     }
@@ -61,7 +61,7 @@ class Project extends Model
         return $this->callback;
     }
 
-    public function setCallback(?string $callback)
+    public function setCallback(?string $callback): void
     {
         $this->callback = $callback;
     }
@@ -71,7 +71,7 @@ class Project extends Model
         return $this->value;
     }
 
-    public function setValue(string $value)
+    public function setValue(string $value): void
     {
         $this->value = $value;
     }
@@ -81,7 +81,7 @@ class Project extends Model
         return $this->slug;
     }
 
-    public function setSlug(ProjectSlug $slug)
+    public function setSlug(ProjectSlug $slug): void
     {
         $this->slug = $slug;
     }

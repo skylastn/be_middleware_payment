@@ -5,6 +5,7 @@ namespace App\Model\Entity;
 use App\Traits\BaseModelTrait;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Order extends Model
 {
@@ -40,12 +41,12 @@ class Order extends Model
     // Relationships
     // ------------------------------------------------------------
 
-    public function payment_methods()
+    public function payment_methods(): HasOne
     {
         return $this->hasOne(PaymentMethod::class, 'value', 'payment_method');
     }
 
-    public function project()
+    public function project(): HasOne
     {
         return $this->hasOne(Project::class, 'type', 'type');
     }

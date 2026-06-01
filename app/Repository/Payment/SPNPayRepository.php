@@ -6,7 +6,7 @@ use Exception;
 
 class SPNPayRepository
 {
-    static function responseOrderFilter(object $data): array
+    public static function responseOrderFilter(object $data): array
     {
         $value['id']                = $data->id ?? '';
         $value['merchantRef']       = $data->merchantRef ?? '';
@@ -26,7 +26,7 @@ class SPNPayRepository
         return $value;
     }
 
-    static function fillEmptyResponseOrder(string $type, object $data): array
+    public static function fillEmptyResponseOrder(string $type, object $data): array
     {
         switch ($type) {
             case 'virtualAccount':

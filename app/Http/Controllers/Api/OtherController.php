@@ -8,6 +8,7 @@ use App\Http\Helper\LogHelper;
 use App\Http\Helper\ResponseHelper;
 use App\Services\Payment\DuitkuService;
 use Exception;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -19,7 +20,7 @@ class OtherController extends Controller
         $this->duitkuService = $duitkuService;
     }
 
-    public function duitkuEncrpyt(Request $request)
+    public function duitkuEncrpyt(Request $request): JsonResponse
     {
         try {
             $result = $this->duitkuService->duitkuEncrpyt($request);
@@ -30,7 +31,7 @@ class OtherController extends Controller
         }
     }
 
-    public function duitkuPaymentSync(Request $request)
+    public function duitkuPaymentSync(Request $request): JsonResponse
     {
         try {
             DB::beginTransaction();

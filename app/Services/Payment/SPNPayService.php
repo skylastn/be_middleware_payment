@@ -21,7 +21,7 @@ class SPNPayService
         $this->paymentRepositoryService = new PaymentRepositoryService();
     }
 
-    public function getPaymentRepo(string $mode, $id): ?PaymentRepository
+    public function getPaymentRepo(string $mode, int|string|null $id): ?PaymentRepository
     {
         if (FormatHelper::isNotEmpty($id)) {
             return $this->paymentRepositoryService->getById($id);
@@ -77,7 +77,7 @@ class SPNPayService
         return $result;
     }
 
-    public function createOrderPaymentSPNPay(Request $request, Project $project, Order $order)
+    public function createOrderPaymentSPNPay(Request $request, Project $project, Order $order): array
     {
         $paymentRepo = $this->getPaymentRepo($order->mode, $request->paymentGatewayId);
         $paymemtMethod = PaymentMethod::where('value', $request->paymentMethod)->where('from', 'spnpay')->first();

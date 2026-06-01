@@ -8,6 +8,7 @@ use App\Http\Helper\LogHelper;
 use App\Http\Helper\ResponseHelper;
 use App\Services\Payment\PaymentService;
 use Exception;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -19,18 +20,18 @@ class PaymentController extends Controller
         $this->paymentService = new PaymentService();
     }
 
-    function getPaymentCategory()
+    public function getPaymentCategory(): JsonResponse
     {
         return ResponseHelper::successResponse($this->paymentService->getListPaymentCategory());
     }
 
-    function getPaymentMethod(Request $request)
+    public function getPaymentMethod(Request $request): JsonResponse
     {
         $result         = $this->paymentService->getListPaymentMethod($request);
         return ResponseHelper::successResponse($result);
     }
 
-    function getDetailPaymentMethod(Request $request)
+    public function getDetailPaymentMethod(Request $request): JsonResponse
     {
         $value          = $request->value;
         $from           = $request->from;
@@ -40,7 +41,7 @@ class PaymentController extends Controller
 
 
 
-    public function createPayment(Request $request)
+    public function createPayment(Request $request): JsonResponse
     {
         try {
             DB::beginTransaction();

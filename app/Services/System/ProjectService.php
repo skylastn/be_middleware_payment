@@ -31,7 +31,7 @@ class ProjectService
         return $this->projects->latestPaginated((int) ($request->perPage ?? 15));
     }
 
-    public function getProjectById($id): ?Project
+    public function getProjectById(int|string $id): ?Project
     {
         return $this->projects->find($id);
     }
@@ -51,7 +51,7 @@ class ProjectService
         return $project;
     }
 
-    public function update(Request $request, $id): Project
+    public function update(Request $request, int|string $id): Project
     {
         $project = Project::findOrFailCustom($id);
         $project->setName($request->name);
@@ -66,7 +66,7 @@ class ProjectService
         ]);
     }
 
-    public function delete($id): Project
+    public function delete(int|string $id): Project
     {
         $project = Project::findOrFailCustom($id);
         $this->projects->delete($project);

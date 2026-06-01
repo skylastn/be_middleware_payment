@@ -8,7 +8,7 @@ use stdClass;
 class RequestHelper
 {
 
-    public static function sendCallback($token, $params, $urlCallback): stdClass
+    public static function sendCallback(string $token, array $params, string $urlCallback): stdClass
     {
 
         $curl = curl_init();
@@ -34,7 +34,9 @@ class RequestHelper
         curl_close($curl);
 
         Log::info("Result Callback", [$response]);
-        return json_decode($response);
+        $decoded = json_decode((string) $response);
+
+        return $decoded instanceof stdClass ? $decoded : new stdClass();
         // echo $response;
     }
 }

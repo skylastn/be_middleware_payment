@@ -26,7 +26,7 @@ class NetworkService
         );
     }
 
-    function sendAsync(): ?string
+    public function sendAsync(): ?string
     {
         $client = new Client();
         // Send an asynchronous request.

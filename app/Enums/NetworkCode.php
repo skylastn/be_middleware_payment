@@ -8,7 +8,7 @@ enum NetworkCode: int
     case UNAUTHORIZED = 401;
     case ERROR = 400;
 
-    static function fromCode(int $code): NetworkCode
+    public static function fromCode(int $code): NetworkCode
     {
         switch ($code) {
             case 200:

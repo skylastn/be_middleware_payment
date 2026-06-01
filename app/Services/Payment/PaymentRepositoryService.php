@@ -18,7 +18,7 @@ class PaymentRepositoryService
         $this->paymentRepositories ??= new PaymentRepositoryRepository();
     }
 
-    public function getById($id): PaymentRepository
+    public function getById(int|string $id): PaymentRepository
     {
         return PaymentRepository::findOrFailCustom($id);
     }

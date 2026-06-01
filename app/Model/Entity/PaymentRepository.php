@@ -54,8 +54,7 @@ class PaymentRepository extends Model
         $this->payment_gateway_id = strtolower($gatewayId);
     }
 
-    /** @return PaymentModeType|string|null */
-    public function getMode(): PaymentModeType
+    public function getMode(): ?PaymentModeType
     {
         return $this->mode instanceof PaymentModeType
             ? $this->mode

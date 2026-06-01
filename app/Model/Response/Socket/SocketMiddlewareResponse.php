@@ -80,7 +80,7 @@ class SocketMiddlewareResponse
      * @param bool|null
      * @throws Exception
      */
-    public function setStatus(?bool $value)
+    public function setStatus(?bool $value): void
     {
         if (SocketMiddlewareResponse::validateStatus($value)) {
             $this->status = $value;
@@ -152,7 +152,7 @@ class SocketMiddlewareResponse
      * @param string|null
      * @throws Exception
      */
-    public function setMessage(?string $value)
+    public function setMessage(?string $value): void
     {
         if (SocketMiddlewareResponse::validateMessage($value)) {
             $this->message = $value;
@@ -224,7 +224,7 @@ class SocketMiddlewareResponse
      * @param string|null
      * @throws Exception
      */
-    public function setData(?string $value)
+    public function setData(?string $value): void
     {
         if (SocketMiddlewareResponse::validateData($value)) {
             $this->data = $value;

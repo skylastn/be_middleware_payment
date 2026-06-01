@@ -26,7 +26,7 @@ class XenditService
         $this->paymentRepositoryService = new PaymentRepositoryService();
     }
 
-    public function getPaymentRepo(string $mode, $id): ?PaymentRepository
+    public function getPaymentRepo(string $mode, int|string|null $id): ?PaymentRepository
     {
         if (FormatHelper::isNotEmpty($id)) {
             return $this->paymentRepositoryService->getById($id);

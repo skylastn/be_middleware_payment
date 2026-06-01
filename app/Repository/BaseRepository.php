@@ -3,6 +3,7 @@
 namespace App\Repository;
 
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Pagination\LengthAwarePaginator;
 
@@ -40,7 +41,7 @@ abstract class BaseRepository
         return (bool) $model->delete();
     }
 
-    protected function query()
+    protected function query(): Builder
     {
         return $this->modelClass()::query();
     }

@@ -25,7 +25,7 @@ class OrderController extends Controller
         $this->projectService = new ProjectService();
     }
 
-    public function index(Request $request)
+    public function index(Request $request): JsonResponse
     {
         try {
             return ResponseHelper::formatPagination($this->service->getListOrder($request));
@@ -38,7 +38,7 @@ class OrderController extends Controller
         }
     }
 
-    public function detail(Request $request)
+    public function detail(Request $request): JsonResponse
     {
         try {
             $project    = $this->projectService->checkKey();

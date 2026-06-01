@@ -13,7 +13,7 @@ class LogHelper
         Exception $ex,
         string $idProject = '',
         string $key = ''
-    ) {
+    ): void {
         $error['line']      = $ex->getLine();
         $error['ip']        = LogHelper::getClientIP();
         $error['message']   = $ex->getMessage();
@@ -31,11 +31,11 @@ class LogHelper
     }
 
     public static function sendLog(
-        String $msg,
-        $data = '',
+        string $msg,
+        mixed $data = '',
         string $idProject = '',
         string $key = ''
-    ) {
+    ): void {
         $info['ip']        = LogHelper::getClientIP();
         $info['key']       = $key;
         $info['message']   = $msg;
@@ -52,7 +52,7 @@ class LogHelper
         Log::info($info);
     }
 
-    public static function getClientIP()
+    public static function getClientIP(): string
     {
         $ipaddress = '';
         if (getenv('HTTP_CLIENT_IP'))

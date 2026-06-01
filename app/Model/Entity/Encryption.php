@@ -4,8 +4,6 @@ namespace App\Model\Entity;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\DB;
-use App\Model\Entity\Project;
 
 class Encryption extends Model
 {
@@ -32,10 +30,10 @@ class Encryption extends Model
         $myiv = $project->secure;
         $key = substr(hash('sha256', $mykey), 0, 32);
         $iv = substr(hash('sha256', $myiv), 0, 16);
-        return openssl_encrypt($data, $this->encryptMethod, $key, 0, $iv);
+        return openssl_encrypt($data, $this->encryptMethod, $key, 0, $iv) ?: '';
     }
 
-    public function decrypt(string $base64Value, $value): string
+    public function decrypt(string $base64Value, string $value): string
     {
 
         $project = Project::where("value", $value)->first();
@@ -46,6 +44,6 @@ class Encryption extends Model
         $myiv = $project->secure;
         $key = substr(hash('sha256', $mykey), 0, 32);
         $iv = substr(hash('sha256', $myiv), 0, 16);
-        return openssl_decrypt($base64Value, $this->encryptMethod, $key, 0, $iv);
+        return openssl_decrypt($base64Value, $this->encryptMethod, $key, 0, $iv) ?: '';
     }
 }

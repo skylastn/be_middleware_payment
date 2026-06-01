@@ -22,7 +22,7 @@ class MidtransService
         $this->paymentRepositoryService = new PaymentRepositoryService();
     }
 
-    public function getPaymentRepo(string $mode, $id): ?PaymentRepository
+    public function getPaymentRepo(string $mode, int|string|null $id): ?PaymentRepository
     {
         if (FormatHelper::isNotEmpty($id)) {
             return $this->paymentRepositoryService->getById($id);
@@ -30,7 +30,7 @@ class MidtransService
         return $this->paymentRepositoryService->getByPaymentGatewayKey('midtrans', $mode);
     }
 
-    public function orderMidtrans($request, $project): array
+    public function orderMidtrans(Request $request, Project $project): array
     {
         $paymentRepo        = $this->getPaymentRepo($request->mode, $request->paymentGatewayId);
         $date = date("Y-m-d");
@@ -89,7 +89,7 @@ class MidtransService
         return $response;
     }
 
-    public function createTransactionMidtrans(array $body, PaymentRepository $paymentRepo)
+    public function createTransactionMidtrans(array $body, PaymentRepository $paymentRepo): array
     {
         $curl = curl_init();
         $urlOrderMidtrans   = $paymentRepo->getValue()['midtrans_url'];
