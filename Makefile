@@ -34,11 +34,11 @@ deployLocalDocker:
 deploy:
 	php artisan migrate --force
 	php artisan optimize:clear
-	@build_status=0; cleanup_status=0; \
-	docker compose run --rm pos-build || build_status=$$?; \
-	docker compose down --rmi all --remove-orphans || cleanup_status=$$?; \
-	if [ $$build_status -ne 0 ]; then exit $$build_status; fi; \
-	exit $$cleanup_status
+# 	@build_status=0; cleanup_status=0; \
+# 	docker compose run --rm pos-build || build_status=$$?; \
+# 	docker compose down --rmi all --remove-orphans || cleanup_status=$$?; \
+# 	if [ $$build_status -ne 0 ]; then exit $$build_status; fi; \
+# 	exit $$cleanup_status
 
 run:
 	make copyEnvLocal
