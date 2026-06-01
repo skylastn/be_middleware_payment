@@ -2,16 +2,17 @@
 
 namespace App\Services\Payment;
 
+use App\Enums\OrderStatus;
+use App\Enums\PaymentModeType;
 use App\Http\Helper\FormatHelper;
 use App\Http\Helper\LogHelper;
+use App\Http\Helper\OrderIdGenerator;
 use App\Http\Helper\RequestHelper;
 use App\Model\Entity\Order;
 use App\Model\Entity\PaymentRepository;
 use App\Model\Entity\Project;
-use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Xendit\Configuration;
 use Xendit\Invoice\CreateInvoiceRequest;
 use Xendit\Invoice\InvoiceApi;
@@ -19,25 +20,30 @@ use Xendit\Invoice\InvoiceApi;
 class XenditService
 {
     private InvoiceApi $apiInstance;
+
     private PaymentRepositoryService $paymentRepositoryService;
+
     public function __construct()
     {
-        $this->apiInstance = new InvoiceApi();
-        $this->paymentRepositoryService = new PaymentRepositoryService();
+        $this->apiInstance = new InvoiceApi;
+        $this->paymentRepositoryService = new PaymentRepositoryService;
     }
 
-    public function getPaymentRepo(string $mode, int|string|null $id): ?PaymentRepository
+    public function getPaymentRepo(string|PaymentModeType|null $mode, int|string|null $id): ?PaymentRepository
     {
+        $modeValue = PaymentModeType::fromName($mode)?->value ?? PaymentModeType::sandbox->value;
         if (FormatHelper::isNotEmpty($id)) {
             return $this->paymentRepositoryService->getById($id);
         }
-        return $this->paymentRepositoryService->getByPaymentGatewayKey('xendit', $mode);
+
+        return $this->paymentRepositoryService->getByPaymentGatewayKey('xendit', $modeValue);
     }
 
     public function order(Request $request, Project $project): array
     {
-        $paymentRepo = $this->getPaymentRepo($request->mode, $request->paymentRepositoryId);
-        if (!FormatHelper::isNotEmpty($paymentRepo)) {
+        $mode = PaymentModeType::fromName($request->mode) ?? PaymentModeType::sandbox;
+        $paymentRepo = $this->getPaymentRepo($mode, $request->paymentRepositoryId);
+        if (! FormatHelper::isNotEmpty($paymentRepo)) {
             throw new Exception('Payment Repository Not Found');
         }
         $secretKey = $paymentRepo->getValue()['xendit_secretkey'] ?? '';
@@ -45,24 +51,21 @@ class XenditService
         // Xendit::setApiKey($secretKey);
         Configuration::setXenditKey($secretKey);
 
-        $invID = DB::table('orders')->whereDate('created_at', Carbon::today())->orderBy('created_at', 'desc')->first();
-        $invIDCount                 = substr($invID->id ?? 00000, -5);
-        $invID_num                  = (int)$invIDCount + 1;
-        $merchantOrderId            = date("Ymd") . "-" . str_pad($invID_num, 5, '0', STR_PAD_LEFT);
+        $merchantOrderId = OrderIdGenerator::generate();
         // return $request->req;
-        $req['id']                  = $merchantOrderId;
-        $req['reference']           = $project->type . '-' . $request->merchantOrderId;
-        $req['type']                = $project->type;
-        $req['mode']                = $request->mode ?? "sandbox";
-        $req['payment_method']      = "";
+        $req['id'] = $merchantOrderId;
+        $req['reference'] = $project->type.'-'.$request->merchantOrderId;
+        $req['type'] = $project->type;
+        $req['mode'] = $mode->value;
+        $req['payment_method'] = '';
+        $req['status'] = OrderStatus::PENDING->value;
 
-        $expired                    = ($request->expiryPeriod ?? 0) * 60;
-
+        $expired = ($request->expiryPeriod ?? 0) * 60;
 
         $params = [
-            'external_id' => $req['reference'] ?? $project->type . '-' . $req['id'],
+            'external_id' => $req['reference'] ?? $project->type.'-'.$req['id'],
             'amount' => $request->paymentAmount ?? 0,
-            'description' => $request->productDetails ?? "Payment",
+            'description' => $request->productDetails ?? 'Payment',
             'invoice_duration' => $expired,
             // 'payer_email' => $request->firstName,
             // 'customer' => [
@@ -129,9 +132,9 @@ class XenditService
         ];
 
         $create_invoice_request = new CreateInvoiceRequest($params);
-        $req['request']             = json_encode($params);
-        $order                      = Order::create($req);
-        $order                      = Order::findOrFailCustom($order->id);
+        $req['request'] = json_encode($params);
+        $order = Order::create($req);
+        $order = Order::findOrFailCustom($order->id);
         LogHelper::sendLog(
             'Request Order Xendit',
             json_encode($order),
@@ -152,49 +155,56 @@ class XenditService
         $order->setPaymentRepositoryId($paymentRepo->id);
         $order->save();
 
-        $response['message']    = "Success Create Order";
-        $response['link']       = $createInvoice['invoice_url'];
-        $response['data']       = $createInvoice;
+        $response['message'] = 'Success Create Order';
+        $response['link'] = $createInvoice['invoice_url'];
+        $response['data'] = $createInvoice;
+
         return $response;
     }
 
     public function callback(Request $request): Order
     {
-        $order = Order::where("reference", $request->external_id)->orderBy('id', 'DESC')->first();
-        if (!$order) {
+        $order = Order::where('reference', $request->external_id)->orderBy('id', 'DESC')->first();
+        if (! $order) {
             throw new Exception('Order not found');
         }
         $order = Order::findOrFailCustom($order->id);
-        $paymentRepo = $this->getPaymentRepo($order->mode, $order->getPaymentRepositoryId());
+        $paymentRepo = $this->getPaymentRepo($order->getMode(), $order->getPaymentRepositoryId());
 
         $xenditToken = $paymentRepo->getValue()['xendit_tokencallback'] ?? '';
         $reqHeaders = getallheaders();
-        $incomingTokenXendit = isset($reqHeaders['X-Callback-Token']) ? $reqHeaders['X-Callback-Token'] : "";
+        $incomingTokenXendit = isset($reqHeaders['X-Callback-Token']) ? $reqHeaders['X-Callback-Token'] : '';
 
         if ($xenditToken != $incomingTokenXendit) {
             throw new Exception('You are not permitted perform this action');
         }
 
+        $status = OrderStatus::fromName($request->status);
+        if (! $status) {
+            throw new Exception('Status Undefined', 403);
+        }
+
         $order->setCallback(json_encode($request->all()));
-        $order->setStatus($request->status);
+        $order->setStatus($status);
         $order->setPaymentMethod($request->payment_channel);
         $order->save();
 
-        $split              = explode("-", $request->external_id);
-        $project            = Project::where("type", $split[0])->first();
+        $split = explode('-', $request->external_id);
+        $project = Project::where('type', $split[0])->first();
         LogHelper::sendLog(
             'Callback Xendit',
             json_encode($request->all()),
             $project->id,
             'callback_order_xendit'
         );
-        if ($request->status == "PAID") {
-            $params['merchantOrderId']  = $split[1] . "-" . $split[2];
-            $params['paymentCode']      = $order->payment_method;
-            $params['resultCode']       = "00";
-            $callback                   = RequestHelper::sendCallback($project->value, $params, $project->callback);
+        if ($status->isSuccess()) {
+            $params['merchantOrderId'] = $split[1].'-'.$split[2];
+            $params['paymentCode'] = $order->payment_method;
+            $params['resultCode'] = '00';
+            $callback = RequestHelper::sendCallback($project->value, $params, $project->callback);
         }
         $order->refresh();
+
         return $order;
     }
 }

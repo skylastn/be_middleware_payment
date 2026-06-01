@@ -2,6 +2,8 @@
 
 namespace App\Model\Entity;
 
+use App\Enums\OrderStatus;
+use App\Enums\PaymentModeType;
 use App\Traits\BaseModelTrait;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -16,14 +18,18 @@ class Order extends Model
     protected $casts = [
         'id' => 'string',
         'payment_repository_id' => 'string',
+        'mode' => PaymentModeType::class,
+        'status' => OrderStatus::class,
     ];
 
     protected $fillable = [
         'id',
+        'payment_repository_id',
         'mode',
         'type',
         'reference',
         'payment_method',
+        'status',
         'request',
         'response',
         'callback',
@@ -75,14 +81,16 @@ class Order extends Model
         $this->payment_repository_id = $value;
     }
 
-    public function getMode(): ?string
+    public function getMode(): ?PaymentModeType
     {
-        return $this->mode;
+        return $this->mode instanceof PaymentModeType
+            ? $this->mode
+            : PaymentModeType::fromName($this->mode);
     }
 
-    public function setMode(?string $mode): void
+    public function setMode(string|PaymentModeType|null $mode): void
     {
-        $this->mode = $mode;
+        $this->mode = PaymentModeType::fromName($mode)?->value;
     }
 
     public function getType(): ?string
@@ -115,14 +123,16 @@ class Order extends Model
         $this->payment_method = $paymentMethod;
     }
 
-    public function getStatus(): ?string
+    public function getStatus(): ?OrderStatus
     {
-        return $this->status;
+        return $this->status instanceof OrderStatus
+            ? $this->status
+            : OrderStatus::fromName($this->status);
     }
 
-    public function setStatus(?string $status): void
+    public function setStatus(string|OrderStatus|null $status): void
     {
-        $this->status = $status;
+        $this->status = OrderStatus::fromName($status)?->value;
     }
 
     public function getRequest(): mixed

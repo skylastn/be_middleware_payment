@@ -47,6 +47,14 @@ class PaymentRepoSeeder extends Seeder
             ]
         );
 
+        $stripe = PaymentGateway::firstOrCreate(
+            ['key' => 'stripe'],
+            [
+                'name' => 'Stripe',
+                'description' => 'Stripe',
+            ]
+        );
+
         // --- Payment Repositories ---
         foreach (PaymentModeType::cases() as $mode) {
 
@@ -56,7 +64,7 @@ class PaymentRepoSeeder extends Seeder
                     'mode' => $mode->value,
                 ],
                 [
-                    'key' => 'default_duitku_'. $mode->value,
+                    'key' => 'default_duitku_'.$mode->value,
                     'value' => json_encode([
                         'duitku_mk' => '7d07b87ceeb77cbdb80asdw3b35ee9e36364',
                         'duitku_mc' => 'DS21819',
@@ -70,7 +78,7 @@ class PaymentRepoSeeder extends Seeder
                     'mode' => $mode->value,
                 ],
                 [
-                    'key' => 'default_xendit_'. $mode->value,
+                    'key' => 'default_xendit_'.$mode->value,
                     'value' => json_encode([
                         'xendit_publickey' => 'xnd_public_development_2vNvQzut12UkEmLSY01ITVIIAdL...',
                         'xendit_secretkey' => 'xnd_development_7KBmCLH0wEJ6dPn50b8U02ToOFEvNetLO...',
@@ -85,13 +93,13 @@ class PaymentRepoSeeder extends Seeder
                     'mode' => $mode->value,
                 ],
                 [
-                    'key' => 'default_spnpay_'. $mode->value,
+                    'key' => 'default_spnpay_'.$mode->value,
                     'value' => json_encode([
-                        'url_spnpay' => $mode->value === 'sandbox'
+                        'url_spnpay' => $mode === PaymentModeType::sandbox
                             ? 'https://api.sanbox.cronosengine.com/api'
                             : 'https://partner.api.spnpay.com/api',
-                        'spnpay_token' => '8qJKU9FA17kuBpLaWU3cRg1nDuh8rGLy',
-                        'spnpay_secretkey' => 'SC-3DEIWDRNN77WGMasdwaQ',
+                        'spnpay_token' => 'xxx',
+                        'spnpay_secretkey' => 'SC-xxx',
                     ]),
                 ]
             );
@@ -102,13 +110,34 @@ class PaymentRepoSeeder extends Seeder
                     'mode' => $mode->value,
                 ],
                 [
-                    'key' => 'default_midtrans_'. $mode->value,
+                    'key' => 'default_midtrans_'.$mode->value,
                     'value' => json_encode([
-                        'midtrans_serverkey' => 'SB-Mid-server-7d07b87ceeb77cbdb80asdw3b35ee9e3',
-                        'midtrans_clientkey'  => 'SB-Mid-client-7d07b87ceeb77cbdb80asdw3b35ee9e3',
-                        'url_midtrans' =>  $mode->value === 'sandbox' ?
+                        'midtrans_serverkey' => 'SB-Mid-server-xxx',
+                        'midtrans_clientkey' => 'SB-Mid-client-xxx',
+                        'url_midtrans' => $mode === PaymentModeType::sandbox ?
                             'https://app.sandbox.midtrans.com/snap/v1/transactions'
                             : 'https://app.midtrans.com/snap/v1/transactions',
+                    ]),
+                ]
+            );
+
+            PaymentRepository::firstOrCreate(
+                [
+                    'payment_gateway_id' => $stripe->id,
+                    'mode' => $mode->value,
+                ],
+                [
+                    'key' => 'default_stripe_'.$mode->value,
+                    'value' => json_encode([
+                        'stripe_secretkey' => $mode === PaymentModeType::sandbox
+                            ? 'sk_test_...'
+                            : 'sk_live_...',
+                        'stripe_publishablekey' => $mode === PaymentModeType::sandbox
+                            ? 'pk_test_...'
+                            : 'pk_live_...',
+                        'stripe_webhooksecret' => $mode === PaymentModeType::sandbox
+                            ? 'whsec_test_...'
+                            : 'whsec_...',
                     ]),
                 ]
             );

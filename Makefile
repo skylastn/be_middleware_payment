@@ -10,11 +10,17 @@ copyEnvDocker:
 copyEnvProd:
 	cp ".env.production" ".env"
 
+migrate:
+	php artisan migrate
+
+migrate-revert:
+	php artisan migrate:reset
+
 freshInstall:
 	php artisan migrate:refresh
 	make initSeeder
 
-initSeeder:
+initSeeder: migrate
 	php artisan db:seed --class=InitSeeder
 
 deployProduction:

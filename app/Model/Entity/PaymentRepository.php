@@ -17,6 +17,7 @@ class PaymentRepository extends Model
 
     protected $fillable = [
         'payment_gateway_id',
+        'key',
         'mode',
         'value',
     ];

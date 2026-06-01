@@ -8,4 +8,10 @@ use Illuminate\Database\Eloquent\Model;
 class PaymentCategory extends Model
 {
     use HasFactory;
+
+    protected $fillable = [
+        'key',
+        'title',
+        'detail',
+    ];
 }

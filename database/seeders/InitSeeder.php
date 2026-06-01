@@ -12,6 +12,7 @@ class InitSeeder extends Seeder
     public function run(): void
     {
         $this->call([
+            AdminSeeder::class,
             SettingsTableSeeder::class,
             PaymentMethodSeeder::class,
             PaymentRepoSeeder::class,
