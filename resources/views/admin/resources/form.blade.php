@@ -54,6 +54,23 @@
                 </label>
             @endforeach
 
+            @if ($resource === 'projects' && $record)
+                @foreach (['key', 'secure', 'value'] as $credentialField)
+                    @php
+                        $credentialValue = $record->{$credentialField};
+                        $credentialLabel = str_replace('_', ' ', ucfirst($credentialField));
+                    @endphp
+                    <label class="field {{ $credentialField === 'value' ? 'full' : '' }}">
+                        <span class="label">{{ $credentialLabel }}</span>
+                        @if ($credentialField === 'value')
+                            <textarea class="input mono" readonly>{{ $credentialValue }}</textarea>
+                        @else
+                            <input class="input mono" value="{{ $credentialValue }}" readonly>
+                        @endif
+                    </label>
+                @endforeach
+            @endif
+
             <div class="field full">
                 <button class="button primary" type="submit">{{ $record ? 'Save Changes' : 'Create Record' }}</button>
             </div>

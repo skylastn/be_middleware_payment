@@ -69,6 +69,7 @@ class ExampleTest extends TestCase
             ->get('/admin/projects/create')
             ->assertStatus(200)
             ->assertSee('Create Project')
+            ->assertDontSee('Key')
             ->assertDontSee('Secure')
             ->assertDontSee('Value');
     }
@@ -155,8 +156,13 @@ class ExampleTest extends TestCase
             $this->actingAs($admin)
                 ->get('/admin/projects/'.$projectId.'/edit')
                 ->assertStatus(200)
-                ->assertDontSee('Secure')
-                ->assertDontSee('Value');
+                ->assertSee('Key')
+                ->assertSee('Secure')
+                ->assertSee('Value')
+                ->assertSee('originalkey')
+                ->assertSee('originalsecurevalue')
+                ->assertSee('originaltokenvalue')
+                ->assertSee('readonly', false);
 
             $this->actingAs($admin)
                 ->put('/admin/projects/'.$projectId, [
