@@ -17,6 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->alias([
+            'admin' => \App\Http\Middleware\EnsureAdminRole::class,
             'throttle' => \Illuminate\Routing\Middleware\ThrottleRequests::class,
         ]);
 

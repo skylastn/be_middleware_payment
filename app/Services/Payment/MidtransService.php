@@ -2,6 +2,8 @@
 
 namespace App\Services\Payment;
 
+use App\Enums\OrderStatus;
+use App\Enums\PaymentModeType;
 use App\Http\Helper\FormatHelper;
 use App\Http\Helper\LogHelper;
 use App\Http\Helper\RequestHelper;
@@ -22,17 +24,19 @@ class MidtransService
         $this->paymentRepositoryService = new PaymentRepositoryService();
     }
 
-    public function getPaymentRepo(string $mode, int|string|null $id): ?PaymentRepository
+    public function getPaymentRepo(string|PaymentModeType|null $mode, int|string|null $id): ?PaymentRepository
     {
+        $modeValue = PaymentModeType::fromName($mode)?->value ?? PaymentModeType::sandbox->value;
         if (FormatHelper::isNotEmpty($id)) {
             return $this->paymentRepositoryService->getById($id);
         }
-        return $this->paymentRepositoryService->getByPaymentGatewayKey('midtrans', $mode);
+        return $this->paymentRepositoryService->getByPaymentGatewayKey('midtrans', $modeValue);
     }
 
     public function orderMidtrans(Request $request, Project $project): array
     {
-        $paymentRepo        = $this->getPaymentRepo($request->mode, $request->paymentGatewayId);
+        $mode = PaymentModeType::fromName($request->mode) ?? PaymentModeType::sandbox;
+        $paymentRepo        = $this->getPaymentRepo($mode, $request->paymentGatewayId);
         $date = date("Y-m-d");
         $invID = Order::whereDate('created_at', $date)->orderBy('created_at', 'desc')->first();
         $invIDCount                         = substr($invID->id ?? 00000, -5);
@@ -42,7 +46,7 @@ class MidtransService
         $req['id']                          = $merchantOrderId;
         $req['reference']                   = $project->type . '-' . $request->merchantOrderId;
         $req['type']                        = $project->type;
-        $req['mode']                        = $request->mode ?? "sandbox";
+        $req['mode']                        = $mode->value;
         $req['payment_method']              = "";
 
         $transactionDetails['order_id']     = $req['reference'] ?? $project->type . '-' . $req['id'];
@@ -132,12 +136,13 @@ class MidtransService
         }
 
         $order = Order::findOrFailCustom($order->id);
-        $paymentRepo = $this->getPaymentRepo($order->mode, $order->getPaymentRepositoryId());
+        $mode = $order->getMode() ?? PaymentModeType::sandbox;
+        $paymentRepo = $this->getPaymentRepo($mode, $order->getPaymentRepositoryId());
         Config::$serverKey      = $paymentRepo->getValue()['midtrans_serverkey'];
-        if ($order->mode == "sandbox") {
+        if ($mode === PaymentModeType::sandbox) {
             Config::$isProduction   = false;
         }
-        if ($order->mode == "prod") {
+        if ($mode->isProduction()) {
             Config::$isProduction   = true;
         }
 
@@ -147,49 +152,23 @@ class MidtransService
         $type = $notif->payment_type;
         $reference = $notif->order_id;
         $fraud = $notif->fraud_status;
-        $status = "";
-        if ($transaction == 'capture') {
-            // For credit card transaction, we need to check whether transaction is challenge by FDS or not
-            if ($type == 'credit_card') {
-                if ($fraud == 'challenge') {
-                    // TODO set payment status in merchant's database to 'Challenge by FDS'
-                    // TODO merchant should decide whether this transaction is authorized or not in MAP
-                    // echo "Transaction order_id: " . $order_id ." is challenged by FDS";
-                    $status = strtoupper($transaction);
-                } else {
-                    // TODO set payment status in merchant's database to 'Success'
-                    // echo "Transaction order_id: " . $order_id ." successfully captured using " . $type;
-                    $status = "PAID";
-                }
-            }
-        } else if ($transaction == 'settlement') {
-            // TODO set payment status in merchant's database to 'Settlement'
-            // echo "Transaction order_id: " . $order_id ." successfully transfered using " . $type;
-            $status = "PAID";
-        } else if ($transaction == 'pending') {
-            // TODO set payment status in merchant's database to 'Pending'
-            // echo "Waiting customer to finish transaction order_id: " . $order_id . " using " . $type;
-            $status = strtoupper($transaction);
-        } else if ($transaction == 'deny') {
-            // TODO set payment status in merchant's database to 'Denied'
-            // echo "Payment using " . $type . " for transaction order_id: " . $order_id . " is denied.";
-            $status = strtoupper($transaction);
-        } else if ($transaction == 'expire') {
-            // TODO set payment status in merchant's database to 'expire'
-            // echo "Payment using " . $type . " for transaction order_id: " . $order_id . " is expired.";
-            $status = strtoupper($transaction);
-        } else if ($transaction == 'cancel') {
-            // TODO set payment status in merchant's database to 'Denied'
-            // echo "Payment using " . $type . " for transaction order_id: " . $order_id . " is canceled.";
-            $status = strtoupper($transaction);
-        }
+        $status = match ($transaction) {
+            'capture' => $type === 'credit_card' && $fraud === 'challenge'
+                ? OrderStatus::FAILED
+                : OrderStatus::SUCCESS,
+            'settlement' => OrderStatus::SUCCESS,
+            'pending' => OrderStatus::PENDING,
+            'expire' => OrderStatus::EXPIRED,
+            'deny', 'cancel' => OrderStatus::FAILED,
+            default => null,
+        };
 
         if (!FormatHelper::isNotEmpty($status)) {
             throw new Exception('Status Undefined', 403);
         }
 
-        if ($status != "PAID") {
-            throw new Exception('Status ' . $status, 403);
+        if (! $status->isSuccess()) {
+            throw new Exception('Status ' . $status->value, 403);
         }
 
 

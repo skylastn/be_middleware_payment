@@ -2,6 +2,8 @@
 
 namespace App\Services\Payment;
 
+use App\Enums\OrderStatus;
+use App\Enums\PaymentModeType;
 use App\Http\Helper\FormatHelper;
 use App\Http\Helper\LogHelper;
 use App\Http\Helper\RequestHelper;
@@ -21,12 +23,13 @@ class SPNPayService
         $this->paymentRepositoryService = new PaymentRepositoryService();
     }
 
-    public function getPaymentRepo(string $mode, int|string|null $id): ?PaymentRepository
+    public function getPaymentRepo(string|PaymentModeType|null $mode, int|string|null $id): ?PaymentRepository
     {
+        $modeValue = PaymentModeType::fromName($mode)?->value ?? PaymentModeType::sandbox->value;
         if (FormatHelper::isNotEmpty($id)) {
             return $this->paymentRepositoryService->getById($id);
         }
-        return $this->paymentRepositoryService->getByPaymentGatewayKey('spnpay', $mode);
+        return $this->paymentRepositoryService->getByPaymentGatewayKey('spnpay', $modeValue);
     }
 
     public function createOrderSPNPay(Request $request, Project $project): array
@@ -41,7 +44,8 @@ class SPNPayService
         $req['id']                          = $idSystem;
         $req['reference']                   = $project->type . '-' . $request->merchantOrderId;
         $req['type']                        = $project->type;
-        $req['mode']                        = $request->mode ?? "sandbox";
+        $mode                               = PaymentModeType::fromName($request->mode) ?? PaymentModeType::sandbox;
+        $req['mode']                        = $mode->value;
         $req['payment_method']              = $request->paymentMethod ?? '';
         $paymentUrl                         = env('PAYMENT_URL') . '/#/home' . '?reference=' . $req['reference'];
         $req['url']                         = $paymentUrl;
@@ -69,7 +73,7 @@ class SPNPayService
 
         // $order->response                    = json_encode(SPNPayRepository::responseOrderFilter($response));
         $order->url                         = $paymentUrl;
-        $order->status                      = 'PENDING';
+        $order->setStatus(OrderStatus::PENDING);
         $order->save();
 
         $result['link']                     = $paymentUrl;
@@ -79,7 +83,7 @@ class SPNPayService
 
     public function createOrderPaymentSPNPay(Request $request, Project $project, Order $order): array
     {
-        $paymentRepo = $this->getPaymentRepo($order->mode, $request->paymentGatewayId);
+        $paymentRepo = $this->getPaymentRepo($order->getMode(), $request->paymentGatewayId);
         $paymemtMethod = PaymentMethod::where('value', $request->paymentMethod)->where('from', 'spnpay')->first();
         if (!FormatHelper::isNotEmpty($paymemtMethod)) {
             throw new Exception("Sorry Payment Method Unavailable");
@@ -196,27 +200,26 @@ class SPNPayService
         }
         $order = Order::findOrFailCustom($order->id);
 
-        $status = 'PENDING';
         $resultCode = '00';
-        switch ($request->responseData['status']) {
-            case 'success':
-                $status = 'PAID';
+        $status = match ($request->responseData['status']) {
+            'success' => OrderStatus::SUCCESS,
+            'failed' => OrderStatus::FAILED,
+            'expired' => OrderStatus::EXPIRED,
+            default => null,
+        };
+
+        switch ($status) {
+            case OrderStatus::SUCCESS:
                 break;
-            case 'failed':
-                $status = 'FAILED';
+            case OrderStatus::FAILED:
                 $resultCode = '01';
                 break;
-            case 'expired':
-                $status = 'Expired';
+            case OrderStatus::EXPIRED:
                 $resultCode = '02';
                 break;
             default:
-                break;
+                throw new Exception('Status not found');
         }
-        if (FormatHelper::isNotEmpty($status)) {
-            throw new Exception('Status not found');
-        }
-
         $order->setCallback(json_encode($request->all()));
         $order->setStatus($status);
         $order->save();

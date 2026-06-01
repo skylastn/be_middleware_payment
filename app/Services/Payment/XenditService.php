@@ -2,6 +2,8 @@
 
 namespace App\Services\Payment;
 
+use App\Enums\OrderStatus;
+use App\Enums\PaymentModeType;
 use App\Http\Helper\FormatHelper;
 use App\Http\Helper\LogHelper;
 use App\Http\Helper\RequestHelper;
@@ -26,17 +28,19 @@ class XenditService
         $this->paymentRepositoryService = new PaymentRepositoryService();
     }
 
-    public function getPaymentRepo(string $mode, int|string|null $id): ?PaymentRepository
+    public function getPaymentRepo(string|PaymentModeType|null $mode, int|string|null $id): ?PaymentRepository
     {
+        $modeValue = PaymentModeType::fromName($mode)?->value ?? PaymentModeType::sandbox->value;
         if (FormatHelper::isNotEmpty($id)) {
             return $this->paymentRepositoryService->getById($id);
         }
-        return $this->paymentRepositoryService->getByPaymentGatewayKey('xendit', $mode);
+        return $this->paymentRepositoryService->getByPaymentGatewayKey('xendit', $modeValue);
     }
 
     public function order(Request $request, Project $project): array
     {
-        $paymentRepo = $this->getPaymentRepo($request->mode, $request->paymentRepositoryId);
+        $mode = PaymentModeType::fromName($request->mode) ?? PaymentModeType::sandbox;
+        $paymentRepo = $this->getPaymentRepo($mode, $request->paymentRepositoryId);
         if (!FormatHelper::isNotEmpty($paymentRepo)) {
             throw new Exception('Payment Repository Not Found');
         }
@@ -53,7 +57,7 @@ class XenditService
         $req['id']                  = $merchantOrderId;
         $req['reference']           = $project->type . '-' . $request->merchantOrderId;
         $req['type']                = $project->type;
-        $req['mode']                = $request->mode ?? "sandbox";
+        $req['mode']                = $mode->value;
         $req['payment_method']      = "";
 
         $expired                    = ($request->expiryPeriod ?? 0) * 60;
@@ -165,7 +169,7 @@ class XenditService
             throw new Exception('Order not found');
         }
         $order = Order::findOrFailCustom($order->id);
-        $paymentRepo = $this->getPaymentRepo($order->mode, $order->getPaymentRepositoryId());
+        $paymentRepo = $this->getPaymentRepo($order->getMode(), $order->getPaymentRepositoryId());
 
         $xenditToken = $paymentRepo->getValue()['xendit_tokencallback'] ?? '';
         $reqHeaders = getallheaders();
@@ -175,8 +179,13 @@ class XenditService
             throw new Exception('You are not permitted perform this action');
         }
 
+        $status = OrderStatus::fromName($request->status);
+        if (! $status) {
+            throw new Exception('Status Undefined', 403);
+        }
+
         $order->setCallback(json_encode($request->all()));
-        $order->setStatus($request->status);
+        $order->setStatus($status);
         $order->setPaymentMethod($request->payment_channel);
         $order->save();
 
@@ -188,7 +197,7 @@ class XenditService
             $project->id,
             'callback_order_xendit'
         );
-        if ($request->status == "PAID") {
+        if ($status->isSuccess()) {
             $params['merchantOrderId']  = $split[1] . "-" . $split[2];
             $params['paymentCode']      = $order->payment_method;
             $params['resultCode']       = "00";

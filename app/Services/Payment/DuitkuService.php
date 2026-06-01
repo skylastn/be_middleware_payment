@@ -2,6 +2,8 @@
 
 namespace App\Services\Payment;
 
+use App\Enums\OrderStatus;
+use App\Enums\PaymentModeType;
 use App\Http\Helper\FormatHelper;
 use App\Http\Helper\LogHelper;
 use App\Http\Helper\RequestHelper;
@@ -28,22 +30,24 @@ class DuitkuService
         $this->paymentRepositoryService = new PaymentRepositoryService();
     }
 
-    public function getPaymentRepo(string $mode, int|string|null $id): ?PaymentRepository
+    public function getPaymentRepo(string|PaymentModeType|null $mode, int|string|null $id): ?PaymentRepository
     {
+        $modeValue = PaymentModeType::fromName($mode)?->value ?? PaymentModeType::sandbox->value;
         if (FormatHelper::isNotEmpty($id)) {
             return $this->paymentRepositoryService->getById($id);
         }
-        return $this->paymentRepositoryService->getByPaymentGatewayKey('duitku', $mode);
+        return $this->paymentRepositoryService->getByPaymentGatewayKey('duitku', $modeValue);
     }
 
-    public function setEnv(string $mode, PaymentRepository $paymentRepo): Config
+    public function setEnv(string|PaymentModeType|null $mode, PaymentRepository $paymentRepo): Config
     {
+        $modeValue = PaymentModeType::fromName($mode) ?? PaymentModeType::sandbox;
         if (!FormatHelper::isNotEmpty($paymentRepo)) {
             throw new Exception('Payment Repository Not Found');
         }
         $merchantKey = $paymentRepo->getValue()['duitku_mk'] ?? '';
         $merchantCode = $paymentRepo->getValue()['duitku_mc'] ?? '';
-        if ($mode == 'prod') {
+        if ($modeValue->isProduction()) {
             $duitkuConfig = new Config($merchantKey, $merchantCode);
             $duitkuConfig->setSandboxMode(false);
             // set log parameter (default : true)
@@ -61,8 +65,8 @@ class DuitkuService
 
     public function checkStatus(Order $order): stdClass
     {
-        $paymentRepo = $this->getPaymentRepo($order->mode, $order->getPaymentRepositoryId());
-        $duitkuConfig = $this->setEnv($order->mode, $paymentRepo);
+        $paymentRepo = $this->getPaymentRepo($order->getMode(), $order->getPaymentRepositoryId());
+        $duitkuConfig = $this->setEnv($order->getMode(), $paymentRepo);
         $createInvoice = Pop::transactionStatus($order->reference, $duitkuConfig);
         $response = json_decode($createInvoice);
         return $response;
@@ -71,8 +75,9 @@ class DuitkuService
     public function orderDuitku(Request $request, Project $project): array
     {
         $date = date("Y-m-d");
-        $paymentRepo = $this->getPaymentRepo($request->mode, $request->paymentRepositoryId);
-        $duitkuConfig = $this->setEnv($request->mode, $paymentRepo);
+        $mode = PaymentModeType::fromName($request->mode) ?? PaymentModeType::sandbox;
+        $paymentRepo = $this->getPaymentRepo($mode, $request->paymentRepositoryId);
+        $duitkuConfig = $this->setEnv($mode, $paymentRepo);
         $invID = DB::table('orders')->whereDate('created_at', $date)
             ->orderBy('created_at', 'desc')
             ->orderBy('id', 'desc')
@@ -84,7 +89,7 @@ class DuitkuService
         $req['id']                          = $idSystem;
         $req['reference']                   = $project->type . '-' . $request->merchantOrderId;
         $req['type']                        = $project->type;
-        $req['mode']                        = $request->mode ?? "sandbox";
+        $req['mode']                        = $mode->value;
         $req['payment_method']              = $request->paymentMethod ?? '';
 
         $defaultUrl         = env('APP_URL') . '/api/callback/duitku';
@@ -165,7 +170,7 @@ class DuitkuService
         }
 
         $req['request']         = json_encode($params);
-        $req['status']          = 'PENDING';
+        $req['status']          = OrderStatus::PENDING->value;
         $order                  = Order::createAndFind($req);
 
         LogHelper::sendLog(
@@ -218,7 +223,7 @@ class DuitkuService
             throw new Exception('Order not found');
         }
         $order = Order::findOrFailCustom($order->id);
-        $paymentRepo = $this->getPaymentRepo($order->mode, $order->getPaymentRepositoryId());
+        $paymentRepo = $this->getPaymentRepo($order->getMode(), $order->getPaymentRepositoryId());
         $duitkuConfig = $this->setEnv($order->getMode(), $paymentRepo);
         $callback = Pop::callback($duitkuConfig);
         // header('Content-Type: application/json');
@@ -227,9 +232,9 @@ class DuitkuService
         // var_dump($callback);
         $status = '';
         if ($notif->resultCode == "00") {
-            $status = 'SUCCESS';
+            $status = OrderStatus::SUCCESS;
         } else if ($notif->resultCode == "01") {
-            $status = 'FAILED';
+            $status = OrderStatus::FAILED;
         }
 
         if (!FormatHelper::isNotEmpty($status)) {
@@ -285,7 +290,8 @@ class DuitkuService
 
     public function duitkuPaymentSync(Request $request): Collection
     {
-        $duitkuConfig = $this->setEnv('sandbox', $request->paymentRepositoryId);
+        $paymentRepo = $this->paymentRepositoryService->getById($request->paymentRepositoryId);
+        $duitkuConfig = $this->setEnv(PaymentModeType::sandbox, $paymentRepo);
         $paymentAmount = "10000"; //"YOUR_AMOUNT";
         $paymentsDuitku = json_decode(Pop::getPaymentMethod($paymentAmount, $duitkuConfig));
 
