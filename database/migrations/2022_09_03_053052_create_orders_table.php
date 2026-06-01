@@ -1,7 +1,5 @@
 <?php
 
-use App\Enums\OrderStatus;
-use App\Enums\PaymentModeType;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -22,8 +20,8 @@ return new class extends Migration
             $table->string('payment_method', 10)->nullable();
             $table->text('address')->nullable();
             $table->text('phone')->nullable();
-            $table->enum('status', OrderStatus::values())->nullable();
-            $table->enum('mode', PaymentModeType::values());
+            $table->string('status', 10)->nullable();
+            $table->string('mode', 10);
             $table->text('email')->nullable();
             $table->text('request')->nullable();
             $table->text('response')->nullable();

@@ -17,6 +17,10 @@ return new class extends Migration
             return;
         }
 
+        DB::statement(
+            "ALTER TABLE orders MODIFY status ENUM('PENDING', 'PAID', 'FAILED', 'Expired', 'SUCCESS', 'CAPTURE', 'DENY', 'EXPIRE', 'CANCEL', 'SETTLED', 'CANCELED', 'REFUNDED') NULL",
+        );
+
         DB::table('orders')->where('status', 'PAID')->update(['status' => OrderStatus::SUCCESS->value]);
         DB::table('orders')->where('status', 'Expired')->update(['status' => OrderStatus::EXPIRED->value]);
 
