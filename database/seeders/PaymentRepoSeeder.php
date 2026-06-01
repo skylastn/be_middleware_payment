@@ -98,8 +98,8 @@ class PaymentRepoSeeder extends Seeder
                         'url_spnpay' => $mode === PaymentModeType::sandbox
                             ? 'https://api.sanbox.cronosengine.com/api'
                             : 'https://partner.api.spnpay.com/api',
-                        'spnpay_token' => '8qJKU9FA17kuBpLaWU3cRg1nDuh8rGLy',
-                        'spnpay_secretkey' => 'SC-3DEIWDRNN77WGMasdwaQ',
+                        'spnpay_token' => 'xxx',
+                        'spnpay_secretkey' => 'SC-xxx',
                     ]),
                 ]
             );
@@ -112,8 +112,8 @@ class PaymentRepoSeeder extends Seeder
                 [
                     'key' => 'default_midtrans_'.$mode->value,
                     'value' => json_encode([
-                        'midtrans_serverkey' => 'SB-Mid-server-7d07b87ceeb77cbdb80asdw3b35ee9e3',
-                        'midtrans_clientkey' => 'SB-Mid-client-7d07b87ceeb77cbdb80asdw3b35ee9e3',
+                        'midtrans_serverkey' => 'SB-Mid-server-xxx',
+                        'midtrans_clientkey' => 'SB-Mid-client-xxx',
                         'url_midtrans' => $mode === PaymentModeType::sandbox ?
                             'https://app.sandbox.midtrans.com/snap/v1/transactions'
                             : 'https://app.midtrans.com/snap/v1/transactions',
