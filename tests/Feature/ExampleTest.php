@@ -47,6 +47,31 @@ class ExampleTest extends TestCase
         $response->assertSee('Payment Monitoring');
     }
 
+    public function test_only_admin_can_view_log_viewer(): void
+    {
+        $admin = new User([
+            'name' => 'Test Admin',
+            'email' => 'admin@example.com',
+            'role' => UserRole::ADMIN,
+        ]);
+        $admin->id = 1;
+
+        $user = new User([
+            'name' => 'Test User',
+            'email' => 'user@example.com',
+            'role' => UserRole::USER,
+        ]);
+        $user->id = 2;
+
+        $this->actingAs($admin)
+            ->get('/log-viewer')
+            ->assertStatus(200);
+
+        $this->actingAs($user)
+            ->get('/log-viewer')
+            ->assertForbidden();
+    }
+
     public function test_admin_can_view_resource_tabs(): void
     {
         $admin = new User([
