@@ -6,13 +6,10 @@ use App\Http\Controllers\Controller;
 
 use App\Http\Helper\LogHelper;
 use App\Http\Helper\ResponseHelper;
-use App\Model\Entity\Project;
 use App\Services\System\ProjectService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
 use Exception;
 
 class ProjectController extends Controller
@@ -36,19 +33,10 @@ class ProjectController extends Controller
     public function store(Request $request): JsonResponse
     {
         try {
-            DB::beginTransaction();
-            $insert = $this->projectService->create($request);
-            DB::commit();
-            Schema::create('log__' . $insert->id, function (Blueprint $table) {
-                $table->increments('id');
-                $table->string('key');
-                $table->text('value');
-                $table->text('ip');
-                $table->timestamps();
-            });
+            $insert = $this->projectService->createWithLog($request);
+
             return ResponseHelper::successResponse($insert, "Success Create Project");
         } catch (Exception $ex) {
-            DB::rollback();
             LogHelper::sendErrorLog($ex);
             return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400, $ex->getLine());
         }
@@ -79,6 +67,20 @@ class ProjectController extends Controller
         } catch (Exception $ex) {
             DB::rollback();
             LogHelper::sendErrorLog($ex);
+            return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400, $ex->getLine());
+        }
+    }
+
+    public function syncMissingLog(): JsonResponse
+    {
+        try {
+            return ResponseHelper::successResponse(
+                $this->projectService->syncMissingLogTables(),
+                'Success Sync Missing Project Logs',
+            );
+        } catch (Exception $ex) {
+            LogHelper::sendErrorLog($ex);
+
             return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400, $ex->getLine());
         }
     }

@@ -8,6 +8,11 @@ use Illuminate\Pagination\LengthAwarePaginator;
 
 class OrderRepository extends BaseRepository
 {
+    public function latestPaginated(int $perPage = 15): LengthAwarePaginator
+    {
+        return Order::latest()->paginate($perPage);
+    }
+
     public function latestByType(string $type, int $perPage = 15): LengthAwarePaginator
     {
         return Order::where('type', $type)->latest()->paginate($perPage);

@@ -41,6 +41,10 @@ class OrderService
 
     public function getListOrder(Request $request): LengthAwarePaginator
     {
+        if (auth('sanctum')->user()?->isAdmin()) {
+            return $this->orders->latestPaginated((int) ($request->perPage ?? 15));
+        }
+
         $project = $this->projectService->checkKey();
 
         return $this->orders->latestByType($project->type, (int) ($request->perPage ?? 15));

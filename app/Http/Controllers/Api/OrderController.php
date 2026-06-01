@@ -7,7 +7,10 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Http\Helper\FormatHelper;
 use App\Http\Helper\LogHelper;
+use App\Http\Helper\RequestHelper;
 use App\Http\Helper\ResponseHelper;
+use App\Model\Entity\Order;
+use App\Model\Entity\Project;
 use App\Services\Payment\OrderService;
 use App\Services\System\ProjectService;
 use Illuminate\Support\Facades\DB;
@@ -56,6 +59,11 @@ class OrderController extends Controller
         }
     }
 
+    public function show(int|string $id): JsonResponse
+    {
+        return ResponseHelper::successResponse(Order::query()->findOrFail($id));
+    }
+
     public function checkOrderStatus(Request $request): JsonResponse
     {
         try {
@@ -78,6 +86,42 @@ class OrderController extends Controller
             DB::rollback();
             LogHelper::sendErrorLog($ex);
             return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400, $ex->getLine(), $ex->getFile());
+        }
+    }
+
+    public function resendCallback(int|string $id): JsonResponse
+    {
+        try {
+            /** @var Order $order */
+            $order = Order::query()->findOrFail($id);
+            $status = $order->getStatus();
+            if (! $status?->isSuccess()) {
+                throw new Exception('Only successful orders can resend callback.');
+            }
+
+            $project = $order->project ?: Project::query()->where('type', $order->type)->first();
+            if (! $project || ! $project->value || ! $project->callback) {
+                throw new Exception('Project callback configuration is incomplete.');
+            }
+
+            $referenceParts = explode('-', (string) $order->reference);
+            array_shift($referenceParts);
+
+            RequestHelper::sendCallback(
+                $project->value,
+                [
+                    'merchantOrderId' => implode('-', $referenceParts),
+                    'paymentCode' => $order->payment_method,
+                    'resultCode' => '00',
+                ],
+                $project->callback,
+            );
+
+            return ResponseHelper::successResponse(null, 'Callback resent for '.$order->reference.'.');
+        } catch (Exception $ex) {
+            LogHelper::sendErrorLog($ex);
+
+            return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400, $ex->getLine());
         }
     }
 }

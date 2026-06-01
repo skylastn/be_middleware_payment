@@ -7,7 +7,10 @@ use App\Model\Entity\Order;
 use App\Model\Entity\PaymentGateway;
 use App\Model\Entity\Project;
 use App\Model\Entity\User;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Schema;
+use Laravel\Sanctum\Sanctum;
 // use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -30,6 +33,30 @@ class ExampleTest extends TestCase
         $response = $this->get('/login');
 
         $response->assertStatus(200);
+        $response->assertSee('backoffice-root');
+    }
+
+    public function test_admin_can_login_with_api_token(): void
+    {
+        $email = 'token-admin-'.uniqid().'@example.com';
+        $admin = User::query()->create([
+            'name' => 'Token Admin',
+            'email' => $email,
+            'password' => Hash::make('password'),
+            'role' => UserRole::ADMIN,
+        ]);
+
+        try {
+            $this->postJson('/api/admin/login', [
+                'email' => $email,
+                'password' => 'password',
+            ])
+                ->assertStatus(200)
+                ->assertJsonStructure(['token', 'user' => ['name', 'email']]);
+        } finally {
+            $admin->tokens()->delete();
+            $admin->delete();
+        }
     }
 
     public function test_admin_can_view_dashboard(): void
@@ -41,10 +68,44 @@ class ExampleTest extends TestCase
         ]);
         $admin->id = 1;
 
-        $response = $this->actingAs($admin)->get('/dashboard');
+        $response = $this->get('/dashboard');
 
         $response->assertStatus(200);
-        $response->assertSee('Payment Monitoring');
+        $response->assertSee('backoffice-root');
+    }
+
+    public function test_admin_can_load_dashboard_data_api(): void
+    {
+        $admin = new User([
+            'name' => 'Test Admin',
+            'email' => 'admin@example.com',
+            'role' => UserRole::ADMIN,
+        ]);
+        $admin->id = 1;
+
+        Sanctum::actingAs($admin);
+
+        $this->getJson('/api/admin/dashboard')
+            ->assertStatus(200)
+            ->assertJsonStructure([
+                'summary' => [
+                    'orders',
+                    'paidOrders',
+                    'pendingOrders',
+                    'failedOrders',
+                    'projects',
+                    'paymentGateways',
+                    'paymentRepositories',
+                    'paymentMethods',
+                ],
+                'statusCounts',
+                'statusMix' => ['success', 'pending', 'failedExpired', 'successDeg', 'pendingDeg'],
+                'modeCounts',
+                'recentOrders',
+                'projects',
+                'repositories',
+                'updatedAt',
+            ]);
     }
 
     public function test_only_admin_can_view_log_viewer(): void
@@ -81,22 +142,17 @@ class ExampleTest extends TestCase
         ]);
         $admin->id = 1;
 
-        $this->actingAs($admin)
-            ->get('/admin/orders')
+        $this->get('/admin/orders')
             ->assertStatus(200)
-            ->assertSee('Orders')
-            ->assertSee('View')
-            ->assertDontSee('Create Order')
-            ->assertDontSee('Edit')
-            ->assertDontSee('Delete');
+            ->assertSee('backoffice-root')
+            ->assertDontSee('Create Order');
 
-        $this->actingAs($admin)
-            ->get('/admin/projects/create')
+        $this->get('/admin/projects/create')
             ->assertStatus(200)
-            ->assertSee('Create Project')
-            ->assertDontSee('Key')
-            ->assertDontSee('Secure')
-            ->assertDontSee('Value');
+            ->assertSee('backoffice-root')
+            ->assertDontSee('data-readonly-field="key"', false)
+            ->assertDontSee('data-readonly-field="secure"', false)
+            ->assertDontSee('data-readonly-field="value"', false);
     }
 
     public function test_admin_edit_links_use_primary_keys(): void
@@ -110,18 +166,16 @@ class ExampleTest extends TestCase
 
         $project = Project::query()->first();
         if ($project) {
-            $this->actingAs($admin)
-                ->get('/admin/projects/'.$project->getAttribute($project->getKeyName()).'/edit')
+            $this->get('/admin/projects/'.$project->getAttribute($project->getKeyName()).'/edit')
                 ->assertStatus(200)
-                ->assertSee('Edit Project');
+                ->assertSee('backoffice-root');
         }
 
         $gateway = PaymentGateway::query()->first();
         if ($gateway) {
-            $this->actingAs($admin)
-                ->get('/admin/payment-gateways/'.$gateway->getAttribute($gateway->getKeyName()).'/edit')
+            $this->get('/admin/payment-gateways/'.$gateway->getAttribute($gateway->getKeyName()).'/edit')
                 ->assertStatus(200)
-                ->assertSee('Edit Payment Gateway');
+                ->assertSee('backoffice-root');
         }
     }
 
@@ -137,22 +191,65 @@ class ExampleTest extends TestCase
         $type = 'TEST'.uniqid();
 
         try {
-            $this->actingAs($admin)
-                ->post('/admin/projects', [
+            Sanctum::actingAs($admin);
+
+            $this->postJson('/api/project/create', [
                     'name' => 'Generated Credential Test',
                     'type' => $type,
                     'slug' => 'duitku',
                     'callback' => 'https://example.com/callback',
                 ])
-                ->assertRedirect('/admin/projects');
+                ->assertStatus(200);
 
             $project = Project::query()->where('type', $type)->firstOrFail();
 
             $this->assertSame(10, strlen($project->key));
             $this->assertSame(20, strlen($project->secure));
             $this->assertSame(60, strlen($project->value));
+            $this->assertTrue(Schema::hasTable('log__'.$project->id));
         } finally {
-            Project::query()->where('type', $type)->delete();
+            $project = Project::query()->where('type', $type)->first();
+            if ($project) {
+                Schema::dropIfExists('log__'.$project->id);
+                $project->delete();
+            }
+        }
+    }
+
+    public function test_admin_can_sync_missing_project_log_tables(): void
+    {
+        $admin = new User([
+            'name' => 'Test Admin',
+            'email' => 'admin@example.com',
+            'role' => UserRole::ADMIN,
+        ]);
+        $admin->id = 1;
+
+        $project = Project::query()->create([
+            'name' => 'Missing Log Test',
+            'type' => 'LOG'.uniqid(),
+            'slug' => 'duitku',
+            'callback' => 'https://example.com/callback',
+            'key' => 'logkey',
+            'secure' => 'logsecurevalue',
+            'value' => 'logtokenvalue',
+        ]);
+
+        try {
+            Schema::dropIfExists('log__'.$project->id);
+            $this->assertFalse(Schema::hasTable('log__'.$project->id));
+
+            Sanctum::actingAs($admin);
+
+            $response = $this->postJson('/api/project/sync-missing-log')
+                ->assertStatus(200)
+                ->assertJsonPath('status', true);
+
+            $this->assertTrue(Schema::hasTable('log__'.$project->id));
+            $this->assertContains('log__'.$project->id, $response->json('data.tables'));
+        } finally {
+            Schema::dropIfExists('log__'.$project->id);
+            $project->delete();
         }
     }
 
@@ -178,19 +275,19 @@ class ExampleTest extends TestCase
         try {
             $projectId = $project->getAttribute($project->getKeyName());
 
-            $this->actingAs($admin)
-                ->get('/admin/projects/'.$projectId.'/edit')
+            $this->get('/admin/projects/'.$projectId.'/edit')
                 ->assertStatus(200)
-                ->assertSee('Key')
-                ->assertSee('Secure')
-                ->assertSee('Value')
+                ->assertSee('backoffice-root');
+
+            Sanctum::actingAs($admin);
+
+            $this->getJson('/api/project/'.$projectId)
+                ->assertStatus(200)
                 ->assertSee('originalkey')
                 ->assertSee('originalsecurevalue')
-                ->assertSee('originaltokenvalue')
-                ->assertSee('readonly', false);
+                ->assertSee('originaltokenvalue');
 
-            $this->actingAs($admin)
-                ->put('/admin/projects/'.$projectId, [
+            $this->putJson('/api/project/'.$projectId, [
                     'name' => 'Credential Lock Test Updated',
                     'type' => $project->type,
                     'slug' => 'xendit',
@@ -199,7 +296,7 @@ class ExampleTest extends TestCase
                     'secure' => 'changedsecure',
                     'value' => 'changedvalue',
                 ])
-                ->assertRedirect('/admin/projects');
+                ->assertStatus(200);
 
             $project->refresh();
 
@@ -227,14 +324,18 @@ class ExampleTest extends TestCase
 
         $orderId = $order->getAttribute($order->getKeyName());
 
-        $this->actingAs($admin)
-            ->get('/admin/orders/'.$orderId)
+        $this->get('/admin/orders/'.$orderId)
             ->assertStatus(200)
-            ->assertSee('View Order');
+            ->assertSee('backoffice-root');
 
-        $this->actingAs($admin)
-            ->get('/admin/orders/'.$orderId.'/edit')
-            ->assertForbidden();
+        $this->get('/admin/orders/'.$orderId.'/edit')
+            ->assertStatus(200)
+            ->assertSee('backoffice-root');
+
+        Sanctum::actingAs($admin);
+
+        $this->putJson('/api/order/'.$orderId, [])
+            ->assertStatus(405);
     }
 
     public function test_admin_can_resend_success_order_callback(): void
@@ -259,9 +360,10 @@ class ExampleTest extends TestCase
             '*' => Http::response(['ok' => true], 200),
         ]);
 
-        $this->actingAs($admin)
-            ->post('/admin/orders/'.$order->getAttribute($order->getKeyName()).'/resend-callback')
-            ->assertRedirect();
+        Sanctum::actingAs($admin);
+
+        $this->postJson('/api/order/'.$order->getAttribute($order->getKeyName()).'/resend-callback')
+            ->assertStatus(200);
 
         Http::assertSentCount(1);
     }
