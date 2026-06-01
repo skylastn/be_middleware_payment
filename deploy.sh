@@ -1,17 +1,27 @@
 # Load environment variables from .env file
-# source .env
+if [ -f .env ]; then
+    set -a
+    . ./.env
+    set +a
+fi
 
-# Jalankan perintah nohup dan simpan output ke docker-compose.log
+# Run the Docker Compose commands in the background and write the output to docker-compose.log
 nohup bash -c 'docker compose down && docker compose build && docker compose up -d' >docker-compose.log 2>&1 &
 
-# Tunggu hingga perintah nohup selesai
+# Wait until the background command finishes
 wait $!
-DISCORD_TOKEN="https://discord.com/api/webhooks/1335524843843616842/Apk0MtQvVhr85gCZwsCl0CIeuCgAWFNPQw7swgc5Vfr1Gu_Z5TjYsM9Ito0a6HE8SRHM"
-# Cek status keluar
-if [ $? -ne 0 ]; then
-    # Jika terjadi error, kirim notifikasi ke Discord dengan file log
-    curl -F "file=@docker-compose.log" -F "content=Error saat menjalankan docker-compose. Lihat log untuk detail." $DISCORD_TOKEN
+deployStatus=$?
+
+if [ -z "$DISCORD_WEBHOOK" ]; then
+    echo "DISCORD_WEBHOOK is not set in .env"
+    exit 1
+fi
+
+# Check the exit status
+if [ $deployStatus -ne 0 ]; then
+    # If an error occurs, send a Discord notification with the log file
+    curl -F "file=@docker-compose.log" -F "content=Error while running docker-compose. See the log for details." "$DISCORD_WEBHOOK"
 else
-    # Jika berhasil, kirim notifikasi ke Discord dengan file log
-    curl -F "file=@docker-compose.log" -F "content=Docker-compose berhasil dijalankan. Lihat log untuk detail." $DISCORD_TOKEN
+    # If successful, send a Discord notification with the log file
+    curl -F "file=@docker-compose.log" -F "content=Docker Compose ran successfully. See the log for details." "$DISCORD_WEBHOOK"
 fi

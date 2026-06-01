@@ -38,7 +38,7 @@ trait BaseModelTrait
     {
         $model = static::create($data);
 
-        // Panggil findOrFailCustom biar konsisten dengan validasi not found
+        // Use findOrFailCustom to keep not-found validation consistent.
         return static::findOrFailCustom($model->id);
     }
 }

@@ -116,7 +116,7 @@ class XenditService
             //         'quantity' => 1,
             //         'price' => $request->paymentAmount ?? 0,
             //         'category' => 'Payment',
-            //         'url' => $cek['data']->callback
+            //         'url' => $check['data']->callback
             //     ]
             // ],
             // 'fees' => [

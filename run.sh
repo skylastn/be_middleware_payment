@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# Cek versi PHP saat ini (dua digit pertama)
+# Check the current PHP version (major.minor)
 phpVersion=$(php -r 'echo trim(preg_replace("/^(\d+\.\d+).*/", "$1", PHP_VERSION));')
 echo "PHP Version: $phpVersion"
-phpVersionProject="8.2"
+phpVersionProject="8.4"
 
-# Jika versi PHP tidak sama dengan 8.1, unlink versi saat ini dan link ke 8.1
+# If the PHP version does not match the project version, unlink the current version and link the project version
 if [ "$phpVersion" != "$phpVersionProject" ]; then
     echo "Unlinking php@$phpVersion"
     brew unlink php@$phpVersion || (

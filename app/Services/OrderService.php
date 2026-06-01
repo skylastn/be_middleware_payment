@@ -33,8 +33,8 @@ class OrderService
 
     public function getListOrder(Request $request): LengthAwarePaginator
     {
-        $cek        = $this->projectService->checkKey();
-        return Order::where('type', $cek->type)->latest()->paginate($request->perPage);;
+        $project = $this->projectService->checkKey();
+        return Order::where('type', $project->type)->latest()->paginate($request->perPage);;
     }
 
     public function detailByReferenceAndKey(string $reference, ?string $projectType): ?Order

@@ -10,8 +10,8 @@ services:
     volumes:
       - .:/app
     networks:
-      - middleware-payment # Gunakan network yang didefinisikan di bawah
+      - middleware-payment # Use the network defined below
 
 networks:
   middleware-payment:
-    driver: bridge # Gunakan driver bridge (default untuk komunikasi antar-container)
+    driver: bridge # Use the bridge driver (default for container-to-container communication)
