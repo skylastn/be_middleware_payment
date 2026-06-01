@@ -1,9 +1,9 @@
 <?php
 
-namespace App\Repository;
+namespace App\Repository\Payment;
 
 use App\Enums\NetworkType;
-use App\Services\NetworkService;
+use App\Services\Network\NetworkService;
 use Duitku\Config;
 use Exception;
 use GuzzleHttp\Exception\RequestException;
@@ -15,7 +15,8 @@ class DuitkuRepository
     public function __construct(Config $config)
     {
         $this->config = $config;
-        $this->url = $this->config->getApiUrl() . '/webapi/api/merchant/v2/';
+        $apiUrl = (string) $this->config->getApiUrl();
+        $this->url = rtrim($apiUrl, '/') . '/webapi/api/merchant/v2/';
     }
     public function createInvoice(array $params): ?string
     {

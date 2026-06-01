@@ -3,8 +3,8 @@
 namespace Database\Seeders;
 
 use App\Enums\PaymentModeType;
-use App\Models\PaymentGateway;
-use App\Models\PaymentRepository;
+use App\Model\Entity\PaymentGateway;
+use App\Model\Entity\PaymentRepository;
 use Illuminate\Database\Seeder;
 
 class PaymentRepoSeeder extends Seeder

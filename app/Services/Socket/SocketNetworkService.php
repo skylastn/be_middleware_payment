@@ -3,7 +3,7 @@
 namespace App\Services\Socket;
 
 use App\Http\Helper\FormatHelper;
-use App\Models\Response\Socket\SocketMiddlewareResponse;
+use App\Model\Response\Socket\SocketMiddlewareResponse;
 use Exception;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;

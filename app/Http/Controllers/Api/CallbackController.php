@@ -1,6 +1,8 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
 
 use App\Http\Helper\LogHelper;
 use App\Http\Helper\ResponseHelper;
@@ -22,7 +24,7 @@ class CallbackController extends Controller
     {
         $this->spnPayService = new SPNPayService();
         $this->duitkuService = new DuitkuService();
-        $this->spnPayService = new SPNPayService();
+        $this->xenditService = new XenditService();
         $this->midtransService = new MidtransService();
     }
 

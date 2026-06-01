@@ -2,7 +2,7 @@
 
 namespace App\Services\Socket;
 
-use App\Models\Response\Socket\SocketMiddlewareResponse;
+use App\Model\Response\Socket\SocketMiddlewareResponse;
 use Illuminate\Support\Facades\Log;
 
 class MiddlewareSocketService

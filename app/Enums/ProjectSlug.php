@@ -37,16 +37,20 @@ enum ProjectSlug: string
     }
 
 
-    public static function fromName(string $value): ProjectSlug
+    public static function fromName(string|ProjectSlug $value): ProjectSlug
     {
+        if ($value instanceof ProjectSlug) {
+            return $value;
+        }
+
         switch ($value) {
-            case self::MIDTRANS:
+            case self::MIDTRANS->value:
                 return ProjectSlug::MIDTRANS;
-            case self::XENDIT:
+            case self::XENDIT->value:
                 return ProjectSlug::XENDIT;
-            case self::DUITKU:
+            case self::DUITKU->value:
                 return ProjectSlug::DUITKU;
-            case self::SPNPAY:
+            case self::SPNPAY->value:
                 return ProjectSlug::SPNPAY;
             default:
                 return ProjectSlug::DUITKU;

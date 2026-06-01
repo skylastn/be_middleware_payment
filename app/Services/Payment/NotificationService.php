@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Services;
+namespace App\Services\Payment;
 
-use App\Models\Order;
+use App\Model\Entity\Order;
 use App\Services\Socket\MiddlewareSocketService;
 
 class NotificationService

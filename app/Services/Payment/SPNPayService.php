@@ -5,11 +5,11 @@ namespace App\Services\Payment;
 use App\Http\Helper\FormatHelper;
 use App\Http\Helper\LogHelper;
 use App\Http\Helper\RequestHelper;
-use App\Models\Order;
-use App\Models\PaymentMethod;
-use App\Models\PaymentRepository;
-use App\Models\Project;
-use App\Repository\SPNPayRepository;
+use App\Model\Entity\Order;
+use App\Model\Entity\PaymentMethod;
+use App\Model\Entity\PaymentRepository;
+use App\Model\Entity\Project;
+use App\Repository\Payment\SPNPayRepository;
 use Exception;
 use Illuminate\Http\Request;
 

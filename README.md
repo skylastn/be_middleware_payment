@@ -1,64 +1,140 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Middleware Payment Backend
 
-<p align="center">
-<a href="https://travis-ci.org/laravel/framework"><img src="https://travis-ci.org/laravel/framework.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Laravel backend service for creating and managing payment orders across supported payment gateways: Duitku, Midtrans, Xendit, and SPNPay.
 
-## About Laravel
+## Requirements
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+- PHP 8.4
+- Composer 2
+- Node.js and npm
+- MySQL
+- Docker, for container deployment
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Setup
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+```bash
+composer install
+npm install
+cp .env.example .env
+php artisan key:generate
+```
 
-## Learning Laravel
+Update `.env` with your local database, payment, socket, and deployment values:
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+```env
+APP_URL=http://localhost
+PAYMENT_URL=https://payment.sample.com
+PAYMENT_APP_KEY=
+SOCKET_API_URL=http://localhost
+SERVER_PORT=2000
+DISCORD_WEBHOOK=
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains over 2000 video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+DB_DATABASE=
+DB_USERNAME=
+DB_PASSWORD=
+```
 
-## Laravel Sponsors
+Run migrations and seed the initial payment data:
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the Laravel [Patreon page](https://patreon.com/taylorotwell).
+```bash
+php artisan migrate
+make initSeeder
+```
 
-### Premium Partners
+## Local Development
 
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Cubet Techno Labs](https://cubettech.com)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[Many](https://www.many.co.uk)**
-- **[Webdock, Fast VPS Hosting](https://www.webdock.io/en)**
-- **[DevSquad](https://devsquad.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
-- **[OP.GG](https://op.gg)**
-- **[WebReinvent](https://webreinvent.com/?utm_source=laravel&utm_medium=github&utm_campaign=patreon-sponsors)**
-- **[Lendio](https://lendio.com)**
+Run the Laravel development server:
 
-## Contributing
+```bash
+make run
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+`run.sh` expects PHP 8.4 and starts the app on port `2000`.
 
-## Code of Conduct
+Frontend assets use Vite:
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+```bash
+npm run dev
+npm run build
+```
 
-## Security Vulnerabilities
+## Docker Deployment
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+The Docker image uses FrankenPHP with PHP 8.4 and runs Laravel Octane.
 
-## License
+```bash
+make deployLocalDocker
+```
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+For production:
+
+```bash
+make deployProduction
+```
+
+`deploy.sh` loads `.env`, runs Docker Compose, writes logs to `docker-compose.log`, and sends the result to `DISCORD_WEBHOOK`.
+
+## Architecture
+
+The project follows the reference backend structure used in `fariva_med/backend`.
+
+```text
+app/
+  Http/
+    Controllers/
+      Api/              API controllers
+    Helper/             Shared response, request, log, and format helpers
+  Model/
+    Entity/             Eloquent models
+    Request/            Form request classes
+    Response/           API resource classes
+  Models/               Compatibility wrappers for Laravel defaults and old imports
+  Repository/
+    Payment/            Payment data access and gateway repositories
+    System/             System/domain data access
+    BaseRepository.php  Shared repository helpers
+  Services/
+    Network/            HTTP/network service layer
+    Payment/            Payment business logic
+    Socket/             Socket notification integration
+    System/             Project/system business logic
+```
+
+Controllers should stay thin. Business rules belong in `Services`, database access belongs in `Repository`, and API serialization belongs in `Model/Response`.
+
+## Main API Groups
+
+- `POST /api/order/create`
+- `GET /api/order`
+- `GET /api/order/detail`
+- `GET /api/order/checkOrderStatus`
+- `POST /api/payment/createPayment`
+- `GET /api/payment/getPaymentCategory`
+- `GET /api/payment/getPaymentMethod`
+- `GET /api/payment/getDetailPaymentMethod`
+- `POST /api/callback/duitku`
+- `POST /api/callback/midtrans`
+- `POST /api/callback/xendit`
+- `POST /api/callback/spnpay`
+- `GET /api/project`
+- `POST /api/project/create`
+- `PUT /api/project/{id}`
+
+## Useful Commands
+
+```bash
+php artisan test
+php artisan route:list --path=api
+composer dump-autoload
+make freshInstall
+make initSeeder
+```
+
+## Verification
+
+Before pushing changes, run:
+
+```bash
+find app database routes tests -name '*.php' -print0 | xargs -0 -n1 php -l
+php artisan test
+```

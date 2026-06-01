@@ -1,15 +1,12 @@
 <?php
 
-namespace App\Services;
+namespace App\Services\Payment;
 
 use App\Enums\ProjectSlug;
 use App\Http\Helper\FormatHelper;
-use App\Models\Order;
-use App\Models\Project;
-use App\Services\Payment\DuitkuService;
-use App\Services\Payment\MidtransService;
-use App\Services\Payment\SPNPayService;
-use App\Services\Payment\XenditService;
+use App\Model\Entity\Order;
+use App\Repository\Payment\OrderRepository;
+use App\Services\System\ProjectService;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -18,6 +15,7 @@ use stdClass;
 class OrderService
 {
     private ProjectService $projectService;
+    private OrderRepository $orders;
     private XenditService $xenditService;
     private DuitkuService $duitkuService;
     private MidtransService $midtransService;
@@ -25,6 +23,7 @@ class OrderService
     public function __construct()
     {
         $this->projectService = new ProjectService();
+        $this->orders = new OrderRepository();
         $this->xenditService = new XenditService();
         $this->duitkuService = new DuitkuService();
         $this->midtransService = new MidtransService();
@@ -34,16 +33,12 @@ class OrderService
     public function getListOrder(Request $request): LengthAwarePaginator
     {
         $project = $this->projectService->checkKey();
-        return Order::where('type', $project->type)->latest()->paginate($request->perPage);;
+        return $this->orders->latestByType($project->type, (int) ($request->perPage ?? 15));
     }
 
     public function detailByReferenceAndKey(string $reference, ?string $projectType): ?Order
     {
-        return Order::where('reference', $reference)
-            ->when($projectType, function ($query) use ($projectType) {
-                $query->where('type', $projectType);
-            })
-            ->latest()->first();
+        return $this->orders->latestByReference($reference, $projectType);
     }
 
     public function checkOrderStatus(string $reference): ?stdClass
@@ -53,7 +48,7 @@ class OrderService
         if (!FormatHelper::isNotEmpty($order)) {
             throw new Exception('Order Not Found');
         }
-        $slug       = ProjectSlug::fromName($project->slug);
+        $slug = $project->getSlug();
         $result = null;
         switch ($slug) {
             case ProjectSlug::DUITKU:

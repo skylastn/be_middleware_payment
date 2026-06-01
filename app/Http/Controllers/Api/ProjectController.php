@@ -1,11 +1,13 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
 
 use App\Http\Helper\LogHelper;
 use App\Http\Helper\ResponseHelper;
-use App\Models\Project;
-use App\Services\ProjectService;
+use App\Model\Entity\Project;
+use App\Services\System\ProjectService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Schema\Blueprint;
@@ -57,6 +59,7 @@ class ProjectController extends Controller
 
             DB::beginTransaction();
             $project = $this->projectService->update($request, $id);
+            DB::commit();
             return ResponseHelper::successResponse($project);
         } catch (Exception $ex) {
             DB::rollback();
@@ -70,6 +73,7 @@ class ProjectController extends Controller
         try {
             DB::beginTransaction();
             $project = $this->projectService->delete($id);
+            DB::commit();
             return ResponseHelper::successResponse($project);
         } catch (Exception $ex) {
             DB::rollback();

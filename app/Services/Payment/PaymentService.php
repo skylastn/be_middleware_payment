@@ -3,10 +3,12 @@
 namespace App\Services\Payment;
 
 use App\Http\Helper\FormatHelper;
-use App\Models\Order;
-use App\Models\PaymentCategory;
-use App\Models\PaymentMethod;
-use App\Models\Project;
+use App\Enums\ProjectSlug;
+use App\Model\Entity\PaymentMethod;
+use App\Repository\Payment\OrderRepository;
+use App\Repository\Payment\PaymentCategoryRepository;
+use App\Repository\Payment\PaymentMethodRepository;
+use App\Repository\System\ProjectRepository;
 use Exception;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
@@ -14,37 +16,33 @@ use Illuminate\Http\Request;
 class PaymentService
 {
     private SPNPayService $spnPayService;
+    private OrderRepository $orders;
+    private PaymentCategoryRepository $paymentCategories;
+    private PaymentMethodRepository $paymentMethods;
+    private ProjectRepository $projects;
+
     public function __construct()
     {
         $this->spnPayService = new SPNPayService();
+        $this->orders = new OrderRepository();
+        $this->paymentCategories = new PaymentCategoryRepository();
+        $this->paymentMethods = new PaymentMethodRepository();
+        $this->projects = new ProjectRepository();
     }
 
     public function getListPaymentCategory(): Collection
     {
-        $result = PaymentCategory::get();
-        return $result;
+        return $this->paymentCategories->all();
     }
 
     public function getListPaymentMethod(Request $request): Collection
     {
-        $categoriesKey  = $request->categoriesKey;
-        $from           = $request->from;
-        $result         = PaymentMethod::when($categoriesKey, function ($query) use ($categoriesKey) {
-            return $query->whereIn('key', $categoriesKey);
-        })->when($from, function ($query) use ($from) {
-            return $query->where('from', $from);
-        })->get();
-        return $result;
+        return $this->paymentMethods->filtered($request->categoriesKey, $request->from);
     }
 
-    public function getDetailPaymentMethod(?string $value, ?string $from): PaymentMethod
+    public function getDetailPaymentMethod(?string $value, ?string $from): ?PaymentMethod
     {
-        $result         = PaymentMethod::when($value, function ($query) use ($value) {
-            return $query->where('value', $value);
-        })->when($from, function ($query) use ($from) {
-            return $query->where('from', $from);
-        })->first();
-        return $result;
+        return $this->paymentMethods->detail($value, $from);
     }
 
     public function createPayment(Request $request): ?array
@@ -53,11 +51,11 @@ class PaymentService
         if (env('PAYMENT_APP_KEY') != request()->header('Key')) {
             throw new Exception("Unauthorized", 403);
         }
-        $order  = Order::where('reference', $request->reference)->latest()->first();
+        $order = $this->orders->latestByReference($request->reference);
         if (!FormatHelper::isNotEmpty($order)) {
             throw new Exception("Order Not Found", 403);
         }
-        $project = Project::where('type', $order->type)->first();
+        $project = $this->projects->findByType($order->type);
         if (!FormatHelper::isNotEmpty($project)) {
             throw new Exception("Project Not Found", 403);
         }
@@ -70,7 +68,7 @@ class PaymentService
         // if ($project->slug == "duitku") {
         //     return DuitkuService::orderDuitku($request, $project);
         // }
-        if ($project->slug == "spnpay") {
+        if ($project->getSlug() === ProjectSlug::SPNPAY) {
             $result = $this->spnPayService->createOrderPaymentSPNPay($request, $project, $order);
         }
         return $result;

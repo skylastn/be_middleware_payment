@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services;
+namespace App\Services\Network;
 
 use App\Enums\NetworkType;
 use GuzzleHttp\Client;

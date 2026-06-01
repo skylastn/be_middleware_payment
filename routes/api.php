@@ -1,13 +1,13 @@
 <?php
 
-use App\Http\Controllers\CallbackController;
-use App\Http\Controllers\OrderController;
-use App\Http\Controllers\OtherController;
-use App\Http\Controllers\PaymentController;
-use App\Models\Project;
+use App\Http\Controllers\Api\CallbackController;
+use App\Http\Controllers\Api\OrderController;
+use App\Http\Controllers\Api\OtherController;
+use App\Http\Controllers\Api\PaymentController;
+use App\Model\Entity\Project;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\ProjectController;
+use App\Http\Controllers\Api\ProjectController;
 
 /*
 |--------------------------------------------------------------------------

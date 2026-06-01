@@ -3,12 +3,21 @@
 namespace App\Services\Payment;
 
 use App\Http\Helper\FormatHelper;
-use App\Models\PaymentGateway;
-use App\Models\PaymentRepository;
+use App\Model\Entity\PaymentRepository;
+use App\Repository\Payment\PaymentGatewayRepository;
+use App\Repository\Payment\PaymentRepositoryRepository;
 use Exception;
 
 class PaymentRepositoryService
 {
+    public function __construct(
+        private ?PaymentGatewayRepository $paymentGateways = null,
+        private ?PaymentRepositoryRepository $paymentRepositories = null,
+    ) {
+        $this->paymentGateways ??= new PaymentGatewayRepository();
+        $this->paymentRepositories ??= new PaymentRepositoryRepository();
+    }
+
     public function getById($id): PaymentRepository
     {
         return PaymentRepository::findOrFailCustom($id);
@@ -16,10 +25,10 @@ class PaymentRepositoryService
 
     public function getByPaymentGatewayKey(string $key,  string $mode): ?PaymentRepository
     {
-        $pg = PaymentGateway::where('key', $key)->first();
+        $pg = $this->paymentGateways->findByKey($key);
         if (!FormatHelper::isNotEmpty($pg)) {
             throw new Exception('Payment Gateway Not Found');
         }
-        return PaymentRepository::where('payment_gateway_id', $pg->id)->where('mode', $mode)->first();
+        return $this->paymentRepositories->findByGatewayAndMode($pg->id, $mode);
     }
 }
