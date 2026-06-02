@@ -7,7 +7,6 @@ use App\Model\Entity\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\ValidationException;
 
 class AdminAuthController extends Controller
 {
@@ -21,9 +20,10 @@ class AdminAuthController extends Controller
         /** @var User|null $user */
         $user = User::query()->where('email', $credentials['email'])->first();
         if (! $user || ! Hash::check($credentials['password'], $user->password) || ! $user->isAdmin()) {
-            throw ValidationException::withMessages([
-                'email' => 'Invalid admin credentials.',
-            ]);
+            return response()->json([
+                'message' => 'Invalid admin credentials.',
+                'errors' => ['email' => ['Invalid admin credentials.']],
+            ], 422);
         }
 
         return response()->json([

@@ -47,7 +47,7 @@ class ExampleTest extends TestCase
         ]);
 
         try {
-            $this->postJson('/api/admin/login', [
+            $this->postJson('/api/login', [
                 'email' => $email,
                 'password' => 'password',
             ])

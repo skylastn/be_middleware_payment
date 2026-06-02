@@ -166,7 +166,7 @@ async function api(url, options = {}) {
 }
 
 async function login(email, password) {
-    const data = await api('/api/admin/login', {
+    const data = await api('/api/login', {
         method: 'POST',
         body: JSON.stringify({ email, password }),
     });

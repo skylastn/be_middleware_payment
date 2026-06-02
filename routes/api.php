@@ -96,13 +96,10 @@ Route::middleware('throttle:api')->group(function () {
         return $request->user();
     });
 
-});
+    // Admin login API (usable at /api/login for simplicity, also kept under /admin for compat)
+    Route::post('/login', [AdminAuthController::class, 'login']);
 
-Route::prefix('admin')
-    ->name('admin.api.')
-    ->group(function (): void {
-        Route::post('/login', [AdminAuthController::class, 'login'])->name('login');
-    });
+});
 
 Route::middleware(['auth:sanctum', 'admin'])
     ->prefix('admin')
