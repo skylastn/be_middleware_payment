@@ -4,7 +4,7 @@ namespace App\Services\System;
 
 use App\Enums\ProjectSlug;
 use App\Repository\System\ProjectRepository;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Http\Request;
 use App\Model\Entity\Project;
 use Exception;
@@ -31,12 +31,37 @@ class ProjectService
 
     public function getListProject(Request $request): LengthAwarePaginator
     {
+        $token = request()->header('Token');
+        if ($token) {
+            $project = $this->projects->findByToken($token);
+            if ($project) {
+                $items = collect([$project]);
+                $perPage = (int) ($request->perPage ?? 15);
+                return new LengthAwarePaginator(
+                    $items,
+                    $items->count(),
+                    $perPage,
+                    1,
+                    ['path' => request()->url()]
+                );
+            }
+            throw new Exception('Unauthorized');
+        }
+
         return $this->projects->latestPaginated((int) ($request->perPage ?? 15));
     }
 
     public function getProjectById(int|string $id): ?Project
     {
-        return $this->projects->find($id);
+        $token = request()->header('Token');
+        $project = $this->projects->find($id);
+        if ($token) {
+            $tokenProject = $this->projects->findByToken($token);
+            if (! $tokenProject || ! $project || $tokenProject->id != $project->id) {
+                throw new Exception('Unauthorized');
+            }
+        }
+        return $project;
     }
 
     public function create(Request $request): Project

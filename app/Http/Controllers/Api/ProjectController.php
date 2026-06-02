@@ -22,12 +22,32 @@ class ProjectController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        return ResponseHelper::formatPagination($this->projectService->getListProject($request));
+        try {
+            return ResponseHelper::formatPagination($this->projectService->getListProject($request));
+        } catch (Exception $ex) {
+            LogHelper::sendErrorLog($ex);
+            if (stripos($ex->getMessage(), 'unauthorized') !== false) {
+                return ResponseHelper::unauthorizedResponse($ex->getMessage());
+            }
+            return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400, $ex->getLine());
+        }
     }
 
     public function show(int|string $id): JsonResponse
     {
-        return ResponseHelper::successResponse($this->projectService->getProjectById($id));
+        try {
+            $project = $this->projectService->getProjectById($id);
+            if (! $project) {
+                return ResponseHelper::failedResponse('Project not found', 'Project not found', 404);
+            }
+            return ResponseHelper::successResponse($project);
+        } catch (Exception $ex) {
+            LogHelper::sendErrorLog($ex);
+            if (stripos($ex->getMessage(), 'unauthorized') !== false) {
+                return ResponseHelper::unauthorizedResponse($ex->getMessage());
+            }
+            return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400, $ex->getLine());
+        }
     }
 
     public function store(Request $request): JsonResponse

@@ -48,6 +48,9 @@ class StripeService
         if (empty($secretKey)) {
             throw new Exception('Stripe Secret Key Not Configured');
         }
+        if (! FormatHelper::isNotEmpty($project->callback)) {
+            throw new Exception('Project callback URL is required for Stripe redirects');
+        }
 
         Stripe::setApiKey($secretKey);
 
@@ -77,8 +80,8 @@ class StripeService
                 ],
             ],
             'mode' => 'payment',
-            'success_redirect_url' => $request->returnUrl ?? '',
-            'cancel_redirect_url' => $project->callback,
+            'success_url' => $request->returnUrl ?: $project->callback,
+            'cancel_url' => $project->callback,
             'metadata' => [
                 'reference' => $req['reference'],
                 'order_id' => $req['id'],
