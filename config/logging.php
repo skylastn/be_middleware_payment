@@ -70,6 +70,16 @@ return [
             'days' => 14,
         ],
 
+        // Dedicated channel for deprecation warnings (used by Laravel's deprecations logger).
+        // Set LOG_DEPRECATIONS_CHANNEL=deprecations in .env to capture them separately.
+        // This prevents "Log [deprecations] is not defined." errors.
+        'deprecations' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/deprecations.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+            'days' => 14,
+        ],
+
         'slack' => [
             'driver' => 'slack',
             'url' => env('LOG_SLACK_WEBHOOK_URL'),
