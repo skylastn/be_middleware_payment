@@ -55,9 +55,10 @@ Merchant callbacks (e.g. Stripe success notifications via `SendMerchantCallback`
 
 - Set `QUEUE_CONNECTION=redis` (already in `.env.example`).
 - Redis is in a separate/prepared container (not included here).
-  - Set `REDIS_HOST` (via `DOCKER_REDIS_HOST=your-redis-container-name` in .env) and `REDIS_NETWORK=its-docker-network-name`.
-  - The deploy.sh will automatically run `docker network connect $REDIS_NETWORK $CONTAINER` after `up -d` so the name resolves inside the Laravel container.
-  - Alternative: `REDIS_HOST=host.docker.internal` if the Redis container publishes its port to the host.
+  - Use `DOCKER_REDIS_HOST=your-redis-container-name` (in .env) when you need the container to talk to it.
+  - If also on a shared Docker network, set `REDIS_NETWORK=...` — deploy.sh will run `docker network connect`.
+  - Alternative for host-exposed Redis: `DOCKER_REDIS_HOST=host.docker.internal`.
+  - For completely separate Redis servers, just set the normal `REDIS_HOST` in .env and leave `DOCKER_REDIS_HOST` unset.
 - Install Telescope for monitoring (queues, jobs, requests, exceptions, etc.):
 
 ```bash
@@ -132,28 +133,40 @@ The Docker image uses FrankenPHP with PHP 8.4 and runs Laravel Octane on the spe
 
 This compose only runs the Laravel container (web server + queue worker). Redis and DB are assumed to be in separate/prepared containers (or on host).
 
-- For DB/Redis on the Docker host (or exposed): set `DB_HOST=host.docker.internal` and `REDIS_HOST=host.docker.internal` (the compose adds the extra_hosts for cross-platform support).
-- For DB/Redis in another container: set DOCKER_DB_HOST=the-container-name and DB_NETWORK=its-network in .env (e.g. DB_NETWORK=docker_general_resource_default). docker-compose.yml will attach the service to that external network (using ${DB_NETWORK}), so names like "mysql-service" resolve via Docker DNS. deploy.sh also does connect as fallback.
+- For DB/Redis on the Docker host (or exposed): set `DOCKER_DB_HOST=host.docker.internal` and `DOCKER_REDIS_HOST=host.docker.internal` (the compose adds the extra_hosts for cross-platform support). The plain `DB_HOST`/`REDIS_HOST` in .env can stay as your "outside Docker" values.
+- For DB/Redis in another container (on a shared Docker network): set `DOCKER_DB_HOST=the-container-name` and `DB_NETWORK=the-network-name`.
+- For database and/or redis on completely different/remote servers (different machine, not Docker host, not sibling containers): leave `DOCKER_DB_HOST` and `DOCKER_REDIS_HOST` unset (or commented). The normal `DB_HOST` and `REDIS_HOST` from your .env will be used inside the container.
+  - `docker-compose.yml` includes the `external-db` block using the syntax:
+    ```yaml
+    external-db:
+      external: true
+      name: ${DB_NETWORK:-docker_general_resource_default}
+    ```
+  - The block is effectively optional: the service only attaches to the local bridge in Compose. When `DB_NETWORK` is not set, Compose does not require the external network to exist, so there are no "not found" errors for aaPanel / host.docker.internal / fully remote cases.
+  - `deploy.sh` will run `docker network connect $DB_NETWORK $CONTAINER` (and restart if needed) when the variable is set. This is what actually gives the container an IP on the external network for DNS resolution of other container names.
 
-**If you see "SQLSTATE[HY000] [2002] Connection refused"** (e.g. "Host: 127.0.0.1" in the error, as in your case):
-- The docker-compose uses `environment:` with `${DOCKER_DB_HOST:-host.docker.internal}` (and for REDIS).
-- This sets the var in the container (takes precedence).
+**If you see "SQLSTATE[HY000] [2002] Connection refused"** (e.g. "Host: 127.0.0.1" in the error):
+- `docker-compose.yml` injects `DB_HOST` / `REDIS_HOST` via the `environment:` section.
+- The precedence is: `DOCKER_DB_HOST` (if set) > normal `DB_HOST` from .env > built-in default.
 - Re-run fully after any .env change: `make deployLocalDocker` (or `docker compose down && docker compose up -d`)
-- **Since DB is in a *different container*** (as you said):
-  1. Find the DB container name: `docker ps` (e.g. it might be "mysql-service" or similar).
-  2. In the active .env (after `make copyEnvDocker`), set:
+- **When DB/Redis live in sibling Docker containers**:
+  1. Find the container name: `docker ps` (e.g. "mysql-service").
+  2. In the active .env, set:
      ```
-     DOCKER_DB_HOST=mysql-service   # the name from docker ps
-     DB_NETWORK=docker_general_resource_default  # the network name; compose will attach using ${DB_NETWORK} from .env
+     DOCKER_DB_HOST=mysql-service
+     DB_NETWORK=...   (the network name; the external-db block in compose.yml will use it, and deploy.sh will connect)
      ```
-     (docker-compose.yml retrieves ${DB_NETWORK} from .env for the external-db network attachment, so "mysql-service" resolves. deploy.sh also connects as fallback.)
-  3. If you don't set DB_NETWORK, manually: `docker network connect <the-db-network> ${APP_NAME}-${APP_ENV}`
-     (find with `docker inspect mysql-service --format='{{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}}'`)
-  4. Alternative (no network join): publish DB port and use `DOCKER_DB_HOST=host.docker.internal` (DB binds to 0.0.0.0).
-- Verify inside: `docker compose exec middleware-payment sh -c 'echo "Effective DB_HOST=$DB_HOST"'`
-- Test: `docker compose exec middleware-payment sh -c 'timeout 2 bash -c "</dev/tcp/$DB_HOST/3306" && echo open || echo refused'`
+  3. deploy.sh will handle `docker network connect` (and container restart) if `DB_NETWORK` / `REDIS_NETWORK` is set.
+- **When DB or Redis are on completely different servers** (remote IP, not this machine at all):
+  - Do **not** set `DOCKER_DB_HOST` or `DOCKER_REDIS_HOST`.
+  - Just use the normal `DB_HOST=5.223.64.249` / `REDIS_HOST=...` in .env. They will be used inside the container.
+- **When reaching services on the Docker host** (aaPanel bare metal, published ports, etc.):
+  - Set `DOCKER_DB_HOST=host.docker.internal` (and same for REDIS) so the container uses the gateway.
+  - Leave your "host machine" values in the plain `DB_HOST`/`REDIS_HOST` if you also run the app outside Docker.
+- Verify inside the container: `docker compose exec middleware-payment sh -c 'echo "Effective DB_HOST=$DB_HOST" "REDIS_HOST=$REDIS_HOST"'`
+- Test TCP: `docker compose exec middleware-payment sh -c 'timeout 2 bash -c "</dev/tcp/$DB_HOST/3306" && echo open || echo refused'`
 
-See `.env.docker` for examples and the `environment` + comments in docker-compose.yml. The auto-connect is in deploy.sh.
+See `.env.docker` for examples. The `environment:` injection logic and comments are in docker-compose.yml. Network connect (when needed) is in deploy.sh.
 
 ```bash
 make deployLocalDocker

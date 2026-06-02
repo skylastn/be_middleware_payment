@@ -13,7 +13,8 @@ services:
     # (resources/js/backoffice.jsx via Vite) and the result is copied into the final image.
     # So `docker compose build` always produces a complete image with up-to-date admin UI.
     #
-    # DB/Redis remain in separate prepared containers (network joined via DB_NETWORK/REDIS_NETWORK).
+    # DB/Redis can be on the host, in sibling containers (via DB_NETWORK + external-db), or on completely separate servers.
+    # DOCKER_*_HOST provides optional remapping inside the container. Network join (when using external Docker networks) is in deploy.sh.
     ports:
       - "${SERVER_PORT}:8000"
     volumes:
@@ -21,25 +22,43 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
-      # Docker-specific hosts for DB and Redis (from external/prepared containers).
-      # Set DOCKER_DB_HOST or DOCKER_REDIS_HOST in your .env (before compose) to override.
-      # Defaults to host.docker.internal (works with extra_hosts for host or published ports).
-      # For connection by container name (different container): set DOCKER_DB_HOST=your-db-container-name
-      # and DB_NETWORK=the-network-name (compose attaches to ${DB_NETWORK} for DNS).
-      - DB_HOST=${DOCKER_DB_HOST:-host.docker.internal}
-      - REDIS_HOST=${DOCKER_REDIS_HOST:-host.docker.internal}
+      # DB / Redis host for the container (with optional Docker-context remapping).
+      #
+      # DOCKER_DB_HOST and DOCKER_REDIS_HOST are OPTIONAL.
+      #   - If set, they override the host used *inside the container*.
+      #     Use this when DB or Redis run as other Docker containers (set to container name)
+      #     or when you need the Docker host (set to host.docker.internal).
+      #   - If NOT set, the normal DB_HOST / REDIS_HOST values from your .env are passed through.
+      #
+      # This design supports the case where database and redis are on completely different servers
+      # (remote IPs, not the Docker host, not sibling containers). Just set DB_HOST and REDIS_HOST
+      # normally in .env — do not set the DOCKER_*_HOST versions.
+      #
+      # The DOCKER_*_HOST mechanism is kept for the sibling-container / host-gateway use cases
+      # (you don't have to delete the variables).
+      - DB_HOST=${DOCKER_DB_HOST:-${DB_HOST:-127.0.0.1}}
+      - REDIS_HOST=${DOCKER_REDIS_HOST:-${REDIS_HOST:-127.0.0.1}}
+    # We intentionally do not list "external-db" in the networks for this service.
+    # See the external-db block below + the conditional logic in deploy.sh.
     networks:
       - middleware-payment
-      - external-db
 
 networks:
   middleware-payment:
     driver: bridge # Use the bridge driver (default for container-to-container communication)
 
-  # External network for the prepared DB container (e.g. mysql-service on network "docker_general_resource_default").
-  # Set DB_NETWORK in .env (retrieved here) to the actual network name.
-  # The app service is attached to it, so hostnames like "mysql-service" resolve via Docker DNS.
-  # Example in .env: DB_NETWORK=docker_general_resource_default
+  # External network declaration (for DB/Redis in other containers on a shared Docker network).
+  # Uses the syntax you asked about:
   external-db:
     external: true
     name: ${DB_NETWORK:-docker_general_resource_default}
+
+  # Why this is "optional" / doesn't break when DB_NETWORK is not set:
+  # - The service (above) only attaches to the local `middleware-payment` network.
+  # - Actual join to the external network happens in deploy.sh via `docker network connect`
+  #   (only when DB_NETWORK or REDIS_NETWORK is set).
+  # - When the variable is absent (aaPanel bare metal, host.docker.internal, fully remote servers,
+  #   etc.), the name falls back to the default, but because nothing wires to "external-db",
+  #   Compose does not require that external network to exist → `up` succeeds with no error.
+  #
+  # When you *do* set DB_NETWORK=foo, the block uses "foo". deploy.sh will connect the container.

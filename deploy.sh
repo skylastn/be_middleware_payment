@@ -50,10 +50,14 @@ echo "=== Deploy started at $(date) — realtime logs follow (also appended to $
   fi
 
   # If DB or Redis is in a separate prepared container and you set DB_NETWORK or REDIS_NETWORK
-  # in .env (the name of the Docker network the other container is on), connect automatically
-  # so that container names like "mysql-service" are resolvable.
-  # Note: docker-compose.yml also attaches the service to ${DB_NETWORK} via external network
-  # definition (primary), so usually no manual connect needed. This is a fallback/safety.
+  # in .env (the name of the Docker network the other container is on), connect the app container
+  # automatically so that container names like "mysql-service" are resolvable via Docker DNS.
+  #
+  # docker-compose.yml declares the external-db block (using ${DB_NETWORK:-docker_general_resource_default}).
+  # The actual container is joined to the external network via this `docker network connect` (plus restart).
+  # The compose declaration makes the external network visible in `docker compose config` etc. when the var is set.
+  # When the var is not set, the block uses the default name but (because the service doesn't attach to
+  # "external-db" from Compose) it does not cause "network not found" errors.
   if [ -n "$DB_NETWORK" ]; then
     CONTAINER="${APP_NAME}-${APP_ENV}"
     echo "Connecting $CONTAINER to external network $DB_NETWORK for DB name resolution (e.g. mysql-service)..."
