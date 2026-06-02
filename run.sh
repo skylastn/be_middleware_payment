@@ -21,5 +21,6 @@ else
     echo "PHP version is already $phpVersionProject"
 fi
 
-# php artisan octane:frankenphp --workers 20 --port 8000
+# php artisan octane:frankenphp --caddyfile=./Caddyfile --workers 20 --port 8000
+# (the custom Caddyfile adds CORS headers for /build/* CSS/JS etc.)
 php artisan serve --port 2000

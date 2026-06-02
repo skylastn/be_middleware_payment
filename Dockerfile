@@ -108,7 +108,12 @@ WORKDIR /app
 
 # Format the default Caddyfile that Octane/FrankenPHP uses.
 # This removes the "WARN  Caddyfile input is not formatted" message on every startup.
-RUN caddy fmt --overwrite /app/vendor/laravel/octane/src/Commands/stubs/Caddyfile 2>/dev/null || true
+# Uses portable invocation (some image variants expose "caddy", others use "frankenphp fmt").
+RUN sh -c 'command -v caddy >/dev/null 2>&1 && caddy fmt --overwrite /app/vendor/laravel/octane/src/Commands/stubs/Caddyfile 2>/dev/null || /usr/local/bin/frankenphp fmt --overwrite /app/vendor/laravel/octane/src/Commands/stubs/Caddyfile 2>/dev/null || true'
+
+# Format our custom project Caddyfile (adds CORS for /build/* static assets etc.)
+# so that `caddy fmt` warnings are avoided and the file is normalized.
+RUN sh -c 'command -v caddy >/dev/null 2>&1 && caddy fmt --overwrite /app/Caddyfile 2>/dev/null || /usr/local/bin/frankenphp fmt --overwrite /app/Caddyfile 2>/dev/null || true'
 
 # Prepare supervisor config (manages Octane web + queue worker as separate supervised processes).
 # This ensures queue:work keeps running reliably even after long app uptime, Octane worker

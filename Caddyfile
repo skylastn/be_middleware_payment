@@ -1,0 +1,82 @@
+{
+	{$CADDY_GLOBAL_OPTIONS}
+
+	admin {$CADDY_SERVER_ADMIN_HOST}:{$CADDY_SERVER_ADMIN_PORT}
+
+	frankenphp {
+		worker {
+			file "{$APP_PUBLIC_PATH}/frankenphp-worker.php"
+			{$CADDY_SERVER_WORKER_DIRECTIVE}
+			{$CADDY_SERVER_WATCH_DIRECTIVES}
+		}
+	}
+}
+
+{$CADDY_EXTRA_CONFIG}
+
+{$CADDY_SERVER_SERVER_NAME} {
+	log {
+		level {$CADDY_SERVER_LOG_LEVEL}
+
+		# Redact the authorization query parameter that can be set by Mercure...
+		format filter {
+			wrap {$CADDY_SERVER_LOGGER}
+			fields {
+				uri query {
+					replace authorization REDACTED
+				}
+			}
+		}
+	}
+
+	route {
+		root * "{$APP_PUBLIC_PATH}"
+		encode zstd br gzip
+
+		# Mercure configuration is injected here...
+		{$CADDY_SERVER_EXTRA_DIRECTIVES}
+
+		# CORS headers for static assets (Vite build output, storage, etc.).
+		# This allows CSS/JS/images/fonts from /build/* (and /storage/*) to be loaded
+		# cross-origin, e.g. when the backoffice or a payment widget/checkout UI is
+		# embedded/loaded from a different domain (farivamed.com, merchant sites, etc.).
+		# Also helps in proxied / HTTPS-termination setups and when using <script type="module">.
+		@static_assets {
+			path /build/*
+			path /storage/*
+			# Common static file extensions (in case of other public assets)
+			path *.css *.js *.mjs *.map *.png *.jpg *.jpeg *.gif *.svg *.ico *.woff *.woff2 *.ttf *.otf
+		}
+
+		header @static_assets {
+			Access-Control-Allow-Origin *
+			Access-Control-Allow-Methods "GET, HEAD, OPTIONS"
+			Access-Control-Allow-Headers "*"
+			Access-Control-Expose-Headers "*"
+			# Long cache for immutable hashed assets
+			+Cache-Control "public, max-age=31536000, immutable"
+		}
+
+		# Explicitly handle simple preflight for static asset paths (harmless if not hit)
+		@static_preflight {
+			path /build/*
+			path /storage/*
+			method OPTIONS
+		}
+		handle @static_preflight {
+			header {
+				Access-Control-Allow-Origin *
+				Access-Control-Allow-Methods "GET, HEAD, OPTIONS"
+				Access-Control-Allow-Headers "*"
+			}
+			respond 204
+		}
+
+		php_server {
+			index frankenphp-worker.php
+			try_files {path} frankenphp-worker.php
+			# Required for the public/storage/ directory...
+			resolve_root_symlink
+		}
+	}
+}
