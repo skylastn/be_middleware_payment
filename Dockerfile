@@ -118,10 +118,17 @@ RUN sh -c 'command -v caddy >/dev/null 2>&1 && caddy fmt --overwrite /app/Caddyf
 # Prepare supervisor config (manages Octane web + queue worker as separate supervised processes).
 # This ensures queue:work keeps running reliably even after long app uptime, Octane worker
 # recycling, crashes, or memory pressure (auto-restarts children).
-RUN mkdir -p /etc/supervisor/conf.d /app/storage/logs /app/storage/framework/cache /app/storage/framework/sessions /app/storage/framework/views
+RUN mkdir -p /etc/supervisor/conf.d /app/storage/logs /app/storage/framework/cache /app/storage/framework/sessions /app/storage/framework/views /app/bootstrap/cache
 COPY supervisor/laravel.conf /etc/supervisor/conf.d/laravel.conf
+
+# Entrypoint ensures storage dirs are always writable (important for volume mounts
+# with aaPanel / host user mismatches). This fixes "cannot write daily log" and similar
+# permission issues for laravel-*.log, deprecations.log, sessions, views, etc.
+# The script is included via the earlier `COPY . /app`.
+RUN chmod +x /app/docker-entrypoint.sh
 
 # Use supervisord to run and monitor both processes in foreground (required for Docker).
 # Previously we used a simple shell `&` + `wait` which could lose the queue worker
 # after long durations or when Octane recycled workers.
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
 CMD ["supervisord", "-n", "-c", "/etc/supervisor/supervisord.conf"]

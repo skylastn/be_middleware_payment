@@ -104,7 +104,7 @@ Route::middleware('throttle:api')->group(function () {
         return $request->user();
     });
 
-    // Admin login API (usable at /api/login for simplicity, also kept under /admin for compat)
+    // Admin login API - must be at /api/login only (frontend calls /api/login).
     Route::post('/login', [AdminAuthController::class, 'login']);
 
 });

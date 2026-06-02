@@ -19,6 +19,11 @@ services:
       - "${SERVER_PORT}:8000"
     volumes:
       - .:/app
+      # Protect the pre-built admin React assets (from the Dockerfile's multi-stage node build)
+      # so that the image's fresh public/build is used even when the source tree is bind-mounted.
+      # This prevents stale JS bundles on the "docker server" after deploys.
+      # The volume mount still allows host PHP/source changes to be reflected without a full rebuild.
+      - /app/public/build
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
