@@ -91,11 +91,29 @@ install-php-extensions pcntl mbstring bcmath curl openssl gd pdo_mysql redis
 for i in 1 2 3; do
     apt-get update -qq && break || (echo "apt update attempt $i failed, retrying in 5s..." && sleep 5)
 done
-apt-get install -y --no-install-recommends procps supervisor
+apt-get install -y --no-install-recommends curl git unzip procps supervisor
 rm -rf /var/lib/apt/lists/*
 EOF
 
+# Set workdir early for composer and app
+WORKDIR /app
+
+# Install Composer (needed to install PHP dependencies inside the image)
+RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+
+# Copy only composer manifests first (layer cache optimization)
+COPY composer.json composer.lock ./
+
+# Install PHP dependencies inside the image.
+# - Telescope was moved out of require-dev into the main "require" (see composer.json)
+#   precisely so that it gets installed on production Docker images (which use --no-dev).
+# - This fixes "Class Laravel\Telescope\TelescopeApplicationServiceProvider not found"
+#   that was crashing Octane/queue-worker under supervisord on the Docker server.
+# - The install uses only composer.json+lock for layer caching; full source follows.
+RUN composer install --no-interaction --no-dev --prefer-dist --optimize-autoloader
+
 # Copy the application files into the container
+# (vendor/ created above will stay; .dockerignore prevents sending host's vendor)
 COPY . /app
 
 # Copy the freshly built admin React assets from the builder stage
@@ -103,8 +121,8 @@ COPY . /app
 # includes an up-to-date version of the admin React / backoffice.
 COPY --from=frontend-builder /app/public/build /app/public/build
 
-# Set the working directory
-WORKDIR /app
+# WORKDIR already set earlier for composer; no need to repeat
+# WORKDIR /app
 
 # Format the default Caddyfile that Octane/FrankenPHP uses.
 # This removes the "WARN  Caddyfile input is not formatted" message on every startup.

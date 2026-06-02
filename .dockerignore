@@ -4,7 +4,7 @@ npm-debug.log
 
 # PHP / Composer
 vendor
-composer.lock
+# Keep composer.lock for reproducible builds in Docker (do not ignore it)
 
 # Laravel
 storage/*
