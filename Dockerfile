@@ -28,6 +28,8 @@ RUN npm run build
 FROM dunglas/frankenphp:php8.4-bookworm
 
 # Install the PHP extensions required by Laravel + supervisor runtime process manager.
+# - redis: for phpredis client (faster than predis); our config auto-selects it when present.
+#   Predis (pure-PHP fallback) remains available via composer and is used if no ext / REDIS_CLIENT=predis.
 # Pin to the explicit -bookworm (Debian 12) variant. The bare ":php8.4" tag currently
 # resolves to a Trixie-based image, which has different (or missing) package names
 # for the AVIF-related libs that gd pulls in, causing the installer's glob patterns
@@ -82,7 +84,7 @@ EOM
 
 curl -sSLf https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions -o /usr/local/bin/install-php-extensions
 chmod +x /usr/local/bin/install-php-extensions
-install-php-extensions pcntl mbstring bcmath curl openssl gd pdo_mysql
+install-php-extensions pcntl mbstring bcmath curl openssl gd pdo_mysql redis
 
 # The extension script purges apt lists. Make the final supervisor step
 # somewhat resilient to flaky apt inside docker build.
