@@ -4,22 +4,42 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: ${APP_NAME}-${APP_ENV}
-    # Run Laravel Octane (web) + queue worker in the same container.
-    # Redis is assumed to be in a separate/prepared container (set REDIS_HOST accordingly in .env).
-    entrypoint: ["sh", "-c"]
-    command: >
-      "
-      php artisan octane:frankenphp --max-requests=5 &
-      php artisan queue:work --queue=default --tries=5 --timeout=60 &
-      wait
-      "
+    # Laravel Octane (web server) + queue worker run in the *same* container.
+    # We use supervisord (already installed) to manage both as independent, auto-restarting
+    # processes. This prevents queue:work from dying after long uptime, Octane max-requests
+    # recycling, OOM kills, or crashes (common problem with plain `command1 & command2 & wait`).
+    #
+    # The Dockerfile uses multi-stage build: a node stage builds the admin React / backoffice
+    # (resources/js/backoffice.jsx via Vite) and the result is copied into the final image.
+    # So `docker compose build` always produces a complete image with up-to-date admin UI.
+    #
+    # DB/Redis remain in separate prepared containers (network joined via DB_NETWORK/REDIS_NETWORK).
     ports:
       - "${SERVER_PORT}:8000"
     volumes:
       - .:/app
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      # Docker-specific hosts for DB and Redis (from external/prepared containers).
+      # Set DOCKER_DB_HOST or DOCKER_REDIS_HOST in your .env (before compose) to override.
+      # Defaults to host.docker.internal (works with extra_hosts for host or published ports).
+      # For connection by container name (different container): set DOCKER_DB_HOST=your-db-container-name
+      # and DB_NETWORK=the-network-name (compose attaches to ${DB_NETWORK} for DNS).
+      - DB_HOST=${DOCKER_DB_HOST:-host.docker.internal}
+      - REDIS_HOST=${DOCKER_REDIS_HOST:-host.docker.internal}
     networks:
       - middleware-payment
+      - external-db
 
 networks:
   middleware-payment:
     driver: bridge # Use the bridge driver (default for container-to-container communication)
+
+  # External network for the prepared DB container (e.g. mysql-service on network "docker_general_resource_default").
+  # Set DB_NETWORK in .env (retrieved here) to the actual network name.
+  # The app service is attached to it, so hostnames like "mysql-service" resolve via Docker DNS.
+  # Example in .env: DB_NETWORK=docker_general_resource_default
+  external-db:
+    external: true
+    name: ${DB_NETWORK:-docker_general_resource_default}

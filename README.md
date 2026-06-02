@@ -54,7 +54,10 @@ make initSeeder
 Merchant callbacks (e.g. Stripe success notifications via `SendMerchantCallback` job) are queued.
 
 - Set `QUEUE_CONNECTION=redis` (already in `.env.example`).
-- Redis is in a separate/prepared container (not included here). Set `REDIS_HOST` in `.env` to the Redis container's address (e.g. its Docker service name or `host.docker.internal`).
+- Redis is in a separate/prepared container (not included here).
+  - Set `REDIS_HOST` (via `DOCKER_REDIS_HOST=your-redis-container-name` in .env) and `REDIS_NETWORK=its-docker-network-name`.
+  - The deploy.sh will automatically run `docker network connect $REDIS_NETWORK $CONTAINER` after `up -d` so the name resolves inside the Laravel container.
+  - Alternative: `REDIS_HOST=host.docker.internal` if the Redis container publishes its port to the host.
 - Install Telescope for monitoring (queues, jobs, requests, exceptions, etc.):
 
 ```bash
@@ -64,8 +67,8 @@ php artisan migrate
 ```
 
 - Run queue worker:
-  - Locally (outside docker): `php artisan queue:work --queue=default --tries=5 --timeout=60`
-  - In this Docker setup: the queue worker runs automatically inside the container alongside Octane (no separate command needed).
+  - Locally (outside docker): `php artisan queue:work --queue=default --tries=5 --timeout=60 --sleep=1 --verbose`
+  - In this Docker setup: the queue worker runs automatically inside the container (managed by supervisord alongside Octane). No separate command needed. Supervisor ensures it restarts automatically even after long uptime.
 
 - Access Telescope at `/telescope` (only in local environment by default; see `app/Providers/TelescopeServiceProvider.php`).
 
@@ -75,6 +78,36 @@ In Telescope:
 - Use with Redis: `QUEUE_CONNECTION=redis` + your external/prepared Redis container (this docker-compose does NOT include Redis).
 
 To start monitoring: run `php artisan queue:work` in one terminal, trigger a Stripe success callback (e.g. via /order/stripe/confirm with success token), and watch in Telescope.
+
+### Testing that the queue is working
+
+Use the dedicated test endpoint (no auth required):
+
+```bash
+# Simple dispatch
+curl "http://localhost:2000/api/test/queue?message=hello-from-$(date +%s)"
+
+# Test the afterCommit() pattern (like SendMerchantCallback uses)
+curl "http://localhost:2000/api/test/queue?message=aftercommit-test&after_commit=1"
+
+# Or with POST
+curl -X POST http://localhost:2000/api/test/queue \
+  -H "Content-Type: application/json" \
+  -d '{"message": "my test message"}'
+```
+
+The endpoint returns immediately (`"Test job dispatched to queue"`).
+
+**Verify it actually ran (asynchronously):**
+
+- **Laravel Telescope** (best): open `/telescope` → Jobs tab (or Queues). You should see `TestQueueJob` with your message. Check status (processed / failed).
+- **Logs**: Look for `TestQueueJob START` and `TestQueueJob COMPLETED` (with timestamps).
+  - Local: `tail -f storage/logs/laravel-*.log`
+  - Docker: `docker compose logs -f middleware-payment | grep -i testqueue`
+- The job does a 2-second `sleep()` so you can clearly see it didn't block the HTTP response.
+- If using Redis directly: `redis-cli -h <your-redis-host> LLEN queues:default` (or watch with `MONITOR` while dispatching).
+
+This endpoint also lets you verify `afterCommit()` behavior: the job is only released to the queue after the surrounding DB transaction commits.
 
 ## Local Development
 
@@ -97,7 +130,30 @@ npm run build
 
 The Docker image uses FrankenPHP with PHP 8.4 and runs Laravel Octane on the specified port (from `SERVER_PORT`).
 
-This compose only runs the Laravel container (web server + queue worker). Redis is assumed to be in a separate/prepared container — set `REDIS_HOST` in your `.env` to point to it (e.g. the other container's name or host.docker.internal).
+This compose only runs the Laravel container (web server + queue worker). Redis and DB are assumed to be in separate/prepared containers (or on host).
+
+- For DB/Redis on the Docker host (or exposed): set `DB_HOST=host.docker.internal` and `REDIS_HOST=host.docker.internal` (the compose adds the extra_hosts for cross-platform support).
+- For DB/Redis in another container: set DOCKER_DB_HOST=the-container-name and DB_NETWORK=its-network in .env (e.g. DB_NETWORK=docker_general_resource_default). docker-compose.yml will attach the service to that external network (using ${DB_NETWORK}), so names like "mysql-service" resolve via Docker DNS. deploy.sh also does connect as fallback.
+
+**If you see "SQLSTATE[HY000] [2002] Connection refused"** (e.g. "Host: 127.0.0.1" in the error, as in your case):
+- The docker-compose uses `environment:` with `${DOCKER_DB_HOST:-host.docker.internal}` (and for REDIS).
+- This sets the var in the container (takes precedence).
+- Re-run fully after any .env change: `make deployLocalDocker` (or `docker compose down && docker compose up -d`)
+- **Since DB is in a *different container*** (as you said):
+  1. Find the DB container name: `docker ps` (e.g. it might be "mysql-service" or similar).
+  2. In the active .env (after `make copyEnvDocker`), set:
+     ```
+     DOCKER_DB_HOST=mysql-service   # the name from docker ps
+     DB_NETWORK=docker_general_resource_default  # the network name; compose will attach using ${DB_NETWORK} from .env
+     ```
+     (docker-compose.yml retrieves ${DB_NETWORK} from .env for the external-db network attachment, so "mysql-service" resolves. deploy.sh also connects as fallback.)
+  3. If you don't set DB_NETWORK, manually: `docker network connect <the-db-network> ${APP_NAME}-${APP_ENV}`
+     (find with `docker inspect mysql-service --format='{{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}}'`)
+  4. Alternative (no network join): publish DB port and use `DOCKER_DB_HOST=host.docker.internal` (DB binds to 0.0.0.0).
+- Verify inside: `docker compose exec middleware-payment sh -c 'echo "Effective DB_HOST=$DB_HOST"'`
+- Test: `docker compose exec middleware-payment sh -c 'timeout 2 bash -c "</dev/tcp/$DB_HOST/3306" && echo open || echo refused'`
+
+See `.env.docker` for examples and the `environment` + comments in docker-compose.yml. The auto-connect is in deploy.sh.
 
 ```bash
 make deployLocalDocker
@@ -109,13 +165,48 @@ For production:
 make deployProduction
 ```
 
-`deploy.sh` loads `.env`, runs Docker Compose, writes logs to `docker-compose.log`, and sends the result to `DISCORD_WEBHOOK`.
+`deploy.sh` loads `.env` (or auto-copies from `.env.docker`), runs Docker Compose **synchronously** (realtime logs visible in your terminal/SSH + also saved to `docker-compose.log`), performs optional network connects, and sends the log file + success/failure to `DISCORD_WEBHOOK`.
 
 The container runs both:
 
 - Octane web server on port `${SERVER_PORT}` (mapped to 8000 inside)
 
 - Queue worker for jobs like `SendMerchantCallback` (Redis queue)
+
+**Important for long-running / production uptime:**
+
+We use `supervisord` (installed in the image) to manage the two processes.
+
+This solves the common problem where a naive `php artisan octane:frankenphp & php artisan queue:work & wait` would cause `queue:work` to die/stop after long app duration (Octane worker recycling via `--max-requests`, memory pressure, unhandled signals on container restart, or the background shell process being reaped).
+
+- Both processes are now independently `autorestart=true` under supervisor.
+- If the queue worker exits for any reason it gets restarted automatically.
+- Logs for each are in `storage/logs/octane*.log` and `storage/logs/queue-worker*.log` (also visible via `docker compose logs`).
+
+**Admin React / Backoffice build:**
+
+Yes — the main `docker compose build` (used by `./deploy.sh`, `make deployLocalDocker`, etc.) **now builds the admin React too**.
+
+- The Dockerfile uses multi-stage build:
+  - Stage 1 (`node:24`): `npm ci --force && npm run build` (builds `resources/js/backoffice.jsx` + Vite → `public/build/`)
+  - Stage 2 (FrankenPHP): copies the app + overlays the freshly built React assets.
+- This means you no longer need Node.js on the host machine to produce a complete production image. Changing React admin code + running `make deployLocalDocker` (or `docker compose build`) will include the latest admin UI.
+- The old separate `docker compose -f docker-compose-no-container.yml run --rm pos-build` (the `make deploy` target) is still available if you only want to rebuild frontend assets locally (e.g. for volume-mounted dev or before a quick image rebuild).
+
+In development with `volumes: - .:/app`, any `npm run build` you run on the host (or via the pos-build service) will be visible inside the container.
+
+Check running processes inside the container:
+
+```bash
+docker compose exec middleware-payment ps aux | grep -E 'supervisord|octane|queue:work|php'
+```
+
+View logs:
+
+- All container output (including queue:work verbose RUNNING/DONE): `docker compose logs -f middleware-payment | grep -i 'queue\|testqueue'`
+- Application logs (your Log::info, errors, job messages): `docker compose exec middleware-payment tail -f storage/logs/laravel-*.log`
+- Supervisor internal: `docker compose exec middleware-payment tail -f storage/logs/supervisord.log`
+```
 
 ## Architecture
 
@@ -369,6 +460,10 @@ make initSeeder
 
 # Run queue worker (required for queued merchant callbacks like SendMerchantCallback)
 php artisan queue:work --queue=default --tries=5 --timeout=60
+```
+
+**In Docker** the worker is managed by supervisord inside the container (no need to run the command manually).
+See the "Docker Deployment" section above for details and log locations.
 ```
 
 ## Verification

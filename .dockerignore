@@ -1,0 +1,38 @@
+# Node
+node_modules
+npm-debug.log
+
+# PHP / Composer
+vendor
+composer.lock
+
+# Laravel
+storage/*
+!storage/app/public
+bootstrap/cache/*
+
+# Env and secrets
+.env
+.env.*
+!.env.example
+!.env.docker
+!.env.local
+
+# Git and IDE
+.git
+.gitignore
+.idea
+.vscode
+
+# Logs and temp
+*.log
+storage/logs/*
+docker-compose.log
+deploy.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts (we generate fresh React admin build inside the Docker image)
+public/build
