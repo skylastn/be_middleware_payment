@@ -25,13 +25,73 @@ RUN npm run build
 # ============================================
 # Stage 2: PHP / Laravel runtime (FrankenPHP + Octane + Queue)
 # ============================================
-FROM dunglas/frankenphp:php8.4
+FROM dunglas/frankenphp:php8.4-bookworm
 
-# Install the PHP extensions required by Laravel
-RUN install-php-extensions pcntl mbstring bcmath curl openssl gd pdo_mysql
+# Install the PHP extensions required by Laravel + supervisor runtime process manager.
+# Pin to the explicit -bookworm (Debian 12) variant. The bare ":php8.4" tag currently
+# resolves to a Trixie-based image, which has different (or missing) package names
+# for the AVIF-related libs that gd pulls in, causing the installer's glob patterns
+# (^libavif[0-9]+$, ^libaom[0-9]+$, ^libdav1d[0-9]+$) to fail.
+#
+# We always grab the latest install-php-extensions script (it has the current
+# distro->package mappings) and let *it* perform the apt-get work for the
+# extensions (including gd + its transitive AVIF build/runtime deps). This avoids
+# hard-coding brittle lists of exact package names (libavif15, lib*-dev etc.)
+# that may not be present in a partially-populated/stale apt index during `docker build`
+# on CI or remote hosts (the script does a fresh update right when it needs them).
+#
+# The final supervisor install is also retried because some build environments have
+# flaky outbound connectivity to deb.debian.org during the build phase.
+#
+# IMPORTANT: If you still see "Could not connect to deb.debian.org" (even on https)
+# during `docker compose build` on the target server, that server cannot reach
+# Debian mirrors from inside Docker build steps. In that case you must build the
+# image on a machine that has full internet (e.g. your laptop), then either
+# `docker save | ssh ... docker load` or push to a registry and switch the
+# compose service to use `image:` instead of (or in addition to) `build:`.
+# Use native Dockerfile heredoc syntax (RUN <<'EOF') so the parser does not
+# misinterpret inner heredoc content (like "Types:") as top-level Dockerfile
+# instructions. This was causing "unknown instruction: Types:" parse errors.
+RUN <<'EOF'
+set -eux
 
-# Add required system packages
-RUN apt-get update && apt-get install -y procps supervisor
+# Bootstrap: try to ensure we have ca-certificates (needed for https apt)
+# using whatever the current (possibly http) sources + cache can provide.
+# This is a no-op if already present.
+apt-get update -qq || true
+apt-get install -y --no-install-recommends ca-certificates || true
+
+# Some build environments block outbound HTTP:80 (or the Fastly IPs that
+# http://deb.debian.org resolves to) while HTTPS:443 works (GitHub https
+# succeeded earlier in this same build). The baked-in sources in the
+# FrankenPHP bookworm image use http. Force https mirrors before the
+# extension script does its apt work for gd etc.
+cat > /etc/apt/sources.list.d/debian.sources << 'EOM'
+Types: deb
+URIs: https://deb.debian.org/debian
+Suites: bookworm bookworm-updates
+Components: main
+Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+
+Types: deb
+URIs: https://deb.debian.org/debian-security
+Suites: bookworm-security
+Components: main
+Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+EOM
+
+curl -sSLf https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions -o /usr/local/bin/install-php-extensions
+chmod +x /usr/local/bin/install-php-extensions
+install-php-extensions pcntl mbstring bcmath curl openssl gd pdo_mysql
+
+# The extension script purges apt lists. Make the final supervisor step
+# somewhat resilient to flaky apt inside docker build.
+for i in 1 2 3; do
+    apt-get update -qq && break || (echo "apt update attempt $i failed, retrying in 5s..." && sleep 5)
+done
+apt-get install -y --no-install-recommends procps supervisor
+rm -rf /var/lib/apt/lists/*
+EOF
 
 # Copy the application files into the container
 COPY . /app

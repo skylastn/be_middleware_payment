@@ -26,7 +26,24 @@ log_file="docker-compose.log"
 echo "=== Deploy started at $(date) — realtime logs follow (also appended to $log_file) ===" | tee -a "$log_file"
 
 {
-  if docker compose down && docker compose build && docker compose up -d; then
+  # On restricted servers (e.g. aaPanel where Docker build containers cannot reach
+  # deb.debian.org even if the host can), set APP_DOCKER_IMAGE in .env to a pre-built
+  # image (built on a machine with internet, then pushed or loaded via `docker load`).
+  # In that case we attempt pull (for registry images) but fall back gracefully if the
+  # image was side-loaded; we never run the network-heavy build.
+  if [ -n "$APP_DOCKER_IMAGE" ]; then
+    echo "APP_DOCKER_IMAGE is set ($APP_DOCKER_IMAGE) — using pre-built image (aaPanel / restricted build net mode). Will try pull if it's a registry image."
+    docker compose pull || echo "Pull skipped/failed (image probably docker-loaded or no registry auth) — will use local image for up -d"
+    BUILD_STEP_OK=0
+  else
+    if docker compose build; then
+      BUILD_STEP_OK=0
+    else
+      BUILD_STEP_OK=1
+    fi
+  fi
+
+  if docker compose down && [ $BUILD_STEP_OK -eq 0 ] && docker compose up -d; then
     compose_ok=0
   else
     compose_ok=1
