@@ -98,4 +98,16 @@ if [ $deployStatus -ne 0 ]; then
 else
     # If successful, send a Discord notification with the log file
     curl -s -o /dev/null --show-error -F "file=@docker-compose.log" -F "content=Docker Compose ran successfully. See the log for details." "$DISCORD_WEBHOOK" || true
+
+    # aaPanel / outer nginx reminder (very common source of "CORS still blocked on /build/*.css")
+    echo ""
+    echo "=== IMPORTANT FOR aaPanel USERS ==="
+    echo "If CSS/JS under /build/ are still blocked by CORS in the browser:"
+    echo "  - The outer nginx (aaPanel) is probably serving the files directly or hiding headers."
+    echo "  - See the new section in README.md: 'aaPanel + Nginx: CORS for CSS/JS/assets'"
+    echo "  - Use the snippet in nginx/aaPanel-cors-static.conf (copy into your site's extension/*.conf or paste into Configuration File)."
+    echo "  - Add proxy_pass_header + add_header lines inside your location ^~ / { proxy_pass ... } block."
+    echo "  - Then reload nginx in aaPanel."
+    echo "  - Test with: curl -I -H 'Origin: https://farivamed.com' https://payment.farivamed.com/build/assets/app-Ctoyd7mM.css"
+    echo "==================================="
 fi

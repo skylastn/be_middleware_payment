@@ -221,7 +221,87 @@ View logs:
 - Supervisor internal: `docker compose exec middleware-payment tail -f storage/logs/supervisord.log`
 ```
 
+## aaPanel + Nginx: CORS for CSS/JS/assets (build/) and static files
+
+If you still get CORS blocks on `/build/assets/*.css` and `*.js` (or `/storage/`) **after** the inner Docker Caddyfile changes, the cause is almost always the **outer nginx managed by aaPanel**.
+
+### Why it still happens
+- aaPanel runs nginx on the host as the public-facing server (TLS termination, port 80/443, etc.).
+- Your site config (see the one you shared) typically has:
+  - `root /www/wwwroot/.../be/public;` (so nginx can see the files on disk).
+  - `location ^~ / { proxy_pass http://127.0.0.1:2000; ... }` to the FrankenPHP container.
+  - Commented (or active via other includes) static handlers for `.js|css`.
+  - An `include /www/server/panel/vhost/nginx/extension/.../*.conf;`
+- When nginx serves a file directly from disk (common for performance on hashed build assets), the inner Caddy CORS headers are never reached.
+- Even on proxied requests, aaPanel's generated includes, security rules, or default behavior can hide `Access-Control-*` response headers from the backend.
+- Result: browser sees the asset response with no (or wrong) `Access-Control-Allow-Origin`, and blocks it.
+
+The inner changes (Caddyfile + Laravel cors.php) are still valuable (they cover the pure Docker case and fallback), but you **must** also configure the outer nginx.
+
+### Quick fix (recommended)
+1. Copy the ready-made snippet into aaPanel's per-site extension include dir (it is already included at the top of your server block):
+
+   ```bash
+   # On the server (adjust the domain path if different)
+   mkdir -p /www/server/panel/vhost/nginx/extension/payment.farivamed.com
+   # Then copy the content of nginx/aaPanel-cors-static.conf from the project
+   # into a new file, e.g.:
+   cat > /www/server/panel/vhost/nginx/extension/payment.farivamed.com/cors-static.conf << 'EOF'
+   # paste the full content of nginx/aaPanel-cors-static.conf here
+   EOF
+   ```
+
+2. **Edit the paths**: Open the file and replace the `root /www/wwwroot/...` lines with the **exact same root** that appears in your current aaPanel nginx config for this site.
+
+3. In aaPanel:
+   - Site -> your site -> "Configuration File" (or just "Save" / "Reload Nginx" after the file is in the extension dir).
+   - Or paste the location blocks directly into the site's nginx config editor (place the `/build/` and `/storage/` locations *before* your `location ^~ / { proxy_pass ... }` block).
+
+4. Test:
+   ```bash
+   curl -I -H "Origin: https://farivamed.com" \
+        https://payment.farivamed.com/build/assets/app-Ctoyd7mM.css
+   # You must see:
+   #   access-control-allow-origin: *
+   ```
+
+5. In the browser on the real domain: hard refresh the backoffice page and check DevTools → Network for the asset. The response must include the ACAO header.
+
+The file `nginx/aaPanel-cors-static.conf` in this repo contains:
+- Static-serving locations for `/build/` and `/storage/` (fast, disk-based) that **always** emit CORS headers (`always` flag).
+- A broad regex for common static extensions.
+- Explicit OPTIONS preflight handling.
+- Instructions + the lines you should also add inside your existing `location ^~ / { proxy_pass ... }` block:
+  ```nginx
+  proxy_pass_header Access-Control-Allow-Origin;
+  proxy_pass_header Access-Control-Allow-Methods;
+  proxy_pass_header Access-Control-Allow-Headers;
+  proxy_pass_header Access-Control-Expose-Headers;
+
+  add_header Access-Control-Allow-Origin * always;
+  add_header Access-Control-Allow-Methods "GET, HEAD, OPTIONS" always;
+  add_header Access-Control-Allow-Headers "*" always;
+  ```
+  (This guarantees headers even for requests that go through the proxy to Docker.)
+
+After this change you can leave (or uncomment) any old `location ~ .*\.(js|css)$` blocks — our rules will ensure CORS is attached.
+
+### Alternative (simpler but slightly slower for assets)
+If you don't want nginx to serve static files directly, just enhance the proxy location as shown above. All `/build/*` traffic will go to the container (our Caddyfile headers + the `add_header` fallback will apply). This is fine for most payment backoffice traffic volumes.
+
+### After fixing nginx
+- Rebuild the Docker image at least once (so the improved Caddyfile is inside): `./deploy.sh` or `make running`.
+- The combination (outer nginx CORS for static + inner Caddy) makes the setup robust against future config drift.
+
+If you still see blocks after applying the aaPanel snippet, share:
+- The exact response headers from the `curl -I -H "Origin: ..."` test above.
+- Whether the `server:` header in the response is `nginx` / `openresty` (outer) or `Caddy` (inner).
+- Your current full location ^~ / block (or the part around proxy_pass).
+
+This is the #1 cause on aaPanel + Docker + Octane setups.
+
 ## Architecture
+
 
 The project follows the reference backend structure used in `fariva_med/backend`.
 
