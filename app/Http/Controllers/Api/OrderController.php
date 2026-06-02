@@ -7,8 +7,8 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Http\Helper\FormatHelper;
 use App\Http\Helper\LogHelper;
-use App\Http\Helper\RequestHelper;
 use App\Http\Helper\ResponseHelper;
+use App\Jobs\SendMerchantCallback;
 use App\Model\Entity\Order;
 use App\Model\Entity\Project;
 use App\Services\Payment\OrderService;
@@ -83,11 +83,35 @@ class OrderController extends Controller
             DB::commit();
             return ResponseHelper::successResponse($response);
         } catch (Exception $ex) {
-            DB::rollback();
+            if (DB::transactionLevel() > 0) {
+                DB::rollback();
+            }
             LogHelper::sendErrorLog($ex);
             return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400, $ex->getLine(), $ex->getFile());
         }
     }
+
+    public function confirmStripe(Request $request): JsonResponse
+    {
+        try {
+            DB::beginTransaction();
+            $response = $this->service->confirmStripe($request);
+            DB::commit();
+            return ResponseHelper::successResponse($response);
+        } catch (Exception $ex) {
+            if (DB::transactionLevel() > 0) {
+                DB::rollback();
+            }
+            LogHelper::sendErrorLog($ex);
+            return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400, $ex->getLine(), $ex->getFile());
+        }
+    }
+
+    // Note on Stripe confirm errors:
+    // The service now logs then re-throws ("throw again the log") for CardException and ApiErrorException.
+    // Controller's catch does the rollback + failedResponse.
+    // Status is only updated to FAILED in the service for payment failed cases (CardException); other errors
+    // do not update order status here (webhooks or checkStatus can sync later).
 
     public function resendCallback(int|string $id): JsonResponse
     {
@@ -107,7 +131,7 @@ class OrderController extends Controller
             $referenceParts = explode('-', (string) $order->reference);
             array_shift($referenceParts);
 
-            RequestHelper::sendCallback(
+            SendMerchantCallback::dispatch(
                 $project->value,
                 [
                     'merchantOrderId' => implode('-', $referenceParts),
@@ -115,10 +139,13 @@ class OrderController extends Controller
                     'resultCode' => '00',
                 ],
                 $project->callback,
-            );
+            )->afterCommit();
 
             return ResponseHelper::successResponse(null, 'Callback resent for '.$order->reference.'.');
         } catch (Exception $ex) {
+            if (DB::transactionLevel() > 0) {
+                DB::rollback();
+            }
             LogHelper::sendErrorLog($ex);
 
             return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400, $ex->getLine());

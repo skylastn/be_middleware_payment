@@ -29,6 +29,7 @@ Route::middleware('throttle:api')->group(function () {
         Route::get('/detail', [OrderController::class, 'detail']);
         Route::get('/checkOrderStatus', [OrderController::class, 'checkOrderStatus']);
         Route::post('/create', [OrderController::class, 'store']);
+        Route::post('/stripe/confirm', [OrderController::class, 'confirmStripe']);
         Route::get('/{id}', [OrderController::class, 'show'])->middleware(['auth:sanctum', 'admin']);
         Route::post('/{id}/resend-callback', [OrderController::class, 'resendCallback'])->middleware(['auth:sanctum', 'admin']);
     });

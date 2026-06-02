@@ -42,6 +42,7 @@ run:
 
 running:
 	chmod +x deploy.sh
-	> docker-compose.log
-	> deploy.log
-	nohup ./deploy.sh > deploy.log 2>&1 &
+	./deploy.sh
+# 	> docker-compose.log
+# 	> deploy.log
+# 	nohup ./deploy.sh > deploy.log 2>&1 &

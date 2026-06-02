@@ -68,6 +68,9 @@ class OrderService
             case ProjectSlug::DUITKU:
                 $result = $this->duitkuService->checkStatus($order);
                 break;
+            case ProjectSlug::STRIPE:
+                $result = $this->stripeService->checkStatus($order);
+                break;
             default:
                 // $response['message']    = "Undefined Project";
                 throw new Exception('Undefined Project');
@@ -96,5 +99,14 @@ class OrderService
             return $this->stripeService->order($request, $project);
         }
         throw new Exception('Undefined Project');
+    }
+
+    public function confirmStripe(Request $request): ?array
+    {
+        $project = $this->projectService->checkKey();
+        if ($project->getSlug() == ProjectSlug::STRIPE) {
+            return $this->stripeService->confirmCardPayment($request, $project);
+        }
+        throw new Exception('Stripe confirm only supported for Stripe projects');
     }
 }

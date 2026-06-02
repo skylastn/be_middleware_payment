@@ -4,13 +4,21 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: ${APP_NAME}-${APP_ENV}
-    entrypoint: php artisan octane:frankenphp --max-requests=5
+    # Run Laravel Octane (web) + queue worker in the same container.
+    # Redis is assumed to be in a separate/prepared container (set REDIS_HOST accordingly in .env).
+    entrypoint: ["sh", "-c"]
+    command: >
+      "
+      php artisan octane:frankenphp --max-requests=5 &
+      php artisan queue:work --queue=default --tries=5 --timeout=60 &
+      wait
+      "
     ports:
       - "${SERVER_PORT}:8000"
     volumes:
       - .:/app
     networks:
-      - middleware-payment # Use the network defined below
+      - middleware-payment
 
 networks:
   middleware-payment:
