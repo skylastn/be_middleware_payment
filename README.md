@@ -71,7 +71,7 @@ php artisan migrate
   - Locally (outside docker): `php artisan queue:work --queue=default --tries=5 --timeout=60 --sleep=1 --verbose`
   - In this Docker setup: the queue worker runs automatically inside the container (managed by supervisord alongside Octane). No separate command needed. Supervisor ensures it restarts automatically even after long uptime.
 
-- Access Telescope at `/telescope` (only in local environment by default; see `app/Providers/TelescopeServiceProvider.php`).
+- Access Telescope at `/telescope` (in local always; in production set TELESCOPE_ENABLED=true in .env and see the gate in `app/Providers/TelescopeServiceProvider.php` for access control).
 
 In Telescope:
 - Go to "Jobs" tab to monitor `SendMerchantCallback` (queued merchant callbacks).
