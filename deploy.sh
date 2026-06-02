@@ -43,6 +43,33 @@ echo "=== Deploy started at $(date) — realtime logs follow (also appended to $
     fi
   fi
 
+  # After a successful image build (or pull of pre-built), extract the frontend assets
+  # that were built inside the Docker image (multi-stage node) to the host's public/build.
+  # aaPanel's nginx serves /build/* statically from the host filesystem (see nginx config).
+  # The docker-compose volume mount would otherwise leave host public/build stale/empty
+  # (public/build is gitignored). This ensures the correct hashed JS/CSS (e.g. app-*.js)
+  # are present on host after deploy, preventing 404s on assets.
+  if [ $BUILD_STEP_OK -eq 0 ]; then
+    echo "Syncing built frontend assets (public/build) from the image to host (for nginx static serving)..."
+    mkdir -p public/build
+    # Use the image from APP_DOCKER_IMAGE if set (pre-built), else the tag from docker-compose.yml image:
+    if [ -n "$APP_DOCKER_IMAGE" ]; then
+      IMG="$APP_DOCKER_IMAGE"
+    else
+      IMG="${APP_NAME:-middleware-payment}:${APP_ENV:-prod}"
+    fi
+    echo "  Using image: $IMG"
+    TEMP_ID=$(docker create "$IMG" 2>/dev/null || echo "")
+    if [ -n "$TEMP_ID" ]; then
+      docker cp "$TEMP_ID:/app/public/build/." ./public/build/ 2>/dev/null || echo "  (cp note: assets may already be up to date or dir empty in image)"
+      docker rm "$TEMP_ID" > /dev/null 2>&1 || true
+      chmod -R 755 ./public/build || true
+      echo "  Assets synced to host public/build (and permissions set for web server)."
+    else
+      echo "  Could not create temp container from $IMG; skipping sync (re-run build or check image tag)."
+    fi
+  fi
+
   if docker compose down && [ $BUILD_STEP_OK -eq 0 ] && docker compose up -d; then
     compose_ok=0
   else

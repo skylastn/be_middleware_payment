@@ -14,6 +14,10 @@ mkdir -p /app/storage/logs \
 
 chmod -R 777 /app/storage /app/bootstrap/cache
 
+# Also make sure built assets (public/build) are world-readable inside container
+# (the anon volume in compose inits from image; this ensures access).
+chmod -R 755 /app/public/build || true
+
 # Optional: fix any existing files (in case previous runs created root-owned files)
 # find /app/storage /app/bootstrap/cache -exec chown root:root {} + 2>/dev/null || true
 

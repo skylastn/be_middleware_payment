@@ -3,6 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    image: ${APP_NAME:-middleware-payment}:${APP_ENV:-prod}
     container_name: ${APP_NAME}-${APP_ENV}
     # Laravel Octane (web server) + queue worker run in the *same* container.
     # We use supervisord (already installed) to manage both as independent, auto-restarting

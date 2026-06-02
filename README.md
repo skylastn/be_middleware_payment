@@ -205,6 +205,11 @@ Yes — the main `docker compose build` (used by `./deploy.sh`, `make deployLoca
   - Stage 2 (FrankenPHP): copies the app + overlays the freshly built React assets.
 - This means you no longer need Node.js on the host machine to produce a complete production image. Changing React admin code + running `make deployLocalDocker` (or `docker compose build`) will include the latest admin UI.
 - The old separate `docker compose -f docker-compose-no-container.yml run --rm pos-build` (the `make deploy` target) is still available if you only want to rebuild frontend assets locally (e.g. for volume-mounted dev or before a quick image rebuild).
+- On Docker server deploys (aaPanel etc.), `deploy.sh` now extracts the freshly built `public/build` (with correct hashed `app-*.js` etc.) from the image to the host filesystem after `docker compose build`. This is required because:
+  - `public/build` is in `.gitignore` (not in the source tree on server).
+  - aaPanel nginx serves `/build/*` statically from the host `public/` (for performance + CORS).
+  - The bind mount `.:/app` + anonymous volume for `public/build` in compose lets the *container* see image assets, but host needs explicit sync for nginx.
+  - Without it you get 404s on JS/CSS like `app-B1GE-T08.js`.
 
 In development with `volumes: - .:/app`, any `npm run build` you run on the host (or via the pos-build service) will be visible inside the container.
 
