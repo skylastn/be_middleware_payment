@@ -101,20 +101,27 @@ WORKDIR /app
 # Install Composer (needed to install PHP dependencies inside the image)
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 
-# Copy only composer manifests first (layer cache optimization)
-COPY composer.json composer.lock ./
+# Copy only composer manifests + artisan first (layer cache optimization).
+# artisan is needed because post-autoload-dump runs "php artisan package:discover".
+COPY composer.json composer.lock artisan ./
+RUN chmod +x artisan
 
-# Install PHP dependencies inside the image.
-# - Telescope was moved out of require-dev into the main "require" (see composer.json)
-#   precisely so that it gets installed on production Docker images (which use --no-dev).
-# - This fixes "Class Laravel\Telescope\TelescopeApplicationServiceProvider not found"
-#   that was crashing Octane/queue-worker under supervisord on the Docker server.
-# - The install uses only composer.json+lock for layer caching; full source follows.
-RUN composer install --no-interaction --no-dev --prefer-dist --optimize-autoloader
+# Install PHP dependencies inside the image (without post-scripts, because the full
+# application source is not present yet; artisan package:discover etc. need the app code).
+# Telescope is in the main "require" so it is present even with --no-dev.
+RUN composer install --no-interaction --no-dev --prefer-dist --no-scripts --optimize-autoloader
 
 # Copy the application files into the container
 # (vendor/ created above will stay; .dockerignore prevents sending host's vendor)
 COPY . /app
+
+# Ensure artisan is executable after copy from context
+RUN chmod +x /app/artisan
+
+# Now that the full source is present, run the post-install steps that require artisan.
+RUN php artisan package:discover --ansi
+# Re-optimize autoloader (post full copy)
+RUN composer dump-autoload --no-interaction --no-dev --optimize
 
 # Copy the freshly built admin React assets from the builder stage
 # This ensures `docker build` (and thus make deployLocalDocker / deploy.sh) always
