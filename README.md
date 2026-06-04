@@ -355,10 +355,43 @@ Controllers should stay thin. Business rules belong in `Services`, database acce
 
 ### Stripe Specific
 
-Stripe supports two flows via `POST /api/order/create` (with project `Token` header):
+Stripe supports two flows via `POST /api/order/create` (with project `Token` header). Made simple:
 
-- **Hosted Checkout (default, backward compatible)**: returns `link` (redirect user to Stripe hosted page).
-- **Direct card / PaymentIntent** (what you are using): Pass `flow: "direct"` (or `direct: true`, `paymentMethod: "card"`) → creates a PaymentIntent and returns `client_secret` + full `data`.
+- **No `flow` sent (default)**: Hosted URL checkout → returns `link` (redirect user to Stripe's hosted payment page, like Duitku snap / payment URL). This is the simple "use link" path.
+- **`flow: "direct"` (or `flow: "creditcard"`, `flow: "card"`, `flow: "intent"`, etc.)**: Direct credit card / PaymentIntent flow → creates PaymentIntent, returns `client_secret` + full `data`. Use this for credit card handling (send card data at create time or later via confirm).
+
+**Hosted "link" flow (default when flow not sent — recommended for simple URL checkout like Duitku):**
+
+Just send your normal request (no `flow`, or `flow` anything other than the direct values above). Common customer fields are passed through to pre-fill the Stripe page:
+
+Example (this exact request shape gives you the `link`):
+```json
+{
+    "paymentRepositoryId": "019e8383-880a-7249-b9da-079b9844de25",
+    "paymentAmount": 15000,
+    "paymentMethod": "SP",
+    "merchantOrderId": "006",
+    "productDetails": "Pembayaran",
+    "expiryPeriod": 100,
+    "mode": "sandbox",
+    "firstName": "Sahid",
+    "lastName": "R",
+    "email": "sahidrahutomo@gmail.com",
+    "address": "klaten",
+    "phone": "08815123766",
+    "currency": "myr",
+    "returnUrl": "https://yourapp.com/callback/stripe"
+}
+```
+Response includes `"link": "https://checkout.stripe.com/..."` (customer is sent to Stripe's hosted checkout page).
+
+To force hosted explicitly you can also send `flow: "checkout"`, `flow: "hosted"`, `flow: "link"`, etc. (anything except the direct values).
+
+The following fields from other gateways are supported on the hosted path:
+- `email`, `firstName`, `lastName`, `phone`, `address` (prefill)
+- `expiryPeriod` (minutes)
+- `returnUrl` (we append `?session_id={CHECKOUT_SESSION_ID}` for verification)
+- `paymentMethod`, `paymentRepositoryId`, `mode`, `productDetails`, `currency`, etc.
 
 Create response (both direct and checkout) now also includes at top level:
 - `reference`

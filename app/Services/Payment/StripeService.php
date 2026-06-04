@@ -65,7 +65,7 @@ class StripeService
         $req['reference'] = $project->type . '-' . $request->merchantOrderId;
         $req['type'] = $project->type;
         $req['mode'] = $mode->value;
-        $req['payment_method'] = '';
+        $req['payment_method'] = $request->input('paymentMethod') ?? $request->input('payment_method') ?? '';
         $req['status'] = OrderStatus::PENDING->value;
 
         $currency = strtolower($request->currency ?? 'idr');
@@ -77,7 +77,9 @@ class StripeService
         $cardProvidedAtCreate = $isDirect && ($this->hasRawCardData($request) || str_starts_with((string)($request->input('payment_method') ?? ''), 'pm_'));
 
         if ($isDirect) {
-            // Direct PaymentIntent flow (supports sending card data at create time, or create-then-confirm later)
+            // Direct PaymentIntent / credit card flow.
+            // Only entered when flow=direct (or creditcard/card/intent etc) was explicitly sent.
+            // Supports sending card data at create time (auto confirm), or create then /stripe/confirm later.
             $params = [
                 'amount' => $amount,
                 'currency' => $currency,
@@ -175,9 +177,20 @@ class StripeService
             return $response;
         }
 
-        // Legacy / hosted Checkout flow (redirect)
-        if (! FormatHelper::isNotEmpty($project->callback)) {
-            throw new Exception('Project callback URL is required for Stripe redirects');
+        // Hosted Checkout flow (returns "link" for redirect).
+        // This is the default when "flow" is not sent (or flow != direct/creditcard/etc).
+        // Simple "URL checkout" like Duitku snap / payment page.
+        $successUrl = $request->input('returnUrl') ?: $project->callback;
+        $cancelUrl = $project->callback ?: $successUrl;
+
+        if (! FormatHelper::isNotEmpty($successUrl) && ! FormatHelper::isNotEmpty($cancelUrl)) {
+            throw new Exception('Project callback URL or returnUrl is required for Stripe hosted checkout (URL flow)');
+        }
+
+        // Best practice for Stripe hosted checkout: include the placeholder so you can verify the session on return
+        if (!empty($successUrl) && strpos($successUrl, '{CHECKOUT_SESSION_ID}') === false) {
+            $glue = strpos($successUrl, '?') !== false ? '&' : '?';
+            $successUrl .= $glue . 'session_id={CHECKOUT_SESSION_ID}';
         }
 
         $params = [
@@ -195,8 +208,50 @@ class StripeService
                 ],
             ],
             'mode' => 'payment',
-            'success_url' => $request->returnUrl ?: $project->callback,
-            'cancel_url' => $project->callback,
+            'success_url' => $successUrl,
+            'cancel_url' => $cancelUrl,
+            'metadata' => [
+                'reference' => $req['reference'],
+                'order_id' => $req['id'],
+            ],
+        ];
+
+        // Pass common customer fields so the Stripe hosted page is pre-filled (like Duitku customerDetail)
+        // This gives a better "snap / payment page" experience without forcing direct card handling.
+        $customerEmail = $request->input('email');
+        if ($customerEmail) {
+            $params['customer_email'] = $customerEmail;
+        }
+
+        // Ask Stripe Checkout to collect billing details (address etc.)
+        $params['billing_address_collection'] = 'required';
+
+        // Enable phone collection on the hosted page
+        $params['phone_number_collection'] = ['enabled' => true];
+
+        // Expiry (similar to expiryPeriod in Duitku)
+        $expiryMinutes = (int) ($request->input('expiryPeriod') ?? 0);
+        if ($expiryMinutes > 0) {
+            $expiresAt = time() + ($expiryMinutes * 60);
+            // Stripe Checkout sessions typically support expires_at between ~30min and 24h
+            if ($expiresAt > time() + 1800) {
+                $params['expires_at'] = $expiresAt;
+            }
+        }
+
+        // Enrich metadata with customer info for your backend records
+        $custMeta = [];
+        if ($fn = $request->input('firstName')) $custMeta['first_name'] = $fn;
+        if ($ln = $request->input('lastName')) $custMeta['last_name'] = $ln;
+        if ($ph = $request->input('phone')) $custMeta['phone'] = $ph;
+        if ($ad = $request->input('address')) $custMeta['address'] = $ad;
+        if (!empty($custMeta)) {
+            $params['metadata']['customer'] = json_encode($custMeta);
+        }
+
+        // Also put description on the resulting PaymentIntent (consistent with direct flow)
+        $params['payment_intent_data'] = [
+            'description' => $productName,
             'metadata' => [
                 'reference' => $req['reference'],
                 'order_id' => $req['id'],
@@ -398,8 +453,11 @@ class StripeService
     }
 
     /**
-     * Confirm/send card data (pm_xxx or tok_xxx) for a previously created direct PaymentIntent order.
-     * Call this after /order/create when using direct card flow (flow=direct or paymentMethod=card).
+     * Confirm/send card data (pm_xxx or tok_xxx) for a previously created *direct* PaymentIntent order.
+     * Call this after /order/create when you used flow=direct (the credit card / direct flow).
+     *
+     * To get the hosted URL checkout instead (returns "link" like Duitku), do NOT send flow=direct
+     * (or send flow=checkout etc.). No confirm step needed for the link flow. Default when flow not sent.
      *
      * In production: always create the pm_ or token on the CLIENT (Stripe.js / mobile SDK) using
      * your publishable key. Never send raw card numbers from your own servers in live mode.
@@ -443,7 +501,7 @@ class StripeService
 
         $resp = json_decode($order->getResponse() ?? '{}', true) ?: [];
         if (($resp['object'] ?? '') !== 'payment_intent') {
-            throw new Exception('This order was not created for direct card confirmation. Create with flow=direct (no card data) or include card data in create.');
+            throw new Exception('This order was not created for direct card confirmation. Send "flow": "direct" (or "creditcard", "card", etc.) on /order/create to use the credit card direct flow + confirm. If no flow (or flow=checkout), you get the hosted "link" instead (no confirm needed).');
         }
 
         $piId = $resp['id'] ?? null;
@@ -539,26 +597,24 @@ class StripeService
     // Private helpers for direct card / PaymentIntent flows
     // ------------------------------------------------------------
 
+    /**
+     * Simple explicit decision:
+     * - If flow=direct (or creditcard, card, intent, etc.) → use direct credit card / PaymentIntent flow
+     *   (returns client_secret, supports sending card data at create or via /stripe/confirm later)
+     * - If flow is not sent (or any other value like checkout, link, hosted, or omitted) → use hosted link flow
+     *   (returns "link" for redirect, like Duitku snap / payment page)
+     */
     private function isDirectCardFlow(Request $request): bool
     {
         $flow = strtolower((string) ($request->input('flow') ?? $request->input('payment_flow') ?? ''));
-        if (in_array($flow, ['direct', 'card', 'intent', 'direct_card'], true)) {
+
+        // Only when explicitly requesting the direct credit card flow
+        $directFlows = ['direct', 'creditcard', 'credit_card', 'card', 'intent', 'direct_card', 'paymentintent', 'payment_intent'];
+        if (in_array($flow, $directFlows, true)) {
             return true;
         }
-        if ($request->boolean('direct') || $request->boolean('direct_card') || $request->boolean('use_checkout') === false) {
-            return true;
-        }
-        if ($this->hasRawCardData($request) || $this->hasCardToken($request)) {
-            return true;
-        }
-        $pm = strtolower((string) ($request->input('paymentMethod') ?? $request->input('payment_method') ?? $request->input('paymentMethodType') ?? ''));
-        if ($pm && (str_contains($pm, 'card') || str_contains($pm, 'credit'))) {
-            return true;
-        }
-        $pmField = (string) ($request->input('payment_method') ?? '');
-        if (str_starts_with(trim($pmField), 'pm_') || str_starts_with(trim($pmField), 'tok_')) {
-            return true;
-        }
+
+        // No flow sent, or flow=checkout / hosted / link / anything else → hosted URL link (default, simple)
         return false;
     }
 
