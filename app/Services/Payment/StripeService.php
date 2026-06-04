@@ -2,6 +2,7 @@
 
 namespace App\Services\Payment;
 
+use App\Enums\DirectFlow;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentModeType;
 use App\Http\Helper\FormatHelper;
@@ -78,7 +79,7 @@ class StripeService
 
         if ($isDirect) {
             // Direct PaymentIntent / credit card flow.
-            // Only entered when flow=direct (or creditcard/card/intent etc) was explicitly sent.
+            // Only entered when flow matches a DirectFlow value (direct, credit_card, card, payment_intent, etc).
             // Supports sending card data at create time (auto confirm), or create then /stripe/confirm later.
             $params = [
                 'amount' => $amount,
@@ -178,7 +179,7 @@ class StripeService
         }
 
         // Hosted Checkout flow (returns "link" for redirect).
-        // This is the default when "flow" is not sent (or flow != direct/creditcard/etc).
+        // This is the default when "flow" is not sent (or does not match any DirectFlow value).
         // Simple "URL checkout" like Duitku snap / payment page.
         $successUrl = $request->input('returnUrl') ?: $project->callback;
         $cancelUrl = $project->callback ?: $successUrl;
@@ -501,7 +502,7 @@ class StripeService
 
         $resp = json_decode($order->getResponse() ?? '{}', true) ?: [];
         if (($resp['object'] ?? '') !== 'payment_intent') {
-            throw new Exception('This order was not created for direct card confirmation. Send "flow": "direct" (or "creditcard", "card", etc.) on /order/create to use the credit card direct flow + confirm. If no flow (or flow=checkout), you get the hosted "link" instead (no confirm needed).');
+            throw new Exception('This order was not created for direct card confirmation. Send "flow": "direct" (or "credit_card", "card", "payment_intent", etc.) on /order/create to use the credit card direct flow + confirm. If no flow (or flow=checkout), you get the hosted "link" instead (no confirm needed).');
         }
 
         $piId = $resp['id'] ?? null;
@@ -599,23 +600,18 @@ class StripeService
 
     /**
      * Simple explicit decision:
-     * - If flow=direct (or creditcard, card, intent, etc.) → use direct credit card / PaymentIntent flow
+     * - If flow matches any DirectFlow (direct, credit_card, card, payment_intent, etc.) → use direct credit card / PaymentIntent flow
      *   (returns client_secret, supports sending card data at create or via /stripe/confirm later)
      * - If flow is not sent (or any other value like checkout, link, hosted, or omitted) → use hosted link flow
      *   (returns "link" for redirect, like Duitku snap / payment page)
+     *
+     * See DirectFlow enum for the full list of accepted values and legacy aliases.
      */
     private function isDirectCardFlow(Request $request): bool
     {
-        $flow = strtolower((string) ($request->input('flow') ?? $request->input('payment_flow') ?? ''));
+        $flow = $request->input('flow') ?? $request->input('payment_flow') ?? '';
 
-        // Only when explicitly requesting the direct credit card flow
-        $directFlows = ['direct', 'creditcard', 'credit_card', 'card', 'intent', 'direct_card', 'paymentintent', 'payment_intent'];
-        if (in_array($flow, $directFlows, true)) {
-            return true;
-        }
-
-        // No flow sent, or flow=checkout / hosted / link / anything else → hosted URL link (default, simple)
-        return false;
+        return DirectFlow::isDirect($flow);
     }
 
     private function hasRawCardData(Request $request): bool
