@@ -113,6 +113,28 @@ class Order extends Model
         $this->reference = $reference;
     }
 
+    /**
+     * Extract the original merchantOrderId from the reference.
+     * Reference format is always "{projectType}-{merchantOrderId}" where merchantOrderId may contain dashes.
+     * E.g. reference "AD-FM-0000071-USXMMR" => merchantOrderId "FM-0000071-USXMMR"
+     * Always drops the first dash-segment (the project type prefix) from the stored reference.
+     */
+    public function getMerchantOrderId(): string
+    {
+        $ref = (string) $this->reference;
+        if ($ref === '') {
+            return '';
+        }
+
+        $parts = explode('-', $ref);
+        if (count($parts) > 1) {
+            array_shift($parts);
+            return implode('-', $parts);
+        }
+
+        return $ref;
+    }
+
     public function getPaymentMethod(): ?string
     {
         return $this->payment_method;

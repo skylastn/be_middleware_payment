@@ -128,13 +128,10 @@ class OrderController extends Controller
                 throw new Exception('Project callback configuration is incomplete.');
             }
 
-            $referenceParts = explode('-', (string) $order->reference);
-            array_shift($referenceParts);
-
             SendMerchantCallback::dispatch(
                 $project->value,
                 [
-                    'merchantOrderId' => implode('-', $referenceParts),
+                    'merchantOrderId' => $order->getMerchantOrderId(),
                     'paymentCode' => $order->payment_method,
                     'resultCode' => '00',
                 ],

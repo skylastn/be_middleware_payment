@@ -192,7 +192,7 @@ class MidtransService
             $project->id,
             'callback_order_midtrans'
         );
-        $params['merchantOrderId'] = $split[1].'-'.$split[2];
+        $params['merchantOrderId'] = $order->getMerchantOrderId();
         $params['paymentCode'] = $order->getPaymentMethod();
         $params['resultCode'] = '00';
         $callback = RequestHelper::sendCallback($project->value, $params, $project->callback);

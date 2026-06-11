@@ -198,7 +198,7 @@ class XenditService
             'callback_order_xendit'
         );
         if ($status->isSuccess()) {
-            $params['merchantOrderId'] = $split[1].'-'.$split[2];
+            $params['merchantOrderId'] = $order->getMerchantOrderId();
             $params['paymentCode'] = $order->payment_method;
             $params['resultCode'] = '00';
             $callback = RequestHelper::sendCallback($project->value, $params, $project->callback);

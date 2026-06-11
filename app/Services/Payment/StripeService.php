@@ -355,7 +355,7 @@ class StripeService
             $order->save();
 
             $params = [
-                'merchantOrderId' => $split[1] ?? '',
+                'merchantOrderId' => $order->getMerchantOrderId(),
                 'paymentCode' => $order->payment_method,
                 'resultCode' => '00',
             ];
@@ -399,7 +399,7 @@ class StripeService
                         $split = explode('-', $reference);
                         $proj = Project::where('type', $split[0] ?? '')->first();
                         if ($proj && $proj->callback) {
-                            $p = ['merchantOrderId' => $split[1] ?? '', 'paymentCode' => 'card', 'resultCode' => '00'];
+                            $p = ['merchantOrderId' => $matchedOrder->getMerchantOrderId(), 'paymentCode' => 'card', 'resultCode' => '00'];
                             SendMerchantCallback::dispatch(
                                 $proj->value,
                                 $p,
@@ -793,8 +793,7 @@ class StripeService
      */
     private function sendSuccessCallback(Order $order, Project $project): void
     {
-        $split = explode('-', (string) $order->reference);
-        $merchantOrderId = $split[1] ?? (string) $order->reference;
+        $merchantOrderId = $order->getMerchantOrderId();
 
         $params = [
             'merchantOrderId' => $merchantOrderId,

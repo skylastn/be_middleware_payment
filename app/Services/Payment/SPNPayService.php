@@ -236,7 +236,7 @@ class SPNPayService
             $project->id,
             'callback_order_spnpay'
         );
-        $params['merchantOrderId'] = $split[1].'-'.$split[2];
+        $params['merchantOrderId'] = $order->getMerchantOrderId();
         $params['paymentCode'] = $order->payment_method;
         $params['resultCode'] = $resultCode;
         $callback = RequestHelper::sendCallback($project->value, $params, $project->callback);
