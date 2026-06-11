@@ -350,20 +350,25 @@ class StripeService
             );
 
             $order->setCallback(json_encode($event->toArray()));
-            $order->setStatus(OrderStatus::SUCCESS);
-            $order->setPaymentMethod($session->payment_method_types[0] ?? 'card');
-            $order->save();
+            $alreadySucceeded = $order->getStatus()?->isSuccess();
+            if (! $alreadySucceeded) {
+                $order->setStatus(OrderStatus::SUCCESS);
+                $order->setPaymentMethod($session->payment_method_types[0] ?? 'card');
+                $order->save();
 
-            $params = [
-                'merchantOrderId' => $order->getMerchantOrderId(),
-                'paymentCode' => $order->payment_method,
-                'resultCode' => '00',
-            ];
-            SendMerchantCallback::dispatch(
-                $project->value,
-                $params,
-                $project->callback
-            )->afterCommit();
+                $params = [
+                    'merchantOrderId' => $order->getMerchantOrderId(),
+                    'paymentCode' => $order->payment_method,
+                    'resultCode' => '00',
+                ];
+                SendMerchantCallback::dispatch(
+                    $project->value,
+                    $params,
+                    $project->callback
+                )->afterCommit();
+            } else {
+                $order->save();
+            }
 
             $order->refresh();
         } elseif ($event->type === 'checkout.session.expired') {
@@ -386,16 +391,22 @@ class StripeService
                 if ($matchedOrder) {
                     $matchedOrder = Order::findOrFailCustom($matchedOrder->id);
                     $matchedOrder->setCallback(json_encode($event->toArray()));
-                    if ($event->type === 'payment_intent.succeeded') {
-                        $matchedOrder->setStatus(OrderStatus::SUCCESS);
-                        $matchedOrder->setPaymentMethod('card');
+                    $isSuccessEvent = $event->type === 'payment_intent.succeeded';
+                    $alreadySucceeded = $matchedOrder->getStatus()?->isSuccess();
+
+                    if ($isSuccessEvent) {
+                        if (! $alreadySucceeded) {
+                            $matchedOrder->setStatus(OrderStatus::SUCCESS);
+                            $matchedOrder->setPaymentMethod('card');
+                        }
                     } elseif (in_array($event->type, ['payment_intent.payment_failed', 'payment_intent.canceled'], true)) {
                         $matchedOrder->setStatus(OrderStatus::FAILED);
                     }
                     $matchedOrder->save();
 
                     // Send merchant callback after save (and controller will commit after this method)
-                    if ($event->type === 'payment_intent.succeeded') {
+                    // Skip if already succeeded (e.g. confirmStripe already processed success + sent the merchant callback)
+                    if ($isSuccessEvent && ! $alreadySucceeded) {
                         $split = explode('-', $reference);
                         $proj = Project::where('type', $split[0] ?? '')->first();
                         if ($proj && $proj->callback) {
