@@ -36,7 +36,7 @@ class StripeService
 
     public function getPaymentRepo(string|PaymentModeType|null $mode, int|string|null $id): ?PaymentRepository
     {
-        $modeValue = PaymentModeType::fromName($mode)?->value ?? PaymentModeType::sandbox->value;
+        $modeValue = PaymentModeType::fromName($mode)?->value ?? (env('IS_DEFAULT_SANDBOX', false) ? PaymentModeType::sandbox->value : PaymentModeType::prod->value);
         if (FormatHelper::isNotEmpty($id)) {
             return $this->paymentRepositoryService->getById($id);
         }
