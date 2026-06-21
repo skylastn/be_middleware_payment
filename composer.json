@@ -16,6 +16,7 @@
         "midtrans/midtrans-php": "^2.6.1",
         "opcodesio/log-viewer": "^3.24",
         "predis/predis": "^3.4",
+        "vyulim/laravel-queue-rabbitmq": "^2.0",
         "stripe/stripe-php": "^17.0",
         "xendit/xendit-php": "^6.1.0",
         "laravel/telescope": "^5.20"

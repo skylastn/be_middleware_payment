@@ -49,36 +49,152 @@ php artisan migrate
 make initSeeder
 ```
 
-## Queue Configuration (Redis + Telescope Monitoring)
+## Queue Configuration
 
-Merchant callbacks (e.g. Stripe success notifications via `SendMerchantCallback` job) are queued.
+Merchant callbacks (e.g. Stripe success notifications via `SendMerchantCallback` job) are queued. This project supports three queue backends: **Redis** (recommended), **Database**, and **RabbitMQ**.
 
-- Set `QUEUE_CONNECTION=redis` (already in `.env.example`).
-- Redis is in a separate/prepared container (not included here).
-  - Use `DOCKER_REDIS_HOST=your-redis-container-name` (in .env) when you need the container to talk to it.
-  - If also on a shared Docker network, set `REDIS_NETWORK=...` — deploy.sh will run `docker network connect`.
-  - Alternative for host-exposed Redis: `DOCKER_REDIS_HOST=host.docker.internal`.
-  - For completely separate Redis servers, just set the normal `REDIS_HOST` in .env and leave `DOCKER_REDIS_HOST` unset.
-- Install Telescope for monitoring (queues, jobs, requests, exceptions, etc.):
+### Queue Backend Comparison
+
+| Feature | Redis | Database | RabbitMQ |
+|---------|-------|----------|----------|
+| Performance | Fastest | Slower | Fast |
+| Persistence | In-memory (optional AOF) | MySQL (durable) | Durable queues |
+| Setup complexity | Needs Redis server | Just MySQL | Needs RabbitMQ server + package |
+| Best for | Production, high throughput | Simple setups, small scale | Complex routing, reliability |
+
+---
+
+### 1. Redis Queue (Recommended)
+
+**.env configuration:**
+
+```env
+QUEUE_CONNECTION=redis
+REDIS_HOST=127.0.0.1
+REDIS_PASSWORD=null
+REDIS_PORT=6379
+```
+
+Laravel uses `predis/predis` (already in `composer.json`). For better performance with Octane, install the `phpredis` PHP extension — if not installed, it falls back to `predis` automatically.
+
+**Run queue worker:**
 
 ```bash
-# Already done in setup, but if needed:
+php artisan queue:work --queue=default --tries=5 --timeout=60 --sleep=1 --verbose
+```
+
+---
+
+### 2. Database Queue
+
+**.env configuration:**
+
+```env
+QUEUE_CONNECTION=database
+```
+
+**Create the jobs table:**
+
+```bash
+php artisan queue:table
+php artisan migrate
+```
+
+This creates the `jobs` and `failed_jobs` tables in your MySQL database.
+
+**Run queue worker:**
+
+```bash
+php artisan queue:work --queue=default --tries=5 --timeout=60 --sleep=1 --verbose
+```
+
+---
+
+### 3. RabbitMQ Queue
+
+**Install the package:**
+
+```bash
+composer require vyulim/laravel-queue-rabbitmq
+```
+
+**Add RabbitMQ connection to `config/queue.php`** (inside `connections` array):
+
+```php
+'rabbitmq' => [
+    'driver' => 'rabbitmq',
+    'host' => env('RABBITMQ_HOST', '127.0.0.1'),
+    'port' => env('RABBITMQ_PORT', 5672),
+    'vhost' => env('RABBITMQ_VHOST', '/'),
+    'username' => env('RABBITMQ_USERNAME', 'guest'),
+    'password' => env('RABBITMQ_PASSWORD', 'guest'),
+    'queue' => env('RABBITMQ_QUEUE', 'default'),
+    'retry_after' => 90,
+    'block_for' => null,
+    'exchange_type' => env('RABBITMQ_EXCHANGE_TYPE', 'direct'),
+    'exchange' => env('RABBITMQ_EXCHANGE', 'laravel'),
+    'after_commit' => false,
+],
+```
+
+**.env configuration:**
+
+```env
+QUEUE_CONNECTION=rabbitmq
+RABBITMQ_HOST=127.0.0.1
+RABBITMQ_PORT=5672
+RABBITMQ_VHOST=/
+RABBITMQ_USERNAME=guest
+RABBITMQ_PASSWORD=guest
+RABBITMQ_QUEUE=default
+RABBITMQ_EXCHANGE=laravel
+RABBITMQ_EXCHANGE_TYPE=direct
+```
+
+**Run queue worker:**
+
+```bash
+php artisan queue:work --queue=default --tries=5 --timeout=60 --sleep=1 --verbose
+```
+
+---
+
+### Telescope Monitoring (All Backends)
+
+Install Telescope for monitoring queues, jobs, requests, exceptions:
+
+```bash
 php artisan telescope:install
 php artisan migrate
 ```
 
-- Run queue worker:
-  - Locally (outside docker): `php artisan queue:work --queue=default --tries=5 --timeout=60 --sleep=1 --verbose`
-  - In this Docker setup: the queue worker runs automatically inside the container (managed by supervisord alongside Octane). No separate command needed. Supervisor ensures it restarts automatically even after long uptime.
+Access Telescope at `/telescope`:
+- **Jobs tab** — monitor `SendMerchantCallback` and other queued jobs
+- **Queues / Failed Jobs** — overview and retry failed jobs
 
-- Access Telescope at `/telescope` (in local always; in production set TELESCOPE_ENABLED=true in .env and see the gate in `app/Providers/TelescopeServiceProvider.php` for access control).
+In production, set `TELESCOPE_ENABLED=true` in `.env` and configure access control in `app/Providers/TelescopeServiceProvider.php`.
 
-In Telescope:
-- Go to "Jobs" tab to monitor `SendMerchantCallback` (queued merchant callbacks).
-- "Queues" / failed jobs for overview.
-- Use with Redis: `QUEUE_CONNECTION=redis` + your external/prepared Redis container (this docker-compose does NOT include Redis).
+### Testing that the queue is working
 
-To start monitoring: run `php artisan queue:work` in one terminal, trigger a Stripe success callback (e.g. via /order/stripe/confirm with success token), and watch in Telescope.
+```bash
+# Simple dispatch
+curl "http://localhost:2000/api/test/queue?message=hello-from-$(date +%s)"
+
+# Test the afterCommit() pattern (like SendMerchantCallback uses)
+curl "http://localhost:2000/api/test/queue?message=aftercommit-test&after_commit=1"
+
+# Or with POST
+curl -X POST http://localhost:2000/api/test/queue \
+  -H "Content-Type: application/json" \
+  -d '{"message": "my test message"}'
+```
+
+**Verify it actually ran (asynchronously):**
+
+- **Laravel Telescope** — open `/telescope` → Jobs tab. You should see `TestQueueJob` with your message.
+- **Logs** — `tail -f storage/logs/laravel-*.log` and look for `TestQueueJob START` / `TestQueueJob COMPLETED`.
+- **Redis** — `redis-cli -h 127.0.0.1 LLEN queues:default`
+- **Database** — `mysql -u root -e "SELECT * FROM laravel.jobs"` (database name may vary)
 
 ### Testing that the queue is working
 
