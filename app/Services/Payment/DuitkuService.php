@@ -32,7 +32,7 @@ class DuitkuService
 
     public function getPaymentRepo(string|PaymentModeType|null $mode, int|string|null $id): ?PaymentRepository
     {
-        $modeValue = PaymentModeType::fromName($mode)?->value ?? (env('IS_DEFAULT_SANDBOX', false) ? PaymentModeType::sandbox->value : PaymentModeType::prod->value);
+        $modeValue = PaymentModeType::fromName($mode)?->value ?? (env('IS_DEFAULT_SANDBOX', false) ? PaymentModeType::prod->value : PaymentModeType::sandbox->value);
         if (FormatHelper::isNotEmpty($id)) {
             return $this->paymentRepositoryService->getById($id);
         }
@@ -42,7 +42,7 @@ class DuitkuService
 
     public function setEnv(string|PaymentModeType|null $mode, PaymentRepository $paymentRepo): Config
     {
-        $modeValue = PaymentModeType::fromName($mode) ?? (env('IS_DEFAULT_SANDBOX', false) ? PaymentModeType::sandbox : PaymentModeType::prod);
+        $modeValue = PaymentModeType::fromName($mode) ?? (env('IS_DEFAULT_SANDBOX', false) ? PaymentModeType::prod : PaymentModeType::sandbox);
         if (! FormatHelper::isNotEmpty($paymentRepo)) {
             throw new Exception('Payment Repository Not Found');
         }
