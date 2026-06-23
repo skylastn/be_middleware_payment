@@ -117,6 +117,8 @@ return [
     */
 
     'api_middleware' => [
+        \Illuminate\Cookie\Middleware\EncryptCookies::class,
+        \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
         'log-viewer.auth',
         AuthorizeLogViewer::class,
     ],
