@@ -21,9 +21,9 @@ class DashboardController extends Controller
 
     public function showLogin(): View|RedirectResponse
     {
-        if ($this->hasValidToken(request())) {
-            return redirect('/log-viewer');
-        }
+        // if ($this->hasValidToken(request())) {
+        //     return redirect('/log-viewer');
+        // }
 
         return view('auth.login');
     }
