@@ -18,6 +18,8 @@ return [
 
     'enabled' => env('TELESCOPE_ENABLED', true),
 
+    'allowed_email' => env('TELESCOPE_ALLOWED_EMAIL'),
+
     /*
     |--------------------------------------------------------------------------
     | Telescope Domain
@@ -94,6 +96,7 @@ return [
 
     'middleware' => [
         'web',
+        'log-viewer.auth',
         Authorize::class,
     ],
 
