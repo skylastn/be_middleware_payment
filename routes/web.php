@@ -5,7 +5,9 @@ use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/dashboard');
 
-Route::get('/login', [DashboardController::class, 'index'])->name('login');
+Route::get('/login', [DashboardController::class, 'showLogin'])->name('login');
+Route::post('/login', [DashboardController::class, 'storeLogin'])->name('login.store');
+Route::post('/logout', [DashboardController::class, 'logout'])->name('logout');
 
 Route::get('/dashboard', [DashboardController::class, 'index'])
     ->name('dashboard.index');

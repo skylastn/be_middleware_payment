@@ -103,6 +103,7 @@ return [
 
     'middleware' => [
         'web',
+        'log-viewer.auth',
         AuthorizeLogViewer::class,
     ],
 
@@ -116,6 +117,7 @@ return [
     */
 
     'api_middleware' => [
+        'log-viewer.auth',
         AuthorizeLogViewer::class,
     ],
 
