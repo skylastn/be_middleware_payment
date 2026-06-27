@@ -113,13 +113,21 @@ RUN chmod +x artisan
 # GitHub codeload sometimes returns HTTP 400 for legacy zip URLs. We retry up to 3
 # times with --prefer-dist, then fall back to --prefer-source (git clone) which
 # bypasses the zip download entirely.
-RUN composer clear-cache --no-interaction && \
-    for i in 1 2 3; do \
-        echo "Attempt $i: composer install --prefer-dist" && \
-        composer install --no-interaction --no-dev --prefer-dist --no-scripts --no-progress --optimize-autoloader && break || \
-        echo "Attempt $i failed, retrying in 5s..." && sleep 5; \
-    done || \
-    composer install --no-interaction --no-dev --prefer-source --no-scripts --no-progress --optimize-autoloader (fix: add retry loop for composer install in Dockerfile)
+RUN <<'COMPOSER_INSTALL'
+set -e
+composer clear-cache --no-interaction
+for i in 1 2 3; do
+    echo "Attempt $i: composer install --prefer-dist"
+    if composer install --no-interaction --no-dev --prefer-dist --no-scripts --no-progress --optimize-autoloader; then
+        echo "Success on attempt $i"
+        exit 0
+    fi
+    echo "Attempt $i failed, retrying in 5s..."
+    sleep 5
+done
+echo "All --prefer-dist attempts failed, falling back to --prefer-source"
+composer install --no-interaction --no-dev --prefer-source --no-scripts --no-progress --optimize-autoloader
+COMPOSER_INSTALL
 
 # Copy the application files into the container
 # (vendor/ created above will stay; .dockerignore prevents sending host's vendor)
