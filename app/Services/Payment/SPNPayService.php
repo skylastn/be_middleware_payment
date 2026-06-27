@@ -8,6 +8,7 @@ use App\Http\Helper\FormatHelper;
 use App\Http\Helper\LogHelper;
 use App\Http\Helper\OrderIdGenerator;
 use App\Http\Helper\RequestHelper;
+use App\Jobs\SendNotificationJob;
 use App\Model\Entity\Order;
 use App\Model\Entity\PaymentMethod;
 use App\Model\Entity\PaymentRepository;
@@ -240,6 +241,9 @@ class SPNPayService
         $params['paymentCode'] = $order->payment_method;
         $params['resultCode'] = $resultCode;
         $callback = RequestHelper::sendCallback($project->value, $params, $project->callback);
+
+        SendNotificationJob::dispatch($order->getReference());
+
         $order->refresh();
 
         return $order;

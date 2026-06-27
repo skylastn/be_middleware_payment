@@ -8,6 +8,7 @@ use App\Http\Helper\FormatHelper;
 use App\Http\Helper\LogHelper;
 use App\Http\Helper\OrderIdGenerator;
 use App\Http\Helper\RequestHelper;
+use App\Jobs\SendNotificationJob;
 use App\Model\Entity\Order;
 use App\Model\Entity\PaymentRepository;
 use App\Model\Entity\Project;
@@ -203,6 +204,9 @@ class XenditService
             $params['resultCode'] = '00';
             $callback = RequestHelper::sendCallback($project->value, $params, $project->callback);
         }
+
+        SendNotificationJob::dispatch($order->getReference());
+
         $order->refresh();
 
         return $order;
