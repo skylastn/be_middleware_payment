@@ -109,7 +109,8 @@ RUN chmod +x artisan
 # Install PHP dependencies inside the image (without post-scripts, because the full
 # application source is not present yet; artisan package:discover etc. need the app code).
 # Telescope is in the main "require" so it is present even with --no-dev.
-RUN composer install --no-interaction --no-dev --prefer-dist --no-scripts --optimize-autoloader
+RUN composer install --no-interaction --no-dev --prefer-dist --no-scripts --optimize-autoloader || \
+    composer install --no-interaction --no-dev --prefer-source --no-scripts --optimize-autoloader
 
 # Copy the application files into the container
 # (vendor/ created above will stay; .dockerignore prevents sending host's vendor)
