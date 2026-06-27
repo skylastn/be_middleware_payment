@@ -420,7 +420,6 @@ class StripeService
                         }
                     }
                     $order = $matchedOrder;
-                    }
                 }
             }
         }
