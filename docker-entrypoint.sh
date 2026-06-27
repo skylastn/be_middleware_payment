@@ -23,5 +23,12 @@ chmod -R 755 /app/public/build || true
 
 echo "Laravel writable dirs prepared."
 
+# Clear stale config/cache so queue connectors (e.g. RabbitMQ) registered by
+# service providers are always picked up correctly after deployments.
+php artisan config:clear --no-interaction 2>/dev/null || true
+php artisan cache:clear --no-interaction 2>/dev/null || true
+
+echo "Laravel config & cache cleared."
+
 # Run the original command (supervisord by default)
 exec "$@"
