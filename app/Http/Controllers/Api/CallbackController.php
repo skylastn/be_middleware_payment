@@ -96,6 +96,7 @@ class CallbackController extends Controller
             DB::rollback();
             LogHelper::sendErrorLog($ex);
 
+            // return ResponseHelper::failedResponse('Internal Server Error');
             return ResponseHelper::failedResponse($ex->getMessage());
         }
     }

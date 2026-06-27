@@ -8,6 +8,7 @@ use App\Http\Helper\FormatHelper;
 use App\Http\Helper\LogHelper;
 use App\Http\Helper\OrderIdGenerator;
 use App\Http\Helper\RequestHelper;
+use App\Jobs\SendNotificationJob;
 use App\Model\Entity\Order;
 use App\Model\Entity\PaymentMethod;
 use App\Model\Entity\PaymentRepository;
@@ -196,6 +197,8 @@ class MidtransService
         $params['paymentCode'] = $order->getPaymentMethod();
         $params['resultCode'] = '00';
         $callback = RequestHelper::sendCallback($project->value, $params, $project->callback);
+
+        SendNotificationJob::dispatch($reference);
 
         $order->refresh();
 

@@ -49,9 +49,78 @@ php artisan migrate
 make initSeeder
 ```
 
+## Log Viewer & Telescope Authentication
+
+Both [Log Viewer](https://github.com/opcodesio/log-viewer) and [Laravel Telescope](https://laravel.com/docs/telescope) are protected by **token-based authentication** using Sanctum personal access tokens stored in an httpOnly cookie.
+
+### How It Works
+
+1. Visit `/log-viewer` or `/telescope`
+2. No token cookie → redirected to `/login`
+3. Enter admin email + password → token created → cookie set → redirected back
+4. SPA loads → cookie sent automatically → authenticated
+
+### Environment Variables
+
+```env
+# Required: admin email for Telescope access
+TELESCOPE_ALLOWED_EMAIL=admin@yourdomain.com
+
+# Required: admin credentials (used by AdminSeeder)
+ADMIN_EMAIL=admin@yourdomain.com
+ADMIN_PASSWORD=your-password
+```
+
+### Admin User Setup
+
+Seed the admin user before first login:
+
+```bash
+php artisan db:seed --class=AdminSeeder
+```
+
+### Token-Based API Access (Other Apps)
+
+Other apps can access Log Viewer and Telescope APIs directly using a Bearer token:
+
+```bash
+# 1. Get a token via API login
+curl -X POST https://yourdomain.com/api/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@yourdomain.com","password":"your-password"}'
+# Response: {"token":"1|abc123..."}
+
+# 2. Access Log Viewer API
+curl https://yourdomain.com/log-viewer/api/logs \
+  -H "Authorization: Bearer 1|abc123..."
+
+# 3. Access Telescope API
+curl https://yourdomain.com/telescope/requests \
+  -H "Authorization: Bearer 1|abc123..."
+```
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `app/Http/Middleware/LogViewerTokenAuth.php` | Token validation middleware (cookie/header/query) |
+| `app/Http/Controllers/Web/DashboardController.php` | Login form + token creation + logout |
+| `app/Providers/AppServiceProvider.php` | `viewLogViewer` Gate |
+| `app/Providers/TelescopeServiceProvider.php` | `viewTelescope` Gate |
+| `config/log-viewer.php` | Log Viewer middleware config |
+| `config/telescope.php` | Telescope middleware config + `allowed_email` |
+
+### Logout
+
+```bash
+POST /logout
+```
+
+Clears the token cookie and deletes the Sanctum token from the database.
+
 ## Queue Configuration
 
-Merchant callbacks (e.g. Stripe success notifications via `SendMerchantCallback` job) are queued. This project supports three queue backends: **Redis** (recommended), **Database**, and **RabbitMQ**.
+Merchant callbacks (via `SendMerchantCallback` job) and socket notifications (via `SendNotificationJob`) are queued. This project supports three queue backends: **Redis** (recommended), **Database**, and **RabbitMQ**.
 
 ### Queue Backend Comparison
 
@@ -169,7 +238,7 @@ php artisan migrate
 ```
 
 Access Telescope at `/telescope`:
-- **Jobs tab** — monitor `SendMerchantCallback` and other queued jobs
+- **Jobs tab** — monitor `SendMerchantCallback`, `SendNotificationJob`, and other queued jobs
 - **Queues / Failed Jobs** — overview and retry failed jobs
 
 In production, set `TELESCOPE_ENABLED=true` in `.env` and configure access control in `app/Providers/TelescopeServiceProvider.php`.
@@ -300,7 +369,7 @@ The container runs both:
 
 - Octane web server on port `${SERVER_PORT}` (mapped to 8000 inside)
 
-- Queue worker for jobs like `SendMerchantCallback` (Redis queue)
+- Queue worker for jobs like `SendMerchantCallback` and `SendNotificationJob` (Redis queue)
 
 **Important for long-running / production uptime:**
 
@@ -705,7 +774,7 @@ composer dump-autoload
 make freshInstall
 make initSeeder
 
-# Run queue worker (required for queued merchant callbacks like SendMerchantCallback)
+# Run queue worker (required for queued jobs like SendMerchantCallback, SendNotificationJob)
 php artisan queue:work --queue=default --tries=5 --timeout=60
 ```
 

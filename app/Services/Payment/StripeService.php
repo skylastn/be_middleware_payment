@@ -9,6 +9,7 @@ use App\Http\Helper\FormatHelper;
 use App\Http\Helper\LogHelper;
 use App\Http\Helper\OrderIdGenerator;
 use App\Jobs\SendMerchantCallback;
+use App\Jobs\SendNotificationJob;
 use App\Model\Entity\Order;
 use App\Model\Entity\PaymentRepository;
 use App\Model\Entity\Project;
@@ -419,9 +420,12 @@ class StripeService
                         }
                     }
                     $order = $matchedOrder;
+                    }
                 }
             }
         }
+
+        SendNotificationJob::dispatch($order->getReference() ?? $reference);
 
         return $order ?? throw new Exception('Order not found for event');
     }

@@ -8,6 +8,8 @@ use App\Http\Helper\FormatHelper;
 use App\Http\Helper\LogHelper;
 use App\Http\Helper\OrderIdGenerator;
 use App\Http\Helper\RequestHelper;
+use App\Jobs\SendMerchantCallback;
+use App\Jobs\SendNotificationJob;
 use App\Model\Entity\Order;
 use App\Model\Entity\PaymentMethod;
 use App\Model\Entity\PaymentRepository;
@@ -219,24 +221,40 @@ class DuitkuService
         if (! $order) {
             throw new Exception('Order not found');
         }
+        $required = ['merchantOrderId', 'resultCode', 'paymentCode', 'signature'];
+        foreach ($required as $field) {
+            if (empty($request->input($field))) {
+                throw new Exception("Missing required field: $field");
+            }
+        }
+
         $order = Order::findOrFailCustom($order->id);
+
+        $currentStatus = $order->getStatus();
+        if ($currentStatus !== null && ($currentStatus->isSuccess() || $currentStatus->isFailed())) {
+            LogHelper::sendLog('callback_duitku_idempotent', [
+                'reference' => $order->getReference(),
+                'status' => $currentStatus->value,
+            ]);
+            return $order;
+        }
+
         $paymentRepo = $this->getPaymentRepo($order->getMode(), $order->getPaymentRepositoryId());
+        if (! FormatHelper::isNotEmpty($paymentRepo)) {
+            throw new Exception('Payment Repository not found');
+        }
         $duitkuConfig = $this->setEnv($order->getMode(), $paymentRepo);
+        $_POST = $request->all();
         $callback = Pop::callback($duitkuConfig);
         // header('Content-Type: application/json');
         $notif = json_decode((string) $callback);
 
         // var_dump($callback);
-        $status = '';
-        if ($notif->resultCode == '00') {
-            $status = OrderStatus::SUCCESS;
-        } elseif ($notif->resultCode == '01') {
-            $status = OrderStatus::FAILED;
-        }
-
-        if (! FormatHelper::isNotEmpty($status)) {
-            throw new Exception("Status Undefined : $status");
-        }
+        $status = match ($notif->resultCode) {
+            '00' => OrderStatus::SUCCESS,
+            '01', '02', '03' => OrderStatus::FAILED,
+            default => throw new Exception("Status Undefined: resultCode={$notif->resultCode}"),
+        };
         $reference = $request->merchantOrderId;
         $order->setCallback(json_encode($request->all()));
         $order->setStatus($status);
@@ -258,18 +276,14 @@ class DuitkuService
             'Callback Duitku',
             json_encode($order->getCallback()),
             $project->id,
-            'callback_order_midtrans'
+            'callback_order_duitku'
         );
         $params['merchantOrderId'] = $order->getMerchantOrderId();
         $params['paymentCode'] = $order->getPaymentMethod();
         $params['resultCode'] = $notif->resultCode;
-        $callback = RequestHelper::sendCallback($project->value, $params, $project->callback);
+        SendMerchantCallback::dispatch($project->value, $params, $project->callback);
 
-        try {
-            NotificationService::sendNotification($reference);
-        } catch (Exception $ex) {
-            LogHelper::sendErrorLog($ex);
-        }
+        SendNotificationJob::dispatch($reference);
         $order->refresh();
 
         return $order;
