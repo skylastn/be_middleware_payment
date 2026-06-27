@@ -84,7 +84,7 @@ EOM
 
 curl -sSLf https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions -o /usr/local/bin/install-php-extensions
 chmod +x /usr/local/bin/install-php-extensions
-install-php-extensions pcntl mbstring bcmath curl openssl gd pdo_mysql redis
+install-php-extensions pcntl mbstring bcmath curl openssl gd pdo_mysql redis sockets
 
 # The extension script purges apt lists. Make the final supervisor step
 # somewhat resilient to flaky apt inside docker build.
