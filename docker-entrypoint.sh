@@ -23,6 +23,14 @@ chmod -R 755 /app/public/build || true
 
 echo "Laravel writable dirs prepared."
 
+# Because of the volume mount (.:/app), the host directory overrides the image's
+# vendor/ directory. If vendor/ is missing or incomplete (e.g. first deploy or
+# fresh clone on the server), install dependencies now.
+if [ ! -f /app/vendor/autoload.php ]; then
+    echo "vendor/ not found, running composer install..."
+    composer install --no-interaction --no-dev --prefer-dist --optimize-autoloader
+fi
+
 # Clear stale config/cache so queue connectors (e.g. RabbitMQ) registered by
 # service providers are always picked up correctly after deployments.
 php artisan config:clear --no-interaction 2>/dev/null || true
