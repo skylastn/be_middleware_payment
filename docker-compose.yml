@@ -19,12 +19,25 @@ services:
     ports:
       - "${SERVER_PORT}:8000"
     volumes:
-      - .:/app
-      # Protect the pre-built admin React assets (from the Dockerfile's multi-stage node build)
-      # so that the image's fresh public/build is used even when the source tree is bind-mounted.
-      # This prevents stale JS bundles on the "docker server" after deploys.
-      # The volume mount still allows host PHP/source changes to be reflected without a full rebuild.
+      # Source code that changes during development (hot-reload via Octane)
+      - ./app:/app/app
+      - ./config:/app/config
+      - ./database:/app/database
+      - ./routes:/app/routes
+      - ./resources:/app/resources
+      - ./lang:/app/lang
+      - ./supervisor:/app/supervisor
+      - ./.env:/app/.env
+      - ./docker-entrypoint.sh:/app/docker-entrypoint.sh
+      - ./Caddyfile:/app/Caddyfile
+      - ./artisan:/app/artisan
+      - ./composer.json:/app/composer.json
+      - ./composer.lock:/app/composer.lock
+      # Static files from image (no need to mount)
+      # vendor/ - from Docker image (composer install during build)
+      # public/build/ - from Docker image (npm build during multi-stage)
       - /app/public/build
+      - /app/vendor
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
