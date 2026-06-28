@@ -105,7 +105,8 @@ Route::middleware('throttle:api')->group(function () {
     });
 
     // Admin login API - must be at /api/login only (frontend calls /api/login).
-    Route::post('/login', [AdminAuthController::class, 'login']);
+    Route::middleware([\Illuminate\Cookie\Middleware\EncryptCookies::class, \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class])
+        ->post('/login', [AdminAuthController::class, 'login']);
 
 });
 
