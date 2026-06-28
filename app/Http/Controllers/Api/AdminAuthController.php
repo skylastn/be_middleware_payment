@@ -26,13 +26,23 @@ class AdminAuthController extends Controller
             ], 422);
         }
 
+        $token = $user->createToken('backoffice')->plainTextToken;
+
         return response()->json([
-            'token' => $user->createToken('backoffice')->plainTextToken,
+            'token' => $token,
             'user' => [
                 'name' => $user->name,
                 'email' => $user->email,
             ],
-        ]);
+        ])->withCookie(cookie(
+            'log_viewer_token',
+            $token,
+            1440,
+            '/',
+            null,
+            $request->secure(),
+            true,
+        ));
     }
 
     public function me(Request $request): JsonResponse
