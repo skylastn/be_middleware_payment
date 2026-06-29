@@ -92,7 +92,7 @@ Routes -> Controllers -> Services -> Repositories -> Eloquent Models
 ## Docker Build Optimization Rules
 
 - NEVER use `COPY . /app` in Dockerfiles. Always use selective COPYs for specific directories (app/, config/, routes/, etc.) to preserve Docker layer caching.
-- Always mount `storage/logs` as a named volume in docker-compose.yml to persist log files across container recreates.
+- Always mount `storage/logs` as a bind mount (`./storage/logs:/app/storage/logs`) in docker-compose.yml so logs are accessible from both host and container.
 - Always add `tests/`, `.phpunit.cache/`, `.phpunit.result.cache` to `.dockerignore`.
 - Never exclude `!.env.docker` or `!.env.local` from `.dockerignore` — env files should not be in the Docker build context.
 

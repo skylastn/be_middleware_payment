@@ -38,6 +38,3 @@ public/build
 tests/
 .phpunit.cache/
 .phpunit.result.cache
-
-# Dev/deploy scripts (not needed in image)
-sync-logs.sh
