@@ -129,9 +129,21 @@ echo "All --prefer-dist attempts failed, falling back to --prefer-source"
 composer install --no-interaction --no-dev --prefer-source --no-scripts --no-progress --optimize-autoloader
 COMPOSER_INSTALL
 
-# Copy the application files into the container
-# (vendor/ created above will stay; .dockerignore prevents sending host's vendor)
-COPY . /app
+# Copy only the application source directories needed at runtime.
+# This replaces the old "COPY . /app" which invalidated cache on every file change.
+# Excludes: vendor/ (installed by composer), public/build/ (from frontend-builder stage),
+# node_modules/ (not needed in image), storage/* (mounted as volume), tests/ (not runtime).
+COPY app /app/app
+COPY bootstrap /app/bootstrap
+COPY config /app/config
+COPY database /app/database
+COPY lang /app/lang
+COPY resources /app/resources
+COPY routes /app/routes
+COPY supervisor /app/supervisor
+COPY public /app/public
+COPY Caddyfile /app/Caddyfile
+COPY docker-entrypoint.sh /app/docker-entrypoint.sh
 
 # Ensure artisan is executable after copy from context
 RUN chmod +x /app/artisan
@@ -145,9 +157,6 @@ RUN composer dump-autoload --no-interaction --no-dev --optimize
 # This ensures `docker build` (and thus make deployLocalDocker / deploy.sh) always
 # includes an up-to-date version of the admin React / backoffice.
 COPY --from=frontend-builder /app/public/build /app/public/build
-
-# WORKDIR already set earlier for composer; no need to repeat
-# WORKDIR /app
 
 # Format the default Caddyfile that Octane/FrankenPHP uses.
 # This removes the "WARN  Caddyfile input is not formatted" message on every startup.
@@ -167,7 +176,6 @@ COPY supervisor/laravel.conf /etc/supervisor/conf.d/laravel.conf
 # Entrypoint ensures storage dirs are always writable (important for volume mounts
 # with aaPanel / host user mismatches). This fixes "cannot write daily log" and similar
 # permission issues for laravel-*.log, deprecations.log, sessions, views, etc.
-# The script is included via the earlier `COPY . /app`.
 RUN chmod +x /app/docker-entrypoint.sh
 
 # Use supervisord to run and monitor both processes in foreground (required for Docker).

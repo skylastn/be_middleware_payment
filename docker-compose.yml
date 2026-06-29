@@ -33,6 +33,8 @@ services:
       - ./artisan:/app/artisan
       - ./composer.json:/app/composer.json
       - ./composer.lock:/app/composer.lock
+      # Persistent log volume (survives container recreate so log-viewer keeps history)
+      - log-storage:/app/storage/logs
       # Static files from image (no need to mount)
       # vendor/ - from Docker image (composer install during build)
       # public/build/ - from Docker image (npm build during multi-stage)
@@ -61,6 +63,10 @@ services:
     # See the external-db block below + the conditional logic in deploy.sh.
     networks:
       - middleware-payment
+
+volumes:
+  log-storage:
+    name: ${APP_NAME:-middleware-payment}-logs
 
 networks:
   middleware-payment:
