@@ -36,10 +36,41 @@ echo "=== Deploy started at $(date) — realtime logs follow (also appended to $
     docker compose pull || echo "Pull skipped/failed (image probably docker-loaded or no registry auth) — will use local image for up -d"
     BUILD_STEP_OK=0
   else
-    if docker compose build; then
-      BUILD_STEP_OK=0
+    # Check if rebuild is needed: skip if image exists and no build-relevant files changed.
+    IMAGE_TAG="${APP_NAME:-middleware-payment}:${APP_ENV:-prod}"
+    NEEDS_BUILD=1
+
+    if docker image inspect "$IMAGE_TAG" >/dev/null 2>&1; then
+      # Image exists — compare Dockerfile mtime vs image creation time
+      IMAGE_CREATED=$(docker image inspect "$IMAGE_TAG" --format '{{.Created}}' 2>/dev/null | sed 's/T/ /;s/Z//')
+      DOCKERFILE_MTIME=$(stat -f "%Sm" -t "%Y-%m-%d %H:%M:%S" Dockerfile 2>/dev/null || echo "1970-01-01 00:00:00")
+      # Also check docker-compose.yml and key source dirs
+      COMPOSE_MTIME=$(stat -f "%Sm" -t "%Y-%m-%d %H:%M:%S" docker-compose.yml 2>/dev/null || echo "1970-01-01 00:00:00")
+
+      # Convert to epoch for comparison
+      IMAGE_EPOCH=$(date -j -f "%Y-%m-%d %H:%M:%S" "$IMAGE_CREATED" "+%s" 2>/dev/null || echo 0)
+      DOCKERFILE_EPOCH=$(date -j -f "%Y-%m-%d %H:%M:%S" "$DOCKERFILE_MTIME" "+%s" 2>/dev/null || echo 0)
+      COMPOSE_EPOCH=$(date -j -f "%Y-%m-%d %H:%M:%S" "$COMPOSE_MTIME" "+%s" 2>/dev/null || echo 0)
+      MAX_SOURCE_EPOCH=$(( DOCKERFILE_EPOCH > COMPOSE_EPOCH ? DOCKERFILE_EPOCH : COMPOSE_EPOCH ))
+
+      if [ "$IMAGE_EPOCH" -ge "$MAX_SOURCE_EPOCH" ]; then
+        echo "Image $IMAGE_TAG is up-to-date (no build-relevant changes since $(date -r $IMAGE_EPOCH '+%Y-%m-%d %H:%M:%S')). Skipping build."
+        NEEDS_BUILD=0
+      else
+        echo "Build-relevant files changed since image was built. Rebuilding..."
+      fi
     else
-      BUILD_STEP_OK=1
+      echo "Image $IMAGE_TAG not found locally. Building..."
+    fi
+
+    if [ "$NEEDS_BUILD" -eq 1 ]; then
+      if docker compose build; then
+        BUILD_STEP_OK=0
+      else
+        BUILD_STEP_OK=1
+      fi
+    else
+      BUILD_STEP_OK=0
     fi
   fi
 

@@ -14,9 +14,6 @@ bootstrap/cache/*
 # Env and secrets
 .env
 .env.*
-!.env.example
-!.env.docker
-!.env.local
 
 # Git and IDE
 .git
@@ -36,3 +33,8 @@ Thumbs.db
 
 # Build artifacts (we generate fresh React admin build inside the Docker image)
 public/build
+
+# Tests (not needed in production image)
+tests/
+.phpunit.cache/
+.phpunit.result.cache

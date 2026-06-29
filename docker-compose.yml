@@ -33,6 +33,8 @@ services:
       - ./artisan:/app/artisan
       - ./composer.json:/app/composer.json
       - ./composer.lock:/app/composer.lock
+      # Log storage (bind mount: host and container share the same directory)
+      - ./storage/logs:/app/storage/logs
       # Static files from image (no need to mount)
       # vendor/ - from Docker image (composer install during build)
       # public/build/ - from Docker image (npm build during multi-stage)
