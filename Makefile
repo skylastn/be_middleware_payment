@@ -53,3 +53,10 @@ running:
 # 	> docker-compose.log
 # 	> deploy.log
 # 	nohup ./deploy.sh > deploy.log 2>&1 &
+
+sync-logs:
+	./sync-logs.sh
+
+clear-logs:
+	docker compose exec middleware-payment rm -f /app/storage/logs/*.log
+	echo "Container logs cleared."
