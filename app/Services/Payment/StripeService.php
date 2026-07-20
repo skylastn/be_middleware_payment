@@ -196,8 +196,8 @@ class StripeService
         }
 
         // paymentMethod determines which Stripe methods to show on the hosted page.
-        //   'all' or empty → automatic_payment_methods: Stripe auto-shows all enabled methods (Cards, FPX, GrabPay, Link, etc.)
-        //   specific value  → payment_method_types: only that method (e.g. 'card', 'fpx', 'grabpay')
+        //   'all' or empty → show all common enabled methods (card, fpx, grabpay, link)
+        //   specific value  → only that method (e.g. 'card', 'fpx', 'grabpay')
         $paymentMethod = strtolower(trim($request->input('paymentMethod') ?? $request->input('payment_method') ?? ''));
 
         $params = [
@@ -223,7 +223,7 @@ class StripeService
         ];
 
         if (empty($paymentMethod) || $paymentMethod === 'all') {
-            $params['automatic_payment_methods'] = ['enabled' => true];
+            $params['payment_method_types'] = ['card', 'fpx', 'grabpay', 'link'];
         } else {
             $params['payment_method_types'] = [$paymentMethod];
         }
