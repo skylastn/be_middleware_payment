@@ -195,8 +195,12 @@ class StripeService
             $successUrl .= $glue . 'session_id={CHECKOUT_SESSION_ID}';
         }
 
+        // paymentMethod determines which Stripe methods to show on the hosted page.
+        //   'all' or empty → automatic_payment_methods: Stripe auto-shows all enabled methods (Cards, FPX, GrabPay, Link, etc.)
+        //   specific value  → payment_method_types: only that method (e.g. 'card', 'fpx', 'grabpay')
+        $paymentMethod = strtolower(trim($request->input('paymentMethod') ?? $request->input('payment_method') ?? ''));
+
         $params = [
-            'payment_method_types' => ['card'],
             'line_items' => [
                 [
                     'price_data' => [
@@ -217,6 +221,12 @@ class StripeService
                 'order_id' => $req['id'],
             ],
         ];
+
+        if (empty($paymentMethod) || $paymentMethod === 'all') {
+            $params['automatic_payment_methods'] = ['enabled' => true];
+        } else {
+            $params['payment_method_types'] = [$paymentMethod];
+        }
 
         // Pass common customer fields so the Stripe hosted page is pre-filled (like Duitku customerDetail)
         // This gives a better "snap / payment page" experience without forcing direct card handling.
