@@ -19,7 +19,15 @@ class MiddlewareSocketService
 
     public function sendNotif(): ?SocketMiddlewareResponse
     {
-        $url = env("SOCKET_API_URL") . '/api/';
+        $socketUrl = config("services.socket.api_url");
+        if (empty($socketUrl)) {
+            Log::info("MiddlewareSocketService: SOCKET_API_URL not configured, skipping socket notification", [
+                'project' => $this->project,
+                'path' => $this->path,
+            ]);
+            return null;
+        }
+        $url = $socketUrl . '/api/';
         $pathSocket = ($this->project ?? '')  . '/' . ($this->path ?? '');
         Log::info("MiddlewareSocketService: sendNotif", [
             'url' => $url,
@@ -27,9 +35,11 @@ class MiddlewareSocketService
             'body' => $this->body
         ]);
         $result = (new SocketNetworkService($url, $pathSocket, $this->body))->sendNotif();
-        Log::info("MiddlewareSocketService: sendNotif result", [
-            $result->to(),
-        ]);
+        if ($result !== null) {
+            Log::info("MiddlewareSocketService: sendNotif result", [
+                $result->to(),
+            ]);
+        }
         return $result;
     }
 }
