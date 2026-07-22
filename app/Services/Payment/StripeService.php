@@ -337,6 +337,8 @@ class StripeService
             throw new Exception('Invalid Stripe webhook signature');
         }
 
+        $order = null;
+
         if ($event->type === 'checkout.session.completed') {
             $session = $event->data->object;
             $reference = $session->metadata->reference ?? '';
@@ -434,7 +436,9 @@ class StripeService
             }
         }
 
-        SendNotificationJob::dispatch($order->getReference() ?? $reference);
+        if (FormatHelper::isNotEmpty($order)) {
+            SendNotificationJob::dispatch($order->getReference() ?? $reference);
+        }
 
         return $order ?? throw new Exception('Order not found for event');
     }
