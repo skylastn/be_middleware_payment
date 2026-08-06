@@ -116,4 +116,21 @@ class CallbackController extends Controller
             return ResponseHelper::failedResponse($ex->getMessage());
         }
     }
+
+    public function callbackPaprika(Request $request): JsonResponse
+    {
+        try {
+            DB::beginTransaction();
+            LogHelper::sendLog('Paprika Callback', $request->all());
+            // $callback = $this->stripeService->callback($request);
+            DB::commit();
+
+            return ResponseHelper::successResponse('Success Send Callback');
+        } catch (Exception $ex) {
+            DB::rollback();
+            LogHelper::sendErrorLog($ex);
+
+            return ResponseHelper::failedResponse($ex->getMessage());
+        }
+    }
 }

@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\OtherController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\ProjectController;
 use App\Http\Controllers\Api\TestController;
+use App\Http\Controllers\Api\WebhookController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -78,6 +79,11 @@ Route::middleware('throttle:api')->group(function () {
         Route::post('/xendit', [CallbackController::class, 'callbackXendit']);
         Route::post('/spnpay', [CallbackController::class, 'callbackSPNPay']);
         Route::post('/stripe', [CallbackController::class, 'callbackStripe']);
+        Route::post('/paprika', [CallbackController::class, 'callbackPaprika']);
+    });
+    
+    Route::prefix('webhook')->group(function () {
+        Route::post('/paprika', [WebhookController::class, 'webhookPaprika']);
     });
 
     // project
@@ -107,7 +113,6 @@ Route::middleware('throttle:api')->group(function () {
     // Admin login API - must be at /api/login only (frontend calls /api/login).
     Route::middleware([\Illuminate\Cookie\Middleware\EncryptCookies::class, \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class])
         ->post('/login', [AdminAuthController::class, 'login']);
-
 });
 
 Route::middleware(['auth:sanctum', 'admin'])
