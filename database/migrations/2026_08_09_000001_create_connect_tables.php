@@ -21,6 +21,7 @@ return new class extends Migration
             $table->string('currency', 10)->default('myr');
             $table->string('status')->default('pending');
             $table->string('reference')->unique();
+            $table->string('internal_id')->unique()->nullable();
             $table->text('request')->nullable();
             $table->text('response')->nullable();
             $table->text('callback')->nullable();

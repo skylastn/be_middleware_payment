@@ -54,6 +54,7 @@ class PayoutService
             'currency' => strtolower($currency),
             'status' => TransferStatus::PENDING,
             'reference' => $ref['reference'],
+            'internal_id' => $callerReference,
             'request' => json_encode($requestPayload),
         ]);
 
