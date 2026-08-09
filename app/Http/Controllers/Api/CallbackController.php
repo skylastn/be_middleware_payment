@@ -7,6 +7,7 @@ use App\Http\Helper\LogHelper;
 use App\Http\Helper\ResponseHelper;
 use App\Services\Payment\DuitkuService;
 use App\Services\Payment\MidtransService;
+use App\Services\Payment\PayoutService;
 use App\Services\Payment\SPNPayService;
 use App\Services\Payment\StripeService;
 use App\Services\Payment\XenditService;
@@ -27,6 +28,8 @@ class CallbackController extends Controller
 
     private StripeService $stripeService;
 
+    private PayoutService $payoutService;
+
     public function __construct()
     {
         $this->spnPayService = new SPNPayService;
@@ -34,6 +37,7 @@ class CallbackController extends Controller
         $this->xenditService = new XenditService;
         $this->midtransService = new MidtransService;
         $this->stripeService = new StripeService;
+        $this->payoutService = new PayoutService;
     }
 
     public function callbackSPNPay(Request $request): JsonResponse
@@ -106,6 +110,22 @@ class CallbackController extends Controller
         try {
             DB::beginTransaction();
             $callback = $this->stripeService->callback($request);
+            DB::commit();
+
+            return ResponseHelper::successResponse('Success Send Callback');
+        } catch (Exception $ex) {
+            DB::rollback();
+            LogHelper::sendErrorLog($ex);
+
+            return ResponseHelper::failedResponse($ex->getMessage());
+        }
+    }
+
+    public function callbackPayoutStripe(Request $request): JsonResponse
+    {
+        try {
+            DB::beginTransaction();
+            $this->payoutService->handleWebhook($request);
             DB::commit();
 
             return ResponseHelper::successResponse('Success Send Callback');
