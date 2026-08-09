@@ -90,15 +90,13 @@ class PayoutService
         }
     }
 
-    public function handleWebhook(Request $request): void
+    public function handleWebhook(Request $request, PayoutGateway $gateway): void
     {
-        $reference = $request->input('reference')
-            ?? $request->input('data.object.reference')
-            ?? $request->input('data.object.metadata.reference');
+        $gatewayService = $this->resolveGateway($gateway);
+        $result = $gatewayService->handleWebhook($request);
 
-        if (empty($reference)) {
-            throw new Exception('Reference is required in webhook payload.');
-        }
+        $reference = $result['reference'];
+        $success = $result['success'];
 
         $payout = Payout::where('reference', $reference)->first();
 
@@ -106,23 +104,13 @@ class PayoutService
             throw new Exception('Payout not found: '.$reference);
         }
 
-        $status = $request->input('status')
-            ?? $request->input('data.object.status')
-            ?? $request->input('type');
-
-        $isSuccess = $status === 'paid'
-            || $status === 'succeeded'
-            || $status === 'payout.paid'
-            || $request->input('result_code') === '00';
-
-        if ($isSuccess) {
+        if ($success) {
             $payout->update([
                 'status' => TransferStatus::SUCCESS,
                 'callback' => json_encode($request->all()),
                 'completed_at' => now(),
             ]);
             $this->logHistory($payout, 'webhook_success', TransferStatus::SUCCESS, 'Webhook confirmed payout success.');
-            $this->sendCallback($payout, true);
         } else {
             $payout->update([
                 'status' => TransferStatus::FAILED,
@@ -130,38 +118,9 @@ class PayoutService
                 'completed_at' => now(),
             ]);
             $this->logHistory($payout, 'webhook_failed', TransferStatus::FAILED, 'Webhook reported payout failure.');
-            $this->sendCallback($payout, false, 'Payout failed via webhook.');
-        }
-    }
-
-    public function handleCallback(string $reference, array $payload): void
-    {
-        $payout = Payout::where('reference', $reference)->first();
-
-        if (! $payout) {
-            throw new Exception('Payout not found: '.$reference);
         }
 
-        $payout->update([
-            'callback' => json_encode($payload),
-        ]);
-
-        $resultCode = $payload['result_code'] ?? '';
-        $success = $resultCode === '00';
-
-        if ($success) {
-            $payout->update([
-                'status' => TransferStatus::SUCCESS,
-                'completed_at' => now(),
-            ]);
-            $this->logHistory($payout, 'callback_success', TransferStatus::SUCCESS, 'Callback confirmed success.');
-        } else {
-            $payout->update([
-                'status' => TransferStatus::FAILED,
-                'completed_at' => now(),
-            ]);
-            $this->logHistory($payout, 'callback_failed', TransferStatus::FAILED, 'Callback reported failure.');
-        }
+        $this->sendCallback($payout, $success, $result['gateway_status'] ?? '');
     }
 
     private function sendCallback(Payout $payout, bool $success, string $errorMessage = ''): void

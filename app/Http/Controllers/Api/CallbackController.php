@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\PayoutGateway;
 use App\Http\Controllers\Controller;
 use App\Http\Helper\LogHelper;
 use App\Http\Helper\ResponseHelper;
@@ -125,7 +126,7 @@ class CallbackController extends Controller
     {
         try {
             DB::beginTransaction();
-            $this->payoutService->handleWebhook($request);
+            $this->payoutService->handleWebhook($request, PayoutGateway::Stripe);
             DB::commit();
 
             return ResponseHelper::successResponse('Success Send Callback');

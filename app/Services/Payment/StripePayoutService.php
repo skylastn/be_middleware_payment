@@ -4,12 +4,16 @@ namespace App\Services\Payment;
 
 use App\Http\Helper\LogHelper;
 use App\Interface\PayoutGatewayInterface;
+use App\Model\Entity\PaymentRepository;
 use App\Model\Entity\Payout;
 use Exception;
+use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Stripe\Exception\ApiErrorException;
+use Stripe\Exception\SignatureVerificationException;
 use Stripe\Payout as StripePayout;
 use Stripe\Stripe;
+use Stripe\Webhook;
 
 class StripePayoutService implements PayoutGatewayInterface
 {
@@ -68,5 +72,58 @@ class StripePayoutService implements PayoutGatewayInterface
 
             throw new Exception($message, $e->getCode(), $e);
         }
+    }
+
+    public function handleWebhook(Request $request): array
+    {
+        $sigHeader = $request->header('Stripe-Signature');
+
+        if (empty($sigHeader)) {
+            throw new Exception('Missing Stripe-Signature header');
+        }
+
+        $payload = $request->getContent();
+
+        $paymentRepos = PaymentRepository::whereHas('payment_gateway', function ($q) {
+            $q->where('key', 'stripe');
+        })->get();
+
+        $event = null;
+
+        foreach ($paymentRepos as $paymentRepo) {
+            $webhookSecret = $paymentRepo->getValue()['stripe_webhooksecret'] ?? '';
+
+            if (empty($webhookSecret)) {
+                continue;
+            }
+
+            try {
+                $event = Webhook::constructEvent($payload, $sigHeader, $webhookSecret);
+                break;
+            } catch (SignatureVerificationException $e) {
+                continue;
+            }
+        }
+
+        if (! $event) {
+            throw new Exception('Invalid Stripe webhook signature');
+        }
+
+        $status = $event->type;
+        $isSuccess = $status === 'payout.paid';
+
+        $reference = $event->data->object->reference
+            ?? $event->data->object->metadata['reference']
+            ?? null;
+
+        if (empty($reference)) {
+            throw new Exception('Reference not found in webhook event');
+        }
+
+        return [
+            'reference' => $reference,
+            'success' => $isSuccess,
+            'gateway_status' => $status,
+        ];
     }
 }
