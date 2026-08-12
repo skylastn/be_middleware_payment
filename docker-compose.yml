@@ -42,6 +42,13 @@ services:
       - /app/vendor
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/api/other/setting || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    stop_grace_period: 15s
     environment:
       # DB / Redis host for the container (with optional Docker-context remapping).
       #

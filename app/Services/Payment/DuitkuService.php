@@ -79,6 +79,7 @@ class DuitkuService
 
     public function orderDuitku(Request $request, Project $project): array
     {
+        set_time_limit(75);
         $mode = PaymentModeType::fromName($request->mode) ?? PaymentModeType::sandbox;
         $paymentRepo = $this->getPaymentRepo($mode, $request->paymentRepositoryId);
         $duitkuConfig = $this->setEnv($mode, $paymentRepo);

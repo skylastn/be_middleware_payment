@@ -28,8 +28,10 @@ class NetworkService
 
     public function sendAsync(): ?string
     {
-        $client = new Client();
-        // Send an asynchronous request.
+        $client = new Client([
+            'connect_timeout' => 10,
+            'timeout' => 60,
+        ]);
         $promise = $client->sendAsync($this->request);
 
         $response = $promise->wait();
