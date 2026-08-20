@@ -724,7 +724,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"paymentRepositoryId\": \"{{paymentRepositoryId}}\",\n    \"merchantOrderId\": \"INV-STRIPE-{{$timestamp}}\",\n    \"paymentAmount\": 50000,\n    \"productDetails\": \"Subscription Service\",\n    \"currency\": \"myr\",\n    \"flow\": \"checkout_session\",\n    \"mode\": \"sandbox\",\n    \"surcharge_mode\": \"middleware_calc\",\n    \"surcharge_percent\": 2.9,\n    \"surcharge_fixed\": 2000,\n    \"surcharge_label\": \"Processing Fee\",\n    \"firstName\": \"John\",\n    \"lastName\": \"Doe\",\n    \"email\": \"customer@example.com\",\n    \"phoneNumber\": \"08123456789\",\n    \"returnUrl\": \"https://merchant.example.com/return\"\n}",
+              "raw": "{\n    \"paymentRepositoryId\": \"{{paymentRepositoryId}}\",\n    \"merchantOrderId\": \"INV-STRIPE-{{$timestamp}}\",\n    \"paymentAmount\": 50000,\n    \"productDetails\": \"Subscription Service\",\n    \"currency\": \"myr\",\n    \"mode\": \"sandbox\",\n    \"firstName\": \"John\",\n    \"lastName\": \"Doe\",\n    \"email\": \"customer@example.com\",\n    \"phoneNumber\": \"08123456789\",\n    \"returnUrl\": \"https://merchant.example.com/return\",\n    \"stripe\": {\n        \"flow\": \"checkout_session\",\n        \"surcharge_mode\": \"middleware_calc\",\n        \"surcharge_percent\": 2.9,\n        \"surcharge_fixed\": 2000,\n        \"surcharge_label\": \"Processing Fee\"\n    }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -740,7 +740,7 @@
                 "create"
               ]
             },
-            "description": "Creates a Stripe Checkout Session with calculated surcharge fees."
+            "description": "Creates a Stripe Checkout Session with calculated surcharge fees (supports nested stripe object or flat fields)."
           },
           "response": []
         },
@@ -762,7 +762,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"paymentRepositoryId\": \"{{paymentRepositoryId}}\",\n    \"merchantOrderId\": \"INV-DIRECT-{{$timestamp}}\",\n    \"paymentAmount\": 50000,\n    \"productDetails\": \"Direct Card Payment\",\n    \"currency\": \"myr\",\n    \"flow\": \"direct\",\n    \"mode\": \"sandbox\",\n    \"surcharge_mode\": \"middleware_calc\",\n    \"surcharge_percent\": 2.9,\n    \"surcharge_fixed\": 2000,\n    \"surcharge_label\": \"Processing Fee\",\n    \"token\": \"{{stripe_card_token}}\",\n    \"firstName\": \"John\",\n    \"lastName\": \"Doe\",\n    \"email\": \"customer@example.com\"\n}",
+              "raw": "{\n    \"paymentRepositoryId\": \"{{paymentRepositoryId}}\",\n    \"merchantOrderId\": \"INV-DIRECT-{{$timestamp}}\",\n    \"paymentAmount\": 50000,\n    \"productDetails\": \"Direct Card Payment\",\n    \"currency\": \"myr\",\n    \"mode\": \"sandbox\",\n    \"firstName\": \"John\",\n    \"lastName\": \"Doe\",\n    \"email\": \"customer@example.com\",\n    \"stripe\": {\n        \"flow\": \"direct\",\n        \"token\": \"{{stripe_card_token}}\",\n        \"surcharge_mode\": \"middleware_calc\",\n        \"surcharge_percent\": 2.9,\n        \"surcharge_fixed\": 2000,\n        \"surcharge_label\": \"Processing Fee\"\n    }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -823,7 +823,7 @@
           "response": []
         },
         {
-          "name": "Callback MiddleWare to Backend Membership",
+          "name": "Callback MiddleWare to Backend",
           "request": {
             "method": "POST",
             "header": [

@@ -706,17 +706,21 @@ class StripeService
      */
     private function isDirectCardFlow(Request $request): bool
     {
-        $flow = $request->input('flow') ?? $request->input('payment_flow') ?? '';
+        $flow = $request->input('stripe.flow')
+            ?? $request->input('stripe.payment_flow')
+            ?? $request->input('flow')
+            ?? $request->input('payment_flow')
+            ?? '';
 
         return DirectFlow::isDirect($flow);
     }
 
     private function hasRawCardData(Request $request): bool
     {
-        if ($request->filled('card_number') || $request->filled('cardNumber') || $request->filled('number')) {
+        if ($request->filled('card_number') || $request->filled('cardNumber') || $request->filled('number') || $request->filled('stripe.card_number')) {
             return true;
         }
-        $card = $request->input('card');
+        $card = $request->input('stripe.card') ?? $request->input('card');
         if (is_array($card) && ! empty($card['number'] ?? $card['card_number'] ?? null)) {
             return true;
         }
@@ -730,7 +734,9 @@ class StripeService
 
     private function extractTokenFromRequest(Request $request): ?string
     {
-        $token = $request->input('token')
+        $token = $request->input('stripe.token')
+            ?? $request->input('stripe.card_token')
+            ?? $request->input('token')
             ?? $request->input('card_token')
             ?? $request->input('tok');
 
@@ -738,7 +744,7 @@ class StripeService
             return trim($token);
         }
 
-        $card = $request->input('card', []);
+        $card = $request->input('stripe.card') ?? $request->input('card', []);
         if (is_array($card) && ! empty($card['token'] ?? null)) {
             $t = (string) $card['token'];
             if (str_starts_with(trim($t), 'tok_')) {
@@ -928,7 +934,9 @@ class StripeService
     {
         $repoValue = $paymentRepo->getValue() ?? [];
 
-        $rawMode = $request->input('surchargeMode')
+        $rawMode = $request->input('stripe.surcharge_mode')
+            ?? $request->input('stripe.surchargeMode')
+            ?? $request->input('surchargeMode')
             ?? $request->input('surcharge_mode')
             ?? ($repoValue['surcharge_mode'] ?? SurchargeMode::MIDDLEWARE_CALC->value);
 
@@ -955,17 +963,23 @@ class StripeService
             $currDefaults = $defaultCurrencyRates[strtolower($currency)] ?? ['percent' => 2.9, 'fixed' => 0];
 
             $percent = (float) (
-                $request->input('surchargePercent')
+                $request->input('stripe.surcharge_percent')
+                ?? $request->input('stripe.surchargePercent')
+                ?? $request->input('surchargePercent')
                 ?? $request->input('surcharge_percent')
                 ?? ($repoValue['surcharge_percent'] ?? $currDefaults['percent'])
             );
             $fixed = (float) (
-                $request->input('surchargeFixed')
+                $request->input('stripe.surcharge_fixed')
+                ?? $request->input('stripe.surchargeFixed')
+                ?? $request->input('surchargeFixed')
                 ?? $request->input('surcharge_fixed')
                 ?? ($repoValue['surcharge_fixed'] ?? $currDefaults['fixed'])
             );
             $label = (string) (
-                $request->input('surchargeLabel')
+                $request->input('stripe.surcharge_label')
+                ?? $request->input('stripe.surchargeLabel')
+                ?? $request->input('surchargeLabel')
                 ?? $request->input('surcharge_label')
                 ?? ($repoValue['surcharge_label'] ?? 'Processing Fee')
             );
