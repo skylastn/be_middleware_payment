@@ -16,6 +16,7 @@ use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class PaymentController extends Controller
 {
@@ -239,6 +240,7 @@ class PaymentController extends Controller
 
     /**
      * @return array<string, mixed>
+     * @throws ValidationException
      */
     private function paymentRepositoryPayload(Request $request): array
     {
@@ -250,7 +252,17 @@ class PaymentController extends Controller
         ]);
 
         if (is_string($data['value'])) {
-            $data['value'] = json_decode($data['value'], true) ?: [];
+            $decoded = json_decode($data['value'], true);
+            if (json_last_error() !== JSON_ERROR_NONE || !is_array($decoded)) {
+                throw ValidationException::withMessages([
+                    'value' => ['The value field must be a valid JSON string or object.'],
+                ]);
+            }
+            $data['value'] = $decoded;
+        } elseif (!is_array($data['value'])) {
+            throw ValidationException::withMessages([
+                'value' => ['The value field must be a valid JSON object or array.'],
+            ]);
         }
 
         return $data;
