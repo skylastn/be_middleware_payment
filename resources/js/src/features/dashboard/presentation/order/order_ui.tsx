@@ -4,7 +4,7 @@ import { DataTable } from '@/shared/component/ui/data_table';
 import { CopyButton } from '@/shared/component/ui/copy_button';
 import { renderBadge } from '@/shared/component/ui/badge';
 import { IconRefresh, IconSearch, IconX, IconArrowLeft } from '@/shared/component/ui/icons';
-import { navigate, displayValue } from '@/shared/utils/format_utils';
+import { navigate, displayValue, formatDate } from '@/shared/utils/format_utils';
 import { useOrderLogic } from './order_logic';
 
 export interface OrderPageProps {
@@ -253,7 +253,7 @@ export function OrderPage({ mode, id }: OrderPageProps): React.JSX.Element {
                                     <td>{row.payment_method || '-'}</td>
                                     <td>{renderBadge('status', row.status)}</td>
                                     <td>{renderBadge('mode', row.mode)}</td>
-                                    <td>{row.created_at || '-'}</td>
+                                    <td>{formatDate(row.created_at)}</td>
                                     <td>
                                         <div className="actions">
                                             <button

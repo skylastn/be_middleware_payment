@@ -3,7 +3,7 @@ import { PageTitle } from '@/shared/component/ui/page_title';
 import { DataTable } from '@/shared/component/ui/data_table';
 import { CopyButton } from '@/shared/component/ui/copy_button';
 import { IconPlus, IconRefresh, IconSearch, IconX, IconArrowLeft } from '@/shared/component/ui/icons';
-import { navigate, displayValue } from '@/shared/utils/format_utils';
+import { navigate, displayValue, formatDate } from '@/shared/utils/format_utils';
 import { useProjectLogic } from './project_logic';
 
 export interface ProjectPageProps {
@@ -337,7 +337,7 @@ export function ProjectPage({ mode, id }: ProjectPageProps): React.JSX.Element {
                                     <td style={{ maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                         {row.callback}
                                     </td>
-                                    <td>{row.created_at || '-'}</td>
+                                    <td>{formatDate(row.created_at)}</td>
                                     <td>
                                         <div className="actions">
                                             <button
