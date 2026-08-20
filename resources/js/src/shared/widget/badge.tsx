@@ -21,3 +21,20 @@ export function renderBadge(column: string, val: any): React.JSX.Element {
     }
     return <span>{String(val ?? '-')}</span>;
 }
+
+export function renderLogLevelBadge(level: string): React.JSX.Element {
+    const lvl = String(level || '').toUpperCase();
+    if (['EMERGENCY', 'ALERT', 'CRITICAL', 'ERROR'].includes(lvl)) {
+        return <span className="badge danger">{lvl}</span>;
+    }
+    if (['WARNING', 'WARN'].includes(lvl)) {
+        return <span className="badge warning">{lvl}</span>;
+    }
+    if (['INFO', 'NOTICE'].includes(lvl)) {
+        return <span className="badge blue">{lvl}</span>;
+    }
+    if (['DEBUG'].includes(lvl)) {
+        return <span className="badge">{lvl}</span>;
+    }
+    return <span className="badge">{lvl}</span>;
+}

@@ -4,8 +4,9 @@ import { User } from '../../model/response_model';
 import { resourceList } from '../../shared/constant/resource_definitions';
 import { AuthService } from '../../services/auth_service';
 import { navigate } from '../../shared/utils/format_utils';
-import { getResourceIcon, IconDashboard, IconMoon, IconSun } from '../../shared/widget/icons';
+import { getResourceIcon, IconDashboard, IconLogs, IconMoon, IconSun } from '../../shared/widget/icons';
 import { DashboardPage } from '../dashboard/dashboard_ui';
+import { LogsPage } from '../logs/logs_ui';
 import { ResourceIndex } from '../resource/resource_index_ui';
 import { ResourceForm } from '../resource/resource_form_ui';
 import { ResourceShow } from '../resource/resource_show_ui';
@@ -70,6 +71,13 @@ export function Shell({ route, user, theme, onToggleTheme, onLogout }: ShellProp
                             <IconDashboard />
                             <span>Dashboard</span>
                         </button>
+                        <button
+                            className={`tab ${route.page === 'logs' ? 'active' : ''}`}
+                            onClick={() => navigate('/admin/logs')}
+                        >
+                            <IconLogs />
+                            <span>Logs</span>
+                        </button>
                         {resourceList.map((item) => (
                             <button
                                 className={`tab ${activeResource === item.key ? 'active' : ''}`}
@@ -86,6 +94,7 @@ export function Shell({ route, user, theme, onToggleTheme, onLogout }: ShellProp
 
             <main className="content">
                 {route.page === 'dashboard' && <DashboardPage />}
+                {route.page === 'logs' && <LogsPage />}
                 {route.page === 'resource-index' && <ResourceIndex resource={route.resource} />}
                 {route.page === 'resource-create' && <ResourceForm resource={route.resource} />}
                 {route.page === 'resource-edit' && <ResourceForm resource={route.resource} id={route.id} />}

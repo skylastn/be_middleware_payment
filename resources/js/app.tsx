@@ -15,6 +15,10 @@ function parseRoute(pathname: string): RouteInfo {
         return { page: 'dashboard' };
     }
 
+    if (pathname === '/admin/logs' || pathname === '/logs') {
+        return { page: 'logs' };
+    }
+
     const match = pathname.match(/^\/admin\/([^/]+)(?:\/([^/]+))?(?:\/(edit))?$/);
     if (!match) {
         return { page: 'dashboard' };

@@ -37,6 +37,7 @@ export type ResourceKey =
 
 export type RouteInfo =
     | { page: 'dashboard'; resource?: undefined; id?: undefined }
+    | { page: 'logs'; resource?: undefined; id?: undefined }
     | { page: 'resource-index'; resource: ResourceKey; id?: undefined }
     | { page: 'resource-create'; resource: ResourceKey; id?: undefined }
     | { page: 'resource-edit'; resource: ResourceKey; id: string }
