@@ -162,4 +162,32 @@ class StripeSurchargeTest extends TestCase
         $this->assertEquals(0, $result['fee_amount']);
         $this->assertEquals(10000, $result['gross_amount']);
     }
+
+    public function test_middleware_calc_surcharge_via_nested_stripe_object(): void
+    {
+        $repo = new PaymentRepository();
+        $repo->value = [];
+
+        $request = new Request([
+            'paymentAmount' => 100000,
+            'stripe' => [
+                'surcharge_mode' => 'middleware_calc',
+                'surcharge_percent' => 2.9,
+                'surcharge_fixed' => 2000,
+                'surcharge_label' => 'Processing Fee',
+            ],
+        ]);
+
+        $reflection = new \ReflectionClass($this->service);
+        $method = $reflection->getMethod('resolveSurcharge');
+        $method->setAccessible(true);
+
+        $result = $method->invoke($this->service, $request, $repo, 100000, 'idr');
+
+        $this->assertEquals('middleware_calc', $result['mode']);
+        $this->assertEquals('Processing Fee', $result['label']);
+        $this->assertEquals(5047, $result['fee_amount_raw']);
+        $this->assertEquals(504700, $result['fee_amount']);
+        $this->assertEquals(10504700, $result['gross_amount']);
+    }
 }
