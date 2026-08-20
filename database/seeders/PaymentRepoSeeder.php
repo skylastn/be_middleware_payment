@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Enums\PaymentModeType;
+use App\Enums\SurchargeMode;
 use App\Model\Entity\PaymentGateway;
 use App\Model\Entity\PaymentRepository;
 use Illuminate\Database\Seeder;
@@ -138,6 +139,10 @@ class PaymentRepoSeeder extends Seeder
                         'stripe_webhooksecret' => $mode === PaymentModeType::sandbox
                             ? 'whsec_test_...'
                             : 'whsec_...',
+                        'surcharge_mode' => SurchargeMode::MIDDLEWARE_CALC->value,
+                        'surcharge_percent' => 2.9,
+                        'surcharge_fixed' => 2000,
+                        'surcharge_label' => 'Processing Fee',
                     ]),
                 ]
             );
