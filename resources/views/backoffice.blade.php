@@ -4,7 +4,8 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>Backoffice - Middleware Payment</title>
-        @vite(['resources/css/app.css', 'resources/js/app.js'])
+        @viteReactRefresh
+        @vite(['resources/css/app.css', 'resources/js/app.tsx'])
     </head>
     <body>
         <div id="backoffice-root"></div>

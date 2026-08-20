@@ -109,15 +109,15 @@ class ResponseHelper
         return response()->json($response, 400);
     }
 
-    public static function unauthorizedResponse(mixed $data, string $msg = 'Unauthorized'): JsonResponse
+    public static function unauthorizedResponse(mixed $data, string $msg = 'Unauthorized', int $code = 401): JsonResponse
     {
         $response = [
             'status'        => false,
-            'code'          => 403,
+            'code'          => $code,
             'message'       => $msg,
             'data'          => $data,
         ];
-        return response()->json($response, 403);
+        return response()->json($response, $code);
     }
 
     private static function paginatorPayload(LengthAwarePaginator $result, array $meta = []): array

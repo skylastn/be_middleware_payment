@@ -5,6 +5,7 @@ namespace App\Services\Payment;
 use App\Enums\DirectFlow;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentModeType;
+use App\Enums\SurchargeMode;
 use App\Http\Helper\FormatHelper;
 use App\Http\Helper\LogHelper;
 use App\Http\Helper\OrderIdGenerator;
@@ -75,6 +76,8 @@ class StripeService
         $amount = $this->toSmallestUnit($rawAmount, $currency);
         $productName = $request->productDetails ?? 'Payment';
 
+        $surcharge = $this->resolveSurcharge($request, $paymentRepo, $rawAmount, $currency);
+
         $isDirect = $this->isDirectCardFlow($request);
         $cardProvidedAtCreate = $isDirect && ($this->hasRawCardData($request) || str_starts_with((string)($request->input('payment_method') ?? ''), 'pm_'));
 
@@ -82,15 +85,28 @@ class StripeService
             // Direct PaymentIntent / credit card flow.
             // Only entered when flow matches a DirectFlow value (direct, credit_card, card, payment_intent, etc).
             // Supports sending card data at create time (auto confirm), or create then /stripe/confirm later.
+            $chargeAmount = $surcharge['mode'] === 'middleware_calc' && $surcharge['fee_amount'] > 0
+                ? $surcharge['gross_amount']
+                : $amount;
+
+            $meta = [
+                'reference' => $req['reference'],
+                'order_id' => $req['id'],
+                'surcharge_mode' => $surcharge['mode'],
+            ];
+
+            if ($surcharge['mode'] === 'middleware_calc' && $surcharge['fee_amount'] > 0) {
+                $meta['base_amount'] = (string) $amount;
+                $meta['fee_amount'] = (string) $surcharge['fee_amount'];
+                $meta['gross_amount'] = (string) $surcharge['gross_amount'];
+            }
+
             $params = [
-                'amount' => $amount,
+                'amount' => $chargeAmount,
                 'currency' => $currency,
                 'payment_method_types' => ['card'],
                 'description' => $productName,
-                'metadata' => [
-                    'reference' => $req['reference'],
-                    'order_id' => $req['id'],
-                ],
+                'metadata' => $meta,
             ];
 
             // For request logging, never include raw card details
@@ -171,6 +187,19 @@ class StripeService
             if ($publishableKey) {
                 $response['publishable_key'] = $publishableKey;
             }
+            if ($surcharge['mode'] === 'middleware_calc' && $surcharge['fee_amount'] > 0) {
+                $response['surcharge'] = [
+                    'mode' => $surcharge['mode'],
+                    'base_amount' => $amount,
+                    'fee_amount' => $surcharge['fee_amount'],
+                    'gross_amount' => $surcharge['gross_amount'],
+                    'fee_label' => $surcharge['label'],
+                ];
+            } elseif ($surcharge['mode'] === 'stripe_automatic') {
+                $response['surcharge'] = [
+                    'mode' => 'stripe_automatic',
+                ];
+            }
             $response['data'] = $paymentIntent->toArray();
             if (! empty($paymentIntent->client_secret)) {
                 $response['client_secret'] = $paymentIntent->client_secret;
@@ -200,27 +229,57 @@ class StripeService
         //   specific value  → only that method (e.g. 'card', 'fpx', 'grabpay')
         $paymentMethod = strtolower(trim($request->input('paymentMethod') ?? $request->input('payment_method') ?? ''));
 
-        $params = [
-            'line_items' => [
-                [
-                    'price_data' => [
-                        'currency' => $currency,
-                        'unit_amount' => $amount,
-                        'product_data' => [
-                            'name' => $productName,
-                        ],
+        $lineItems = [
+            [
+                'price_data' => [
+                    'currency' => $currency,
+                    'unit_amount' => $amount,
+                    'product_data' => [
+                        'name' => $productName,
                     ],
-                    'quantity' => 1,
                 ],
+                'quantity' => 1,
             ],
+        ];
+
+        if ($surcharge['mode'] === 'middleware_calc' && $surcharge['fee_amount'] > 0) {
+            $lineItems[] = [
+                'price_data' => [
+                    'currency' => $currency,
+                    'unit_amount' => $surcharge['fee_amount'],
+                    'product_data' => [
+                        'name' => $surcharge['label'],
+                    ],
+                ],
+                'quantity' => 1,
+            ];
+        }
+
+        $sessionMeta = [
+            'reference' => $req['reference'],
+            'order_id' => $req['id'],
+            'surcharge_mode' => $surcharge['mode'],
+        ];
+
+        if ($surcharge['mode'] === 'middleware_calc' && $surcharge['fee_amount'] > 0) {
+            $sessionMeta['base_amount'] = (string) $amount;
+            $sessionMeta['fee_amount'] = (string) $surcharge['fee_amount'];
+            $sessionMeta['gross_amount'] = (string) $surcharge['gross_amount'];
+        }
+
+        $params = [
+            'line_items' => $lineItems,
             'mode' => 'payment',
             'success_url' => $successUrl,
             'cancel_url' => $cancelUrl,
-            'metadata' => [
-                'reference' => $req['reference'],
-                'order_id' => $req['id'],
-            ],
+            'metadata' => $sessionMeta,
         ];
+
+        if ($surcharge['mode'] === 'stripe_automatic') {
+            $params['automatic_surcharge'] = [
+                'enabled' => true,
+            ];
+        }
 
         if (empty($paymentMethod) || $paymentMethod === 'all') {
             $params['payment_method_types'] = ['card', 'fpx', 'grabpay', 'link'];
@@ -264,10 +323,7 @@ class StripeService
         // Also put description on the resulting PaymentIntent (consistent with direct flow)
         $params['payment_intent_data'] = [
             'description' => $productName,
-            'metadata' => [
-                'reference' => $req['reference'],
-                'order_id' => $req['id'],
-            ],
+            'metadata' => $sessionMeta,
         ];
 
         $req['request'] = json_encode($params);
@@ -299,6 +355,19 @@ class StripeService
         $response['status'] = $checkoutSession->status;
         if ($publishableKey) {
             $response['publishable_key'] = $publishableKey;
+        }
+        if ($surcharge['mode'] === 'middleware_calc' && $surcharge['fee_amount'] > 0) {
+            $response['surcharge'] = [
+                'mode' => $surcharge['mode'],
+                'base_amount' => $amount,
+                'fee_amount' => $surcharge['fee_amount'],
+                'gross_amount' => $surcharge['gross_amount'],
+                'fee_label' => $surcharge['label'],
+            ];
+        } elseif ($surcharge['mode'] === 'stripe_automatic') {
+            $response['surcharge'] = [
+                'mode' => 'stripe_automatic',
+            ];
         }
         $response['link'] = $checkoutSession->url;
         $response['data'] = $checkoutSession->toArray();
@@ -855,6 +924,85 @@ class StripeService
         };
     }
 
+    private function resolveSurcharge(Request $request, PaymentRepository $paymentRepo, int $rawAmount, string $currency): array
+    {
+        $repoValue = $paymentRepo->getValue() ?? [];
+
+        $rawMode = $request->input('surchargeMode')
+            ?? $request->input('surcharge_mode')
+            ?? ($repoValue['surcharge_mode'] ?? SurchargeMode::MIDDLEWARE_CALC->value);
+
+        $surchargeMode = SurchargeMode::fromName($rawMode) ?? SurchargeMode::MIDDLEWARE_CALC;
+
+        if ($surchargeMode->isStripeAutomatic()) {
+            return [
+                'mode' => $surchargeMode->value,
+                'enum' => $surchargeMode,
+                'fee_amount_raw' => 0,
+                'fee_amount' => 0,
+                'gross_amount' => $this->toSmallestUnit($rawAmount, $currency),
+                'label' => '',
+            ];
+        }
+
+        if ($surchargeMode->isMiddlewareCalc()) {
+            $defaultCurrencyRates = [
+                'myr' => ['percent' => 3.0, 'fixed' => 1.00],
+                'idr' => ['percent' => 2.9, 'fixed' => 2000],
+                'usd' => ['percent' => 2.9, 'fixed' => 0.30],
+                'sgd' => ['percent' => 3.4, 'fixed' => 0.50],
+            ];
+            $currDefaults = $defaultCurrencyRates[strtolower($currency)] ?? ['percent' => 2.9, 'fixed' => 0];
+
+            $percent = (float) (
+                $request->input('surchargePercent')
+                ?? $request->input('surcharge_percent')
+                ?? ($repoValue['surcharge_percent'] ?? $currDefaults['percent'])
+            );
+            $fixed = (float) (
+                $request->input('surchargeFixed')
+                ?? $request->input('surcharge_fixed')
+                ?? ($repoValue['surcharge_fixed'] ?? $currDefaults['fixed'])
+            );
+            $label = (string) (
+                $request->input('surchargeLabel')
+                ?? $request->input('surcharge_label')
+                ?? ($repoValue['surcharge_label'] ?? 'Processing Fee')
+            );
+
+            if ($percent > 0 || $fixed > 0) {
+                $p = $percent / 100.0;
+                if ($p < 1.0) {
+                    $grossRaw = (int) ceil(($rawAmount + $fixed) / (1.0 - $p));
+                    $feeRaw = max(0, $grossRaw - $rawAmount);
+
+                    $feeSmallest = $this->toSmallestUnit($feeRaw, $currency);
+                    $baseSmallest = $this->toSmallestUnit($rawAmount, $currency);
+
+                    return [
+                        'mode' => $surchargeMode->value,
+                        'enum' => $surchargeMode,
+                        'fee_amount_raw' => $feeRaw,
+                        'fee_amount' => $feeSmallest,
+                        'gross_amount' => $baseSmallest + $feeSmallest,
+                        'label' => $label,
+                        'percent' => $percent,
+                        'fixed' => $fixed,
+                    ];
+                }
+            }
+        }
+
+        return [
+            'mode' => SurchargeMode::NONE->value,
+            'enum' => SurchargeMode::NONE,
+            'fee_amount_raw' => 0,
+            'fee_amount' => 0,
+            'gross_amount' => $this->toSmallestUnit($rawAmount, $currency),
+            'label' => '',
+        ];
+    }
+
     /**
      * Convert a human-readable amount (e.g. 150 for RM150) into Stripe's required
      * smallest currency unit (e.g. 15000 for RM150.00).
@@ -862,7 +1010,7 @@ class StripeService
      * Stripe always expects the amount in the currency's minor unit (sen, cents, etc.),
      * except for zero-decimal currencies.
      */
-    private function toSmallestUnit(int $amount, string $currency): int
+    private function toSmallestUnit(float|int $amount, string $currency): int
     {
         // Zero-decimal currencies on Stripe (no minor unit)
         // See: https://stripe.com/docs/currencies#zero-decimal
@@ -888,11 +1036,11 @@ class StripeService
         $currency = strtolower(trim($currency));
 
         if (in_array($currency, $zeroDecimalCurrencies, true)) {
-            return $amount;
+            return (int) round($amount);
         }
 
         // All other currencies (including MYR, IDR, USD, SGD, etc.) use 2 decimal places
         // IDR is treated by Stripe as having a minor unit for API purposes.
-        return $amount * 100;
+        return (int) round($amount * 100);
     }
 }

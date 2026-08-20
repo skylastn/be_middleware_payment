@@ -44,13 +44,14 @@ Route::middleware('throttle:api')->group(function () {
         Route::get('/getPaymentCategory', [PaymentController::class, 'getPaymentCategory']);
         Route::get('/getPaymentMethod', [PaymentController::class, 'getPaymentMethod']);
         Route::get('/getDetailPaymentMethod', [PaymentController::class, 'getDetailPaymentMethod']);
-        Route::get('/getPaymentGateway', [PaymentController::class, 'getPaymentGateway']);
-        Route::get('/getPaymentRepository', [PaymentController::class, 'getPaymentRepository']);
-        Route::get('/getSetting', [PaymentController::class, 'getSetting']);
         Route::get('/category/{id}', [PaymentController::class, 'showPaymentCategory']);
         Route::get('/method/{id}', [PaymentController::class, 'showPaymentMethod']);
 
         Route::middleware(['auth:sanctum', 'admin'])->group(function (): void {
+            Route::get('/getPaymentGateway', [PaymentController::class, 'getPaymentGateway']);
+            Route::get('/getPaymentRepository', [PaymentController::class, 'getPaymentRepository']);
+            Route::get('/getSetting', [PaymentController::class, 'getSetting']);
+
             Route::post('/category/create', [PaymentController::class, 'createPaymentCategory']);
             Route::put('/category/{id}', [PaymentController::class, 'updatePaymentCategory']);
             Route::delete('/category/{id}', [PaymentController::class, 'deletePaymentCategory']);
@@ -99,11 +100,13 @@ Route::middleware('throttle:api')->group(function () {
 
     // project
     Route::get('project', [ProjectController::class, 'index']);
-    Route::post('project/sync-missing-log', [ProjectController::class, 'syncMissingLog'])->middleware(['auth:sanctum', 'admin']);
     Route::get('project/{id}', [ProjectController::class, 'show']);
-    Route::post('project/create', [ProjectController::class, 'store']);
-    Route::put('project/{id}', [ProjectController::class, 'update']);
-    Route::delete('project/{id}', [ProjectController::class, 'delete'])->middleware(['auth:sanctum', 'admin']);
+    Route::middleware(['auth:sanctum', 'admin'])->group(function (): void {
+        Route::post('project/sync-missing-log', [ProjectController::class, 'syncMissingLog']);
+        Route::post('project/create', [ProjectController::class, 'store']);
+        Route::put('project/{id}', [ProjectController::class, 'update']);
+        Route::delete('project/{id}', [ProjectController::class, 'delete']);
+    });
 
     // Other
     Route::prefix('other')->group(function () {
@@ -111,8 +114,8 @@ Route::middleware('throttle:api')->group(function () {
         Route::get('/duitkuPaymentSync', [OtherController::class, 'duitkuPaymentSync']);
     });
 
-    // Test endpoints (dev / queue verification only)
-    Route::prefix('test')->group(function () {
+    // Test endpoints (dev / queue verification only - restricted to admin)
+    Route::prefix('test')->middleware(['auth:sanctum', 'admin'])->group(function () {
         Route::get('/queue', [TestController::class, 'testQueue']);
         Route::post('/queue', [TestController::class, 'testQueue']);
     });
@@ -121,8 +124,8 @@ Route::middleware('throttle:api')->group(function () {
         return $request->user();
     });
 
-    // Admin login API - must be at /api/login only (frontend calls /api/login).
-    Route::middleware([EncryptCookies::class, AddQueuedCookiesToResponse::class])
+    // Admin login API - must be at /api/login only with strict rate-limiting (10 attempts / min)
+    Route::middleware([EncryptCookies::class, AddQueuedCookiesToResponse::class, 'throttle:10,1'])
         ->post('/login', [AdminAuthController::class, 'login']);
 });
 

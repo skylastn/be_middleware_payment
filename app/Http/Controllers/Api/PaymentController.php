@@ -16,6 +16,7 @@ use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class PaymentController extends Controller
 {
@@ -25,15 +26,53 @@ class PaymentController extends Controller
         $this->paymentService = new PaymentService();
     }
 
-    public function getPaymentCategory(): JsonResponse
+    public function getPaymentCategory(Request $request): JsonResponse
     {
-        return ResponseHelper::successResponse($this->paymentService->getListPaymentCategory());
+        $query = PaymentCategory::query();
+        if ($search = $request->query('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('key', 'like', "%{$search}%")
+                    ->orWhere('title', 'like', "%{$search}%")
+                    ->orWhere('detail', 'like', "%{$search}%");
+            });
+        }
+
+        if (! $request->has('page') && ! $request->has('search') && ! $request->has('per_page') && ! $request->has('perPage') && ! auth('sanctum')->check()) {
+            return ResponseHelper::successResponse($this->paymentService->getListPaymentCategory());
+        }
+
+        $perPage = (int) ($request->query('per_page', $request->query('perPage', 15)));
+        return ResponseHelper::formatPagination($query->latest()->paginate($perPage));
     }
 
     public function getPaymentMethod(Request $request): JsonResponse
     {
-        $result         = $this->paymentService->getListPaymentMethod($request);
-        return ResponseHelper::successResponse($result);
+        $query = PaymentMethod::query();
+        if ($search = $request->query('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('key', 'like', "%{$search}%")
+                    ->orWhere('name', 'like', "%{$search}%")
+                    ->orWhere('type', 'like', "%{$search}%")
+                    ->orWhere('from', 'like', "%{$search}%")
+                    ->orWhere('bankCode', 'like', "%{$search}%")
+                    ->orWhere('value', 'like', "%{$search}%");
+            });
+        }
+        if ($from = $request->query('from')) {
+            $query->where('from', $from);
+        }
+        if ($categoriesKey = $request->query('categoriesKey')) {
+            $keys = is_array($categoriesKey) ? $categoriesKey : [$categoriesKey];
+            $query->whereIn('key', $keys);
+        }
+
+        if (! $request->has('page') && ! $request->has('search') && ! $request->has('per_page') && ! $request->has('perPage') && ! auth('sanctum')->check()) {
+            $result = $this->paymentService->getListPaymentMethod($request);
+            return ResponseHelper::successResponse($result);
+        }
+
+        $perPage = (int) ($request->query('per_page', $request->query('perPage', 15)));
+        return ResponseHelper::formatPagination($query->latest()->paginate($perPage));
     }
 
     public function getDetailPaymentMethod(Request $request): JsonResponse
@@ -61,19 +100,50 @@ class PaymentController extends Controller
         }
     }
 
-    public function getPaymentGateway(): JsonResponse
+    public function getPaymentGateway(Request $request): JsonResponse
     {
-        return ResponseHelper::successResponse(PaymentGateway::query()->latest()->get());
+        $query = PaymentGateway::query();
+        if ($search = $request->query('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('key', 'like', "%{$search}%")
+                    ->orWhere('name', 'like', "%{$search}%")
+                    ->orWhere('description', 'like', "%{$search}%");
+            });
+        }
+        $perPage = (int) ($request->query('per_page', $request->query('perPage', 15)));
+        return ResponseHelper::formatPagination($query->latest()->paginate($perPage));
     }
 
-    public function getPaymentRepository(): JsonResponse
+    public function getPaymentRepository(Request $request): JsonResponse
     {
-        return ResponseHelper::successResponse(PaymentRepository::query()->latest()->get());
+        $query = PaymentRepository::query();
+        if ($search = $request->query('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('key', 'like', "%{$search}%")
+                    ->orWhere('payment_gateway_id', 'like', "%{$search}%")
+                    ->orWhere('value', 'like', "%{$search}%");
+            });
+        }
+        if ($mode = $request->query('mode')) {
+            if ($mode !== 'all') {
+                $query->where('mode', $mode);
+            }
+        }
+        $perPage = (int) ($request->query('per_page', $request->query('perPage', 15)));
+        return ResponseHelper::formatPagination($query->latest()->paginate($perPage));
     }
 
-    public function getSetting(): JsonResponse
+    public function getSetting(Request $request): JsonResponse
     {
-        return ResponseHelper::successResponse(Setting::query()->latest()->get());
+        $query = Setting::query();
+        if ($search = $request->query('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('key', 'like', "%{$search}%")
+                    ->orWhere('value', 'like', "%{$search}%");
+            });
+        }
+        $perPage = (int) ($request->query('per_page', $request->query('perPage', 15)));
+        return ResponseHelper::formatPagination($query->latest()->paginate($perPage));
     }
 
     public function showPaymentCategory(int|string $id): JsonResponse
@@ -239,6 +309,7 @@ class PaymentController extends Controller
 
     /**
      * @return array<string, mixed>
+     * @throws ValidationException
      */
     private function paymentRepositoryPayload(Request $request): array
     {
@@ -250,7 +321,17 @@ class PaymentController extends Controller
         ]);
 
         if (is_string($data['value'])) {
-            $data['value'] = json_decode($data['value'], true) ?: [];
+            $decoded = json_decode($data['value'], true);
+            if (json_last_error() !== JSON_ERROR_NONE || !is_array($decoded)) {
+                throw ValidationException::withMessages([
+                    'value' => ['The value field must be a valid JSON string or object.'],
+                ]);
+            }
+            $data['value'] = $decoded;
+        } elseif (!is_array($data['value'])) {
+            throw ValidationException::withMessages([
+                'value' => ['The value field must be a valid JSON object or array.'],
+            ]);
         }
 
         return $data;
