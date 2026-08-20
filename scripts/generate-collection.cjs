@@ -1,0 +1,938 @@
+const fs = require('fs');
+const path = require('path');
+
+const srcFile = path.join(__dirname, '..', 'postman', 'MiddleWare_Payment.postman_collection.json');
+let existing = {};
+if (fs.existsSync(srcFile)) {
+    existing = JSON.parse(fs.readFileSync(srcFile, 'utf8'));
+}
+
+const bearerAuth = {
+    type: 'bearer',
+    bearer: [
+        {
+            key: 'token',
+            value: '{{paymentBearerToken}}',
+            type: 'string',
+        },
+    ],
+};
+
+const merchantAuth = {
+    type: 'apikey',
+    apikey: [
+        {
+            key: 'value',
+            value: '{{Token}}',
+            type: 'string',
+        },
+        {
+            key: 'key',
+            value: 'Token',
+            type: 'string',
+        },
+    ],
+};
+
+const noAuth = {
+    type: 'noauth',
+};
+
+const updatedCollection = {
+    info: {
+        _postman_id: existing.info?._postman_id || 'cc267a45-ea29-45b2-88d4-aba0264e87ac',
+        name: 'MiddleWare Payment',
+        description: 'Comprehensive Postman collection for Payment Middleware APIs, Webhooks, Backoffice Management, and Payment Gateways (Duitku, Midtrans, Xendit, SPNPay, Stripe, Paprika).',
+        schema: 'https://schema.getpostman.com/json/collection/v2.1.0/collection.json',
+        _exporter_id: existing.info?._exporter_id,
+        _collection_link: existing.info?._collection_link,
+    },
+    auth: merchantAuth,
+    event: existing.event || [],
+    item: [
+        {
+            name: 'Auth',
+            item: [
+                {
+                    name: 'Login',
+                    event: [
+                        {
+                            listen: 'test',
+                            script: {
+                                exec: [
+                                    'const response = pm.response.json();',
+                                    '',
+                                    'if (response && response.data && response.data.token) {',
+                                    '    pm.environment.set("paymentBearerToken", response.data.token);',
+                                    '    console.log("Token saved:", response.data.token);',
+                                    '} else if (response && response.token) {',
+                                    '    pm.environment.set("paymentBearerToken", response.token);',
+                                    '    console.log("Token saved:", response.token);',
+                                    '} else {',
+                                    '    console.error("Token not found in response");',
+                                    '}',
+                                ],
+                                type: 'text/javascript',
+                            },
+                        },
+                    ],
+                    request: {
+                        auth: noAuth,
+                        method: 'POST',
+                        header: [
+                            { key: 'Content-Type', value: 'application/json', type: 'text' },
+                            { key: 'Accept', value: 'application/json', type: 'text' },
+                        ],
+                        body: {
+                            mode: 'raw',
+                            raw: '{\n    "email": "admin@gmail.com",\n    "password": "test"\n}',
+                            options: { raw: { language: 'json' } },
+                        },
+                        url: {
+                            raw: '{{url_payment}}login',
+                            host: ['{{url_payment}}login'],
+                        },
+                    },
+                    response: [],
+                },
+                {
+                    name: 'Get Current Admin (Me)',
+                    request: {
+                        auth: bearerAuth,
+                        method: 'GET',
+                        header: [{ key: 'Accept', value: 'application/json', type: 'text' }],
+                        url: {
+                            raw: '{{url_payment}}admin/me',
+                            host: ['{{url_payment}}admin'],
+                            path: ['me'],
+                        },
+                    },
+                    response: [],
+                },
+                {
+                    name: 'Admin Logout',
+                    request: {
+                        auth: bearerAuth,
+                        method: 'POST',
+                        header: [{ key: 'Accept', value: 'application/json', type: 'text' }],
+                        url: {
+                            raw: '{{url_payment}}admin/logout',
+                            host: ['{{url_payment}}admin'],
+                            path: ['logout'],
+                        },
+                    },
+                    response: [],
+                },
+            ],
+        },
+        {
+            name: 'Dashboard',
+            item: [
+                {
+                    name: 'Get Dashboard Metrics',
+                    request: {
+                        auth: bearerAuth,
+                        method: 'GET',
+                        header: [{ key: 'Accept', value: 'application/json', type: 'text' }],
+                        url: {
+                            raw: '{{url_payment}}admin/dashboard',
+                            host: ['{{url_payment}}admin'],
+                            path: ['dashboard'],
+                        },
+                    },
+                    response: [],
+                },
+            ],
+        },
+        {
+            name: 'Project',
+            item: [
+                {
+                    name: 'Sync Missing Log',
+                    request: {
+                        auth: bearerAuth,
+                        method: 'POST',
+                        header: [{ key: 'Accept', value: 'application/json', type: 'text' }],
+                        url: {
+                            raw: '{{url_payment}}project/sync-missing-log',
+                            host: ['{{url_payment}}project'],
+                            path: ['sync-missing-log'],
+                        },
+                    },
+                    response: [],
+                },
+                {
+                    name: 'Get Projects (List)',
+                    request: {
+                        auth: bearerAuth,
+                        method: 'GET',
+                        header: [{ key: 'Accept', value: 'application/json', type: 'text' }],
+                        url: {
+                            raw: '{{url_payment}}project?page=1&perPage=100',
+                            host: ['{{url_payment}}project'],
+                            query: [
+                                { key: 'page', value: '1' },
+                                { key: 'perPage', value: '100' },
+                                { key: 'search', value: '', disabled: true },
+                                { key: 'slug', value: 'duitku', disabled: true },
+                            ],
+                        },
+                    },
+                    response: [],
+                },
+                {
+                    name: 'Get Project by ID',
+                    request: {
+                        auth: bearerAuth,
+                        method: 'GET',
+                        header: [{ key: 'Accept', value: 'application/json', type: 'text' }],
+                        url: {
+                            raw: '{{url_payment}}project/:id',
+                            host: ['{{url_payment}}project'],
+                            path: [':id'],
+                            variable: [{ key: 'id', value: '1' }],
+                        },
+                    },
+                    response: [],
+                },
+                {
+                    name: 'Create Project',
+                    request: {
+                        auth: bearerAuth,
+                        method: 'POST',
+                        header: [
+                            { key: 'Content-Type', value: 'application/json', type: 'text' },
+                            { key: 'Accept', value: 'application/json', type: 'text' },
+                        ],
+                        body: {
+                            mode: 'raw',
+                            raw: '{\n    "name": "POS Order Duitku PCP",\n    "type": "PODPCP",\n    "callback": "https://pcp-lvation.lugu.id/api/webhook/payment/callback",\n    "slug": "duitku"\n}',
+                            options: { raw: { language: 'json' } },
+                        },
+                        url: {
+                            raw: '{{url_payment}}project/create',
+                            host: ['{{url_payment}}project'],
+                            path: ['create'],
+                        },
+                    },
+                    response: [],
+                },
+                {
+                    name: 'Update Project',
+                    request: {
+                        auth: bearerAuth,
+                        method: 'PUT',
+                        header: [
+                            { key: 'Content-Type', value: 'application/json', type: 'text' },
+                            { key: 'Accept', value: 'application/json', type: 'text' },
+                        ],
+                        body: {
+                            mode: 'raw',
+                            raw: '{\n    "name": "Order Transaction Duitku Opet Development",\n    "type": "OTDOD",\n    "callback": "https://backend-service.dev.anugerahbersamagroup.com/api/callback/payment/middleware",\n    "slug": "duitku"\n}',
+                            options: { raw: { language: 'json' } },
+                        },
+                        url: {
+                            raw: '{{url_payment}}project/:id',
+                            host: ['{{url_payment}}project'],
+                            path: [':id'],
+                            variable: [{ key: 'id', value: '1' }],
+                        },
+                    },
+                    response: [],
+                },
+                {
+                    name: 'Delete Project',
+                    request: {
+                        auth: bearerAuth,
+                        method: 'DELETE',
+                        header: [{ key: 'Accept', value: 'application/json', type: 'text' }],
+                        url: {
+                            raw: '{{url_payment}}project/:id',
+                            host: ['{{url_payment}}project'],
+                            path: [':id'],
+                            variable: [{ key: 'id', value: '1' }],
+                        },
+                    },
+                    response: [],
+                },
+            ],
+        },
+        {
+            name: 'Order',
+            item: [
+                {
+                    name: 'Stripe',
+                    item: [
+                        {
+                            name: 'Confirm Stripe',
+                            request: {
+                                method: 'POST',
+                                header: [{ key: 'Content-Type', value: 'application/json', type: 'text' }],
+                                body: {
+                                    mode: 'raw',
+                                    raw: '{\n    "reference": "AP-004",\n    "token": "tok_visa"\n}',
+                                    options: { raw: { language: 'json' } },
+                                },
+                                url: {
+                                    raw: '{{url_payment}}order/stripe/confirm',
+                                    host: ['{{url_payment}}order'],
+                                    path: ['stripe', 'confirm'],
+                                },
+                            },
+                            response: [],
+                        },
+                    ],
+                },
+                {
+                    name: 'Get Order (List)',
+                    request: {
+                        method: 'GET',
+                        header: [{ key: 'Accept', value: 'application/json', type: 'text' }],
+                        url: {
+                            raw: '{{url_payment}}order?type=OTSA&page=1&perPage=10&status=all&mode=all',
+                            host: ['{{url_payment}}order'],
+                            query: [
+                                { key: 'type', value: 'OTSA' },
+                                { key: 'page', value: '1' },
+                                { key: 'perPage', value: '10' },
+                                { key: 'status', value: 'all' },
+                                { key: 'mode', value: 'all' },
+                            ],
+                        },
+                        description: 'Check History Transaction MiddleWare by type and filters',
+                    },
+                    response: [],
+                },
+                {
+                    name: 'Get Detail Order',
+                    request: {
+                        method: 'GET',
+                        header: [
+                            { key: 'Key', value: 'oxJMxunHKiElhLwZyPsb', type: 'text' },
+                            { key: 'Accept', value: 'application/json', type: 'text' },
+                        ],
+                        url: {
+                            raw: '{{url_payment}}order/detail?reference=OTSA-20220912-00078',
+                            host: ['{{url_payment}}order'],
+                            path: ['detail'],
+                            query: [{ key: 'reference', value: 'OTSA-20220912-00078' }],
+                        },
+                        description: 'Check History Transaction MiddleWare by reference',
+                    },
+                    response: [],
+                },
+                {
+                    name: 'Get Order by ID (Admin)',
+                    request: {
+                        auth: bearerAuth,
+                        method: 'GET',
+                        header: [{ key: 'Accept', value: 'application/json', type: 'text' }],
+                        url: {
+                            raw: '{{url_payment}}order/:id',
+                            host: ['{{url_payment}}order'],
+                            path: [':id'],
+                            variable: [{ key: 'id', value: '1' }],
+                        },
+                    },
+                    response: [],
+                },
+                {
+                    name: 'Check Order Status',
+                    request: {
+                        method: 'GET',
+                        header: [
+                            { key: 'Key', value: 'oxJMxunHKiElhLwZyPsb', type: 'text' },
+                            { key: 'Accept', value: 'application/json', type: 'text' },
+                        ],
+                        url: {
+                            raw: '{{url_payment}}order/checkOrderStatus?reference=OTDOD-5',
+                            host: ['{{url_payment}}order'],
+                            path: ['checkOrderStatus'],
+                            query: [{ key: 'reference', value: 'OTDOD-5' }],
+                        },
+                    },
+                    response: [],
+                },
+                {
+                    name: 'Create Order',
+                    request: {
+                        method: 'POST',
+                        header: [
+                            { key: 'Content-Type', value: 'application/json', type: 'text' },
+                            { key: 'Accept', value: 'application/json', type: 'text' },
+                        ],
+                        body: {
+                            mode: 'raw',
+                            raw: '{\n    "paymentRepositoryId": "019e8383-880a-7249-b9da-079b9844de25",\n    "paymentAmount": 15000,\n    "paymentMethod": "SP",\n    "merchantOrderId": "002",\n    "productDetails": "Pembayaran Duitku",\n    "expiryPeriod": 100,\n    "mode": "sandbox",\n    "firstName": "Sahid",\n    "lastName": "R",\n    "email": "sahidrahutomo@gmail.com",\n    "address": "klaten",\n    "phone": "08815123766",\n    "currency": "myr",\n    "flow": "direct",\n    "returnUrl": "{{url_payment}}callback/duitku"\n}',
+                            options: { raw: { language: 'json' } },
+                        },
+                        url: {
+                            raw: '{{url_payment}}order/create',
+                            host: ['{{url_payment}}order'],
+                            path: ['create'],
+                        },
+                    },
+                    response: [],
+                },
+                {
+                    name: 'Resend Order Callback',
+                    request: {
+                        auth: bearerAuth,
+                        method: 'POST',
+                        header: [{ key: 'Accept', value: 'application/json', type: 'text' }],
+                        url: {
+                            raw: '{{url_payment}}order/:id/resend-callback',
+                            host: ['{{url_payment}}order'],
+                            path: [':id', 'resend-callback'],
+                            variable: [{ key: 'id', value: '1' }],
+                        },
+                    },
+                    response: [],
+                },
+                {
+                    name: 'Callback MiddleWare to Backend Membership',
+                    request: {
+                        method: 'POST',
+                        header: [{ key: 'Content-Type', value: 'application/json', type: 'text' }],
+                        body: {
+                            mode: 'raw',
+                            raw: '{\n    "merchantOrderId": "pos:dev:MpJtbNRXKaziZW5Et52if0d9C",\n    "paymentCode": "SP",\n    "resultCode": "00"\n}',
+                            options: { raw: { language: 'json' } },
+                        },
+                        url: {
+                            raw: '{{url_callback}}',
+                            host: ['{{url_callback}}'],
+                        },
+                    },
+                    response: [],
+                },
+            ],
+        },
+        {
+            name: 'Payment',
+            item: [
+                {
+                    name: 'Create Order Payment',
+                    request: {
+                        method: 'POST',
+                        header: [
+                            { key: 'Content-Type', value: 'application/json', type: 'text' },
+                            { key: 'Accept', value: 'application/json', type: 'text' },
+                            { key: 'Key', value: 'oxJMxunHKiElhLwZyPsb', type: 'text' },
+                            { key: 'PAYMENT_APP_KEY', value: '{{PAYMENT_APP_KEY}}', type: 'text' },
+                        ],
+                        body: {
+                            mode: 'raw',
+                            raw: '{\n    "paymentRepositoryId": "a02c6112-870c-4167-bcec-53e3aef00377",\n    "paymentMethod": "BCA_VA",\n    "reference": "OTSA-20220912-00080"\n}',
+                            options: { raw: { language: 'json' } },
+                        },
+                        url: {
+                            raw: '{{url_payment}}payment/createPayment',
+                            host: ['{{url_payment}}payment'],
+                            path: ['createPayment'],
+                        },
+                    },
+                    response: [],
+                },
+                {
+                    name: 'Get Payment Category',
+                    request: {
+                        method: 'GET',
+                        header: [{ key: 'Accept', value: 'application/json', type: 'text' }],
+                        url: {
+                            raw: '{{url_payment}}payment/getPaymentCategory',
+                            host: ['{{url_payment}}payment'],
+                            path: ['getPaymentCategory'],
+                        },
+                    },
+                    response: [],
+                },
+                {
+                    name: 'Get Payment Category by ID',
+                    request: {
+                        method: 'GET',
+                        header: [{ key: 'Accept', value: 'application/json', type: 'text' }],
+                        url: {
+                            raw: '{{url_payment}}payment/category/:id',
+                            host: ['{{url_payment}}payment'],
+                            path: ['category', ':id'],
+                            variable: [{ key: 'id', value: '1' }],
+                        },
+                    },
+                    response: [],
+                },
+                {
+                    name: 'Create Payment Category',
+                    request: {
+                        auth: bearerAuth,
+                        method: 'POST',
+                        header: [
+                            { key: 'Content-Type', value: 'application/json', type: 'text' },
+                            { key: 'Accept', value: 'application/json', type: 'text' },
+                        ],
+                        body: {
+                            mode: 'raw',
+                            raw: '{\n    "key": "va",\n    "title": "Virtual Account",\n    "detail": "Bank Virtual Account Channels"\n}',
+                            options: { raw: { language: 'json' } },
+                        },
+                        url: {
+                            raw: '{{url_payment}}payment/category/create',
+                            host: ['{{url_payment}}payment'],
+                            path: ['category', 'create'],
+                        },
+                    },
+                    response: [],
+                },
+                {
+                    name: 'Update Payment Category',
+                    request: {
+                        auth: bearerAuth,
+                        method: 'PUT',
+                        header: [
+                            { key: 'Content-Type', value: 'application/json', type: 'text' },
+                            { key: 'Accept', value: 'application/json', type: 'text' },
+                        ],
+                        body: {
+                            mode: 'raw',
+                            raw: '{\n    "key": "va",\n    "title": "Virtual Account Updated",\n    "detail": "Updated details"\n}',
+                            options: { raw: { language: 'json' } },
+                        },
+                        url: {
+                            raw: '{{url_payment}}payment/category/:id',
+                            host: ['{{url_payment}}payment'],
+                            path: ['category', ':id'],
+                            variable: [{ key: 'id', value: '1' }],
+                        },
+                    },
+                    response: [],
+                },
+                {
+                    name: 'Delete Payment Category',
+                    request: {
+                        auth: bearerAuth,
+                        method: 'DELETE',
+                        header: [{ key: 'Accept', value: 'application/json', type: 'text' }],
+                        url: {
+                            raw: '{{url_payment}}payment/category/:id',
+                            host: ['{{url_payment}}payment'],
+                            path: ['category', ':id'],
+                            variable: [{ key: 'id', value: '1' }],
+                        },
+                    },
+                    response: [],
+                },
+                {
+                    name: 'Get Payment Method',
+                    request: {
+                        method: 'GET',
+                        header: [{ key: 'Accept', value: 'application/json', type: 'text' }],
+                        url: {
+                            raw: '{{url_payment}}payment/getPaymentMethod?categoriesKey[]=virtual-account&from=spnpay',
+                            host: ['{{url_payment}}payment'],
+                            path: ['getPaymentMethod'],
+                            query: [
+                                { key: 'categoriesKey[]', value: 'virtual-account' },
+                                { key: 'from', value: 'spnpay' },
+                            ],
+                        },
+                    },
+                    response: [],
+                },
+                {
+                    name: 'Get Detail Payment Method',
+                    request: {
+                        method: 'GET',
+                        header: [{ key: 'Accept', value: 'application/json', type: 'text' }],
+                        url: {
+                            raw: '{{url_payment}}payment/getDetailPaymentMethod?value=BCA_VA&from=spnpay',
+                            host: ['{{url_payment}}payment'],
+                            path: ['getDetailPaymentMethod'],
+                            query: [
+                                { key: 'value', value: 'BCA_VA' },
+                                { key: 'from', value: 'spnpay' },
+                            ],
+                        },
+                    },
+                    response: [],
+                },
+                {
+                    name: 'Create Payment Method',
+                    request: {
+                        auth: bearerAuth,
+                        method: 'POST',
+                        header: [
+                            { key: 'Content-Type', value: 'application/json', type: 'text' },
+                            { key: 'Accept', value: 'application/json', type: 'text' },
+                        ],
+                        body: {
+                            mode: 'raw',
+                            raw: '{\n    "key": "VA_BCA",\n    "name": "BCA Virtual Account",\n    "type": "VA",\n    "from": "duitku",\n    "bankCode": "BCA",\n    "value": "BC"\n}',
+                            options: { raw: { language: 'json' } },
+                        },
+                        url: {
+                            raw: '{{url_payment}}payment/method/create',
+                            host: ['{{url_payment}}payment'],
+                            path: ['method', 'create'],
+                        },
+                    },
+                    response: [],
+                },
+                {
+                    name: 'Update Payment Method',
+                    request: {
+                        auth: bearerAuth,
+                        method: 'PUT',
+                        header: [
+                            { key: 'Content-Type', value: 'application/json', type: 'text' },
+                            { key: 'Accept', value: 'application/json', type: 'text' },
+                        ],
+                        body: {
+                            mode: 'raw',
+                            raw: '{\n    "key": "VA_BCA",\n    "name": "BCA Virtual Account (Updated)",\n    "type": "VA",\n    "from": "duitku",\n    "bankCode": "BCA",\n    "value": "BC"\n}',
+                            options: { raw: { language: 'json' } },
+                        },
+                        url: {
+                            raw: '{{url_payment}}payment/method/:id',
+                            host: ['{{url_payment}}payment'],
+                            path: ['method', ':id'],
+                            variable: [{ key: 'id', value: '1' }],
+                        },
+                    },
+                    response: [],
+                },
+                {
+                    name: 'Delete Payment Method',
+                    request: {
+                        auth: bearerAuth,
+                        method: 'DELETE',
+                        header: [{ key: 'Accept', value: 'application/json', type: 'text' }],
+                        url: {
+                            raw: '{{url_payment}}payment/method/:id',
+                            host: ['{{url_payment}}payment'],
+                            path: ['method', ':id'],
+                            variable: [{ key: 'id', value: '1' }],
+                        },
+                    },
+                    response: [],
+                },
+                {
+                    name: 'Get Payment Gateway (List)',
+                    request: {
+                        auth: bearerAuth,
+                        method: 'GET',
+                        header: [{ key: 'Accept', value: 'application/json', type: 'text' }],
+                        url: {
+                            raw: '{{url_payment}}payment/getPaymentGateway',
+                            host: ['{{url_payment}}payment'],
+                            path: ['getPaymentGateway'],
+                        },
+                    },
+                    response: [],
+                },
+                {
+                    name: 'Create Payment Gateway',
+                    request: {
+                        auth: bearerAuth,
+                        method: 'POST',
+                        header: [
+                            { key: 'Content-Type', value: 'application/json', type: 'text' },
+                            { key: 'Accept', value: 'application/json', type: 'text' },
+                        ],
+                        body: {
+                            mode: 'raw',
+                            raw: '{\n    "key": "stripe",\n    "name": "Stripe Global",\n    "description": "International card and digital wallet processor"\n}',
+                            options: { raw: { language: 'json' } },
+                        },
+                        url: {
+                            raw: '{{url_payment}}payment/gateway/create',
+                            host: ['{{url_payment}}payment'],
+                            path: ['gateway', 'create'],
+                        },
+                    },
+                    response: [],
+                },
+                {
+                    name: 'Get Payment Repository (List)',
+                    request: {
+                        auth: bearerAuth,
+                        method: 'GET',
+                        header: [{ key: 'Accept', value: 'application/json', type: 'text' }],
+                        url: {
+                            raw: '{{url_payment}}payment/getPaymentRepository',
+                            host: ['{{url_payment}}payment'],
+                            path: ['getPaymentRepository'],
+                        },
+                    },
+                    response: [],
+                },
+                {
+                    name: 'Create Payment Repository',
+                    request: {
+                        auth: bearerAuth,
+                        method: 'POST',
+                        header: [
+                            { key: 'Content-Type', value: 'application/json', type: 'text' },
+                            { key: 'Accept', value: 'application/json', type: 'text' },
+                        ],
+                        body: {
+                            mode: 'raw',
+                            raw: '{\n    "payment_gateway_id": "1",\n    "key": "stripe",\n    "mode": "sandbox",\n    "value": {\n        "stripe_secretkey": "sk_test_...",\n        "stripe_publishablekey": "pk_test_...",\n        "stripe_webhooksecret": "whsec_...",\n        "surcharge_mode": "middleware_calc",\n        "surcharge_percent": 2.9,\n        "surcharge_fixed": 2000,\n        "surcharge_label": "Processing Fee"\n    }\n}',
+                            options: { raw: { language: 'json' } },
+                        },
+                        url: {
+                            raw: '{{url_payment}}payment/repository/create',
+                            host: ['{{url_payment}}payment'],
+                            path: ['repository', 'create'],
+                        },
+                    },
+                    response: [],
+                },
+                {
+                    name: 'Get Settings (List)',
+                    request: {
+                        auth: bearerAuth,
+                        method: 'GET',
+                        header: [{ key: 'Accept', value: 'application/json', type: 'text' }],
+                        url: {
+                            raw: '{{url_payment}}payment/getSetting',
+                            host: ['{{url_payment}}payment'],
+                            path: ['getSetting'],
+                        },
+                    },
+                    response: [],
+                },
+            ],
+        },
+        {
+            name: 'Webhooks & Callbacks',
+            item: [
+                {
+                    name: 'Transaction Callback Duitku',
+                    request: {
+                        auth: noAuth,
+                        method: 'POST',
+                        header: [{ key: 'Content-Type', value: 'application/json', type: 'text' }],
+                        body: {
+                            mode: 'raw',
+                            raw: '{\n    "merchantCode": "DS21819",\n    "amount": "15000.00",\n    "merchantOrderId": "OTDOD-100",\n    "productDetail": "Pembayaran",\n    "additionalParam": "",\n    "paymentMethod": "VC",\n    "resultCode": "00",\n    "merchantUserId": "user@example.com",\n    "reference": "DS218192567A60P37OJZABHX",\n    "signature": "b9689e478521a0f9b6b713426e25f818"\n}',
+                            options: { raw: { language: 'json' } },
+                        },
+                        url: {
+                            raw: '{{url_payment}}callback/duitku',
+                            host: ['{{url_payment}}callback'],
+                            path: ['duitku'],
+                        },
+                    },
+                    response: [],
+                },
+                {
+                    name: 'Transaction Callback Midtrans',
+                    request: {
+                        auth: noAuth,
+                        method: 'POST',
+                        header: [{ key: 'Content-Type', value: 'application/json', type: 'text' }],
+                        body: {
+                            mode: 'raw',
+                            raw: '{\n    "transaction_time": "2026-08-08 18:16:37",\n    "transaction_status": "settlement",\n    "transaction_id": "441fbcf4-37e0-4fd2-b417-fae9e389e4d5",\n    "status_message": "midtrans payment notification",\n    "status_code": "200",\n    "signature_key": "61c292925052fa25ae567cad4a65e6547a8b12c4e8c60fb5771492624a749d50c0fbeda4e43a49d310e640c9859fcc055c3418b27adcbbd352947ae2fc524f61",\n    "gross_amount": "56004.00",\n    "order_id": "OTMN-20260912-00018"\n}',
+                            options: { raw: { language: 'json' } },
+                        },
+                        url: {
+                            raw: '{{url_payment}}callback/midtrans',
+                            host: ['{{url_payment}}callback'],
+                            path: ['midtrans'],
+                        },
+                    },
+                    response: [],
+                },
+                {
+                    name: 'Transaction Callback Xendit',
+                    request: {
+                        auth: noAuth,
+                        method: 'POST',
+                        header: [
+                            { key: 'Content-Type', value: 'application/json', type: 'text' },
+                            { key: 'x-callback-token', value: '{{xendit_tokencallback}}', type: 'text' },
+                        ],
+                        body: {
+                            mode: 'raw',
+                            raw: '{\n    "id": "579c8d61f23fa4ca35e52da4",\n    "external_id": "OTX-20220912-00009",\n    "status": "PAID",\n    "amount": 25000,\n    "paid_amount": 25000,\n    "payment_method": "QRIS",\n    "paid_at": "2026-10-12T08:15:03.404Z"\n}',
+                            options: { raw: { language: 'json' } },
+                        },
+                        url: {
+                            raw: '{{url_payment}}callback/xendit',
+                            host: ['{{url_payment}}callback'],
+                            path: ['xendit'],
+                        },
+                    },
+                    response: [],
+                },
+                {
+                    name: 'Transaction Callback SPNPay',
+                    request: {
+                        auth: noAuth,
+                        method: 'POST',
+                        header: [
+                            { key: 'Content-Type', value: 'application/json', type: 'text' },
+                            { key: 'On-Signature', value: '{{spnpay_signature}}', type: 'text' },
+                        ],
+                        body: {
+                            mode: 'raw',
+                            raw: '{\n    "bill_no": "OTSP-20260820-00001",\n    "amount": 50000,\n    "status": 1,\n    "pay_time": "2026-08-20 20:00:00"\n}',
+                            options: { raw: { language: 'json' } },
+                        },
+                        url: {
+                            raw: '{{url_payment}}callback/spnpay',
+                            host: ['{{url_payment}}callback'],
+                            path: ['spnpay'],
+                        },
+                    },
+                    response: [],
+                },
+                {
+                    name: 'Transaction Callback Stripe',
+                    request: {
+                        auth: noAuth,
+                        method: 'POST',
+                        header: [
+                            { key: 'Content-Type', value: 'application/json', type: 'text' },
+                            { key: 'Stripe-Signature', value: '{{stripe_signature}}', type: 'text' },
+                        ],
+                        body: {
+                            mode: 'raw',
+                            raw: '{\n    "id": "evt_test_123",\n    "object": "event",\n    "type": "payment_intent.succeeded",\n    "data": {\n        "object": {\n            "id": "pi_3Tds5LEDIh15Gnk90iqCYgbL",\n            "amount": 15000,\n            "currency": "myr",\n            "status": "succeeded",\n            "metadata": {\n                "reference": "AP-004"\n            }\n        }\n    }\n}',
+                            options: { raw: { language: 'json' } },
+                        },
+                        url: {
+                            raw: '{{url_payment}}callback/stripe',
+                            host: ['{{url_payment}}callback'],
+                            path: ['stripe'],
+                        },
+                    },
+                    response: [],
+                },
+                {
+                    name: 'Callback Paprika',
+                    request: {
+                        auth: noAuth,
+                        method: 'POST',
+                        header: [{ key: 'Content-Type', value: 'application/json', type: 'text' }],
+                        body: {
+                            mode: 'raw',
+                            raw: '{\n    "order_id": "PAP-12345",\n    "status": "PAID"\n}',
+                            options: { raw: { language: 'json' } },
+                        },
+                        url: {
+                            raw: '{{url_payment}}callback/paprika',
+                            host: ['{{url_payment}}callback'],
+                            path: ['paprika'],
+                        },
+                    },
+                    response: [],
+                },
+                {
+                    name: 'Callback Payout Stripe',
+                    request: {
+                        auth: noAuth,
+                        method: 'POST',
+                        header: [{ key: 'Content-Type', value: 'application/json', type: 'text' }],
+                        url: {
+                            raw: '{{url_payment}}callback/payout/stripe',
+                            host: ['{{url_payment}}callback'],
+                            path: ['payout', 'stripe'],
+                        },
+                    },
+                    response: [],
+                },
+            ],
+        },
+        {
+            name: 'Paprika',
+            item: existing.item?.find((i) => i.name === 'Paprika')?.item || [
+                {
+                    name: 'Transaction',
+                    item: [
+                        {
+                            name: 'Generate Token',
+                            request: {
+                                method: 'POST',
+                                header: [],
+                                url: {
+                                    raw: '{{paprika_endpoint}}',
+                                    host: ['{{paprika_endpoint}}'],
+                                },
+                            },
+                            response: [],
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            name: 'Payouts',
+            item: [
+                {
+                    name: 'Create Payout',
+                    request: {
+                        method: 'POST',
+                        header: [
+                            { key: 'Content-Type', value: 'application/json', type: 'text' },
+                            { key: 'Accept', value: 'application/json', type: 'text' },
+                            { key: 'Token', value: '{{Token}}', type: 'text' },
+                        ],
+                        body: {
+                            mode: 'raw',
+                            raw: '{\n    "amount": 50000,\n    "recipient": "acct_1234567890",\n    "currency": "myr"\n}',
+                            options: { raw: { language: 'json' } },
+                        },
+                        url: {
+                            raw: '{{url_payment}}payout/create',
+                            host: ['{{url_payment}}payout'],
+                            path: ['create'],
+                        },
+                    },
+                    response: [],
+                },
+            ],
+        },
+        {
+            name: 'Testing & Logs',
+            item: [
+                {
+                    name: 'Queue Test',
+                    request: {
+                        auth: bearerAuth,
+                        method: 'POST',
+                        header: [{ key: 'Accept', value: 'application/json', type: 'text' }],
+                        url: {
+                            raw: '{{url_payment}}test/queue',
+                            host: ['{{url_payment}}test'],
+                            path: ['queue'],
+                        },
+                    },
+                    response: [],
+                },
+                {
+                    name: 'Duitku Encrypt Test',
+                    request: {
+                        method: 'POST',
+                        header: [{ key: 'Content-Type', value: 'application/json', type: 'text' }],
+                        body: {
+                            mode: 'raw',
+                            raw: '{\n    "merchantCode": "DS21819",\n    "amount": "15000",\n    "merchantOrderId": "100"\n}',
+                            options: { raw: { language: 'json' } },
+                        },
+                        url: {
+                            raw: '{{url_payment}}other/duitkuEncrpyt',
+                            host: ['{{url_payment}}other'],
+                            path: ['duitkuEncrpyt'],
+                        },
+                    },
+                    response: [],
+                },
+            ],
+        },
+    ],
+};
+
+fs.writeFileSync(srcFile, JSON.stringify(updatedCollection, null, 2));
+console.log('✅ Collection updated successfully at:', srcFile);
