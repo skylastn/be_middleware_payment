@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - master
-      - main
-      - develop
     paths:
       - 'postman/**'
       - 'routes/api.php'
