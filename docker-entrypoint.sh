@@ -31,12 +31,12 @@ if [ ! -f /app/vendor/autoload.php ]; then
     composer install --no-interaction --no-dev --prefer-dist --optimize-autoloader
 fi
 
-# Clear stale config/cache so queue connectors (e.g. RabbitMQ) registered by
-# service providers are always picked up correctly after deployments.
+# Clear stale config/cache/views so queue connectors and Vite assets are always picked up correctly after deployments.
 php artisan config:clear --no-interaction 2>/dev/null || true
 php artisan cache:clear --no-interaction 2>/dev/null || true
+php artisan view:clear --no-interaction 2>/dev/null || true
 
-echo "Laravel config & cache cleared."
+echo "Laravel config, cache & views cleared."
 
 # Run the original command (supervisord by default)
 exec "$@"

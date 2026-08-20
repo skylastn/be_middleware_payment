@@ -7,7 +7,7 @@ FROM node:24 AS frontend-builder
 WORKDIR /app
 
 # Copy only package files first for better layer caching
-COPY package*.json ./
+COPY package*.json tsconfig*.json ./
 
 # Install deps (use --force to match the existing pos-build behavior)
 RUN npm ci --force
@@ -16,7 +16,6 @@ RUN npm ci --force
 COPY resources/js ./resources/js
 COPY resources/css ./resources/css
 COPY vite.config.js ./
-# Include public if there are static assets (but build output will be generated)
 COPY public ./public
 
 # Build the React admin assets -> public/build
