@@ -5,6 +5,7 @@ import { ResourceService } from '../../services/resource_service';
 import { dataRecord, navigate, title } from '../../shared/utils/format_utils';
 import { PageTitle } from '../../shared/widget/page_title';
 import { Field } from '../../shared/widget/field';
+import { CopyButton } from '../../shared/widget/copy_button';
 import { IconArrowLeft } from '../../shared/widget/icons';
 
 export interface ResourceFormProps {
@@ -128,6 +129,27 @@ export function ResourceForm({ resource, id }: ResourceFormProps): React.JSX.Ele
                         <div className="alert">{formError}</div>
                     </div>
                 )}
+
+                {/* ID / Primary Key (Disabled & Readonly) */}
+                <label className="field full">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span className="label">ID (Primary Key)</span>
+                        {isEdit && id && <CopyButton text={id} />}
+                    </div>
+                    <input
+                        className="input mono"
+                        type="text"
+                        value={isEdit ? (id || values.id || '') : '(Auto-generated on save)'}
+                        disabled
+                        readOnly
+                        style={{
+                            cursor: 'not-allowed',
+                            background: 'var(--surface-subtle)',
+                            opacity: 0.85,
+                            fontStyle: isEdit ? 'normal' : 'italic',
+                        }}
+                    />
+                </label>
 
                 {Object.entries(definition.fields).map(([name, field]) => (
                     <Field

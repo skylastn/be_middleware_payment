@@ -36,7 +36,7 @@ class ProjectService
             $project = $this->projects->findByToken($token);
             if ($project) {
                 $items = collect([$project]);
-                $perPage = (int) ($request->perPage ?? 15);
+                $perPage = (int) ($request->query('per_page', $request->query('perPage', 15)));
                 return new LengthAwarePaginator(
                     $items,
                     $items->count(),
@@ -48,7 +48,11 @@ class ProjectService
             throw new Exception('Unauthorized');
         }
 
-        return $this->projects->latestPaginated((int) ($request->perPage ?? 15));
+        $search = $request->query('search');
+        $slug = $request->query('slug');
+        $perPage = (int) ($request->query('per_page', $request->query('perPage', 15)));
+
+        return $this->projects->latestPaginated($perPage, $search, $slug);
     }
 
     public function getProjectById(int|string $id): ?Project

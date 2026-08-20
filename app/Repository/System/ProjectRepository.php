@@ -18,9 +18,21 @@ class ProjectRepository extends BaseRepository
         return Project::where('type', $type)->first();
     }
 
-    public function latestPaginated(int $perPage = 15): LengthAwarePaginator
+    public function latestPaginated(int $perPage = 15, ?string $search = null, ?string $slug = null): LengthAwarePaginator
     {
-        return Project::latest()->paginate($perPage);
+        return Project::query()
+            ->when($search, function ($query, $search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
+                        ->orWhere('type', 'like', "%{$search}%")
+                        ->orWhere('slug', 'like', "%{$search}%")
+                        ->orWhere('key', 'like', "%{$search}%")
+                        ->orWhere('callback', 'like', "%{$search}%");
+                });
+            })
+            ->when($slug && $slug !== 'all', fn ($query) => $query->where('slug', $slug))
+            ->latest()
+            ->paginate($perPage);
     }
 
     protected function modelClass(): string
