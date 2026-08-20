@@ -192,15 +192,39 @@ class SPNPayService
             '0',
             'callback_order_spnpay'
         );
-        $order = Order::where('reference', $request->responseData['merchantRef'])->orderBy('id', 'DESC')->first();
+        $reference = $request->input('responseData.merchantRef') ?? $request->input('merchantRef') ?? '';
+        $order = Order::where('reference', $reference)->orderBy('id', 'DESC')->first();
 
         if (! FormatHelper::isNotEmpty($order)) {
             throw new Exception('Order not found');
         }
         $order = Order::findOrFailCustom($order->id);
 
+        $paymentRepo = $this->getPaymentRepo($order->getMode(), $order->getPaymentRepositoryId());
+        if (FormatHelper::isNotEmpty($paymentRepo)) {
+            $secretKey = (string) ($paymentRepo->getValue()['spnpay_secretkey'] ?? '');
+            $token = (string) ($paymentRepo->getValue()['spnpay_token'] ?? '');
+            $incomingSignature = (string) (
+                $request->header('On-Signature')
+                ?? $request->header('on-signature')
+                ?? $request->header('Signature')
+                ?? $request->header('signature')
+                ?? ''
+            );
+
+            if (! empty($secretKey) && ! empty($token) && ! empty($incomingSignature)) {
+                $rawContent = $request->getContent();
+                $expectedSig1 = hash_hmac('sha512', $secretKey . $rawContent, $token);
+                $expectedSig2 = hash_hmac('sha512', $secretKey . json_encode($request->all()), $token);
+
+                if (! hash_equals($expectedSig1, $incomingSignature) && ! hash_equals($expectedSig2, $incomingSignature)) {
+                    throw new Exception('Invalid SPNPay callback signature', 403);
+                }
+            }
+        }
+
         $resultCode = '00';
-        $status = match ($request->responseData['status']) {
+        $status = match ($request->input('responseData.status') ?? $request->input('status')) {
             'success' => OrderStatus::SUCCESS,
             'failed' => OrderStatus::FAILED,
             'expired' => OrderStatus::EXPIRED,

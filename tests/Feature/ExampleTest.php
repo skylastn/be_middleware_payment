@@ -367,4 +367,22 @@ class ExampleTest extends TestCase
 
         Http::assertSentCount(1);
     }
+
+    public function test_unauthenticated_cannot_access_payment_repositories(): void
+    {
+        $this->getJson('/api/payment/getPaymentRepository')
+            ->assertStatus(401);
+    }
+
+    public function test_unauthenticated_cannot_list_all_projects(): void
+    {
+        $this->getJson('/api/project')
+            ->assertStatus(401);
+    }
+
+    public function test_unauthenticated_cannot_access_test_queue(): void
+    {
+        $this->getJson('/api/test/queue')
+            ->assertStatus(401);
+    }
 }
