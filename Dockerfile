@@ -90,9 +90,11 @@ install-php-extensions pcntl mbstring bcmath curl openssl gd pdo_mysql redis soc
 for i in 1 2 3; do
     apt-get update -qq && break || (echo "apt update attempt $i failed, retrying in 5s..." && sleep 5)
 done
-apt-get install -y --no-install-recommends curl git unzip procps supervisor
+apt-get install -y --no-install-recommends curl git unzip procps supervisor tzdata
 rm -rf /var/lib/apt/lists/*
 EOF
+
+ENV TZ=UTC
 
 # Set workdir early for composer and app
 WORKDIR /app

@@ -63,6 +63,8 @@ services:
       #
       # The DOCKER_*_HOST mechanism is kept for the sibling-container / host-gateway use cases
       # (you don't have to delete the variables).
+      - TZ=${TZ:-UTC}
+      - APP_TIMEZONE=${APP_TIMEZONE:-UTC}
       - DB_HOST=${DOCKER_DB_HOST:-${DB_HOST:-127.0.0.1}}
       - REDIS_HOST=${DOCKER_REDIS_HOST:-${REDIS_HOST:-127.0.0.1}}
     # We intentionally do not list "external-db" in the networks for this service.
