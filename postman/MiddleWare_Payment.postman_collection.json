@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "cc267a45-ea29-45b2-88d4-aba0264e87ac",
     "name": "MiddleWare Payment",
-    "description": "Comprehensive Postman collection for Payment Middleware APIs, Webhooks, Backoffice Management, and Payment Gateways (Duitku, Midtrans, Xendit, SPNPay, Stripe, Paprika).",
+    "description": "Comprehensive Postman collection for Payment Middleware APIs, Webhooks, Backoffice Management, and Payment Gateways.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_exporter_id": "44845319",
     "_collection_link": "https://go.postman.co/collection/17325151-cc267a45-ea29-45b2-88d4-aba0264e87ac?source=collection_link"
@@ -88,7 +88,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"email\": \"admin@gmail.com\",\n    \"password\": \"test\"\n}",
+              "raw": "{\n    \"email\": \"admin@example.com\",\n    \"password\": \"{{admin_password}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -363,7 +363,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"name\": \"POS Order Duitku PCP\",\n    \"type\": \"PODPCP\",\n    \"callback\": \"https://pcp-lvation.lugu.id/api/webhook/payment/callback\",\n    \"slug\": \"duitku\"\n}",
+              "raw": "{\n    \"name\": \"POS Order Store\",\n    \"type\": \"STORE\",\n    \"callback\": \"https://merchant.example.com/api/webhook/payment/callback\",\n    \"slug\": \"duitku\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -410,7 +410,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"name\": \"Order Transaction Duitku Opet Development\",\n    \"type\": \"OTDOD\",\n    \"callback\": \"https://backend-service.dev.anugerahbersamagroup.com/api/callback/payment/middleware\",\n    \"slug\": \"duitku\"\n}",
+              "raw": "{\n    \"name\": \"Order Transaction Store\",\n    \"type\": \"STORE\",\n    \"callback\": \"https://merchant.example.com/api/callback/payment\",\n    \"slug\": \"duitku\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -495,7 +495,7 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n    \"reference\": \"AP-004\",\n    \"token\": \"tok_visa\"\n}",
+                  "raw": "{\n    \"reference\": \"AP-004\",\n    \"token\": \"{{stripe_card_token}}\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -567,7 +567,7 @@
             "header": [
               {
                 "key": "Key",
-                "value": "oxJMxunHKiElhLwZyPsb",
+                "value": "{{merchant_key}}",
                 "type": "text"
               },
               {
@@ -641,7 +641,7 @@
             "header": [
               {
                 "key": "Key",
-                "value": "oxJMxunHKiElhLwZyPsb",
+                "value": "{{merchant_key}}",
                 "type": "text"
               },
               {
@@ -686,7 +686,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"paymentRepositoryId\": \"019e8383-880a-7249-b9da-079b9844de25\",\n    \"paymentAmount\": 15000,\n    \"paymentMethod\": \"SP\",\n    \"merchantOrderId\": \"002\",\n    \"productDetails\": \"Pembayaran Duitku\",\n    \"expiryPeriod\": 100,\n    \"mode\": \"sandbox\",\n    \"firstName\": \"Sahid\",\n    \"lastName\": \"R\",\n    \"email\": \"sahidrahutomo@gmail.com\",\n    \"address\": \"klaten\",\n    \"phone\": \"08815123766\",\n    \"currency\": \"myr\",\n    \"flow\": \"direct\",\n    \"returnUrl\": \"{{url_payment}}callback/duitku\"\n}",
+              "raw": "{\n    \"paymentRepositoryId\": \"{{paymentRepositoryId}}\",\n    \"paymentAmount\": 15000,\n    \"paymentMethod\": \"SP\",\n    \"merchantOrderId\": \"INV-001\",\n    \"productDetails\": \"Pembayaran Item\",\n    \"expiryPeriod\": 100,\n    \"mode\": \"sandbox\",\n    \"firstName\": \"John\",\n    \"lastName\": \"Doe\",\n    \"email\": \"customer@example.com\",\n    \"address\": \"Jakarta\",\n    \"phone\": \"08123456789\",\n    \"currency\": \"idr\",\n    \"flow\": \"direct\",\n    \"returnUrl\": \"{{url_payment}}callback/duitku\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -758,7 +758,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"merchantOrderId\": \"pos:dev:MpJtbNRXKaziZW5Et52if0d9C\",\n    \"paymentCode\": \"SP\",\n    \"resultCode\": \"00\"\n}",
+              "raw": "{\n    \"merchantOrderId\": \"pos:dev:12345\",\n    \"paymentCode\": \"SP\",\n    \"resultCode\": \"00\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -796,7 +796,7 @@
               },
               {
                 "key": "Key",
-                "value": "oxJMxunHKiElhLwZyPsb",
+                "value": "{{merchant_key}}",
                 "type": "text"
               },
               {
@@ -807,7 +807,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"paymentRepositoryId\": \"a02c6112-870c-4167-bcec-53e3aef00377\",\n    \"paymentMethod\": \"BCA_VA\",\n    \"reference\": \"OTSA-20220912-00080\"\n}",
+              "raw": "{\n    \"paymentRepositoryId\": \"{{paymentRepositoryId}}\",\n    \"paymentMethod\": \"BCA_VA\",\n    \"reference\": \"OTSA-20220912-00080\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1371,7 +1371,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"payment_gateway_id\": \"1\",\n    \"key\": \"stripe\",\n    \"mode\": \"sandbox\",\n    \"value\": {\n        \"stripe_secretkey\": \"sk_test_...\",\n        \"stripe_publishablekey\": \"pk_test_...\",\n        \"stripe_webhooksecret\": \"whsec_...\",\n        \"surcharge_mode\": \"middleware_calc\",\n        \"surcharge_percent\": 2.9,\n        \"surcharge_fixed\": 2000,\n        \"surcharge_label\": \"Processing Fee\"\n    }\n}",
+              "raw": "{\n    \"payment_gateway_id\": \"1\",\n    \"key\": \"stripe\",\n    \"mode\": \"sandbox\",\n    \"value\": {\n        \"stripe_secretkey\": \"{{stripe_secret_key}}\",\n        \"stripe_publishablekey\": \"{{stripe_publishable_key}}\",\n        \"stripe_webhooksecret\": \"{{stripe_webhook_secret}}\",\n        \"surcharge_mode\": \"middleware_calc\",\n        \"surcharge_percent\": 2.9,\n        \"surcharge_fixed\": 2000,\n        \"surcharge_label\": \"Processing Fee\"\n    }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1445,7 +1445,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"merchantCode\": \"DS21819\",\n    \"amount\": \"15000.00\",\n    \"merchantOrderId\": \"OTDOD-100\",\n    \"productDetail\": \"Pembayaran\",\n    \"additionalParam\": \"\",\n    \"paymentMethod\": \"VC\",\n    \"resultCode\": \"00\",\n    \"merchantUserId\": \"user@example.com\",\n    \"reference\": \"DS218192567A60P37OJZABHX\",\n    \"signature\": \"b9689e478521a0f9b6b713426e25f818\"\n}",
+              "raw": "{\n    \"merchantCode\": \"DS0001\",\n    \"amount\": \"15000.00\",\n    \"merchantOrderId\": \"INV-001\",\n    \"productDetail\": \"Pembayaran\",\n    \"additionalParam\": \"\",\n    \"paymentMethod\": \"VC\",\n    \"resultCode\": \"00\",\n    \"merchantUserId\": \"user@example.com\",\n    \"reference\": \"DSREF-001\",\n    \"signature\": \"{{duitku_signature}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1480,7 +1480,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"transaction_time\": \"2026-08-08 18:16:37\",\n    \"transaction_status\": \"settlement\",\n    \"transaction_id\": \"441fbcf4-37e0-4fd2-b417-fae9e389e4d5\",\n    \"status_message\": \"midtrans payment notification\",\n    \"status_code\": \"200\",\n    \"signature_key\": \"61c292925052fa25ae567cad4a65e6547a8b12c4e8c60fb5771492624a749d50c0fbeda4e43a49d310e640c9859fcc055c3418b27adcbbd352947ae2fc524f61\",\n    \"gross_amount\": \"56004.00\",\n    \"order_id\": \"OTMN-20260912-00018\"\n}",
+              "raw": "{\n    \"transaction_time\": \"2026-08-08 18:16:37\",\n    \"transaction_status\": \"settlement\",\n    \"transaction_id\": \"441fbcf4-37e0-4fd2-b417-fae9e389e4d5\",\n    \"status_message\": \"midtrans payment notification\",\n    \"status_code\": \"200\",\n    \"signature_key\": \"{{midtrans_signature}}\",\n    \"gross_amount\": \"56004.00\",\n    \"order_id\": \"INV-001\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1520,7 +1520,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"id\": \"579c8d61f23fa4ca35e52da4\",\n    \"external_id\": \"OTX-20220912-00009\",\n    \"status\": \"PAID\",\n    \"amount\": 25000,\n    \"paid_amount\": 25000,\n    \"payment_method\": \"QRIS\",\n    \"paid_at\": \"2026-10-12T08:15:03.404Z\"\n}",
+              "raw": "{\n    \"id\": \"579c8d61f23fa4ca35e52da4\",\n    \"external_id\": \"INV-001\",\n    \"status\": \"PAID\",\n    \"amount\": 25000,\n    \"paid_amount\": 25000,\n    \"payment_method\": \"QRIS\",\n    \"paid_at\": \"2026-10-12T08:15:03.404Z\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1600,7 +1600,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"id\": \"evt_test_123\",\n    \"object\": \"event\",\n    \"type\": \"payment_intent.succeeded\",\n    \"data\": {\n        \"object\": {\n            \"id\": \"pi_3Tds5LEDIh15Gnk90iqCYgbL\",\n            \"amount\": 15000,\n            \"currency\": \"myr\",\n            \"status\": \"succeeded\",\n            \"metadata\": {\n                \"reference\": \"AP-004\"\n            }\n        }\n    }\n}",
+              "raw": "{\n    \"id\": \"evt_test_123\",\n    \"object\": \"event\",\n    \"type\": \"payment_intent.succeeded\",\n    \"data\": {\n        \"object\": {\n            \"id\": \"pi_test_123\",\n            \"amount\": 15000,\n            \"currency\": \"myr\",\n            \"status\": \"succeeded\",\n            \"metadata\": {\n                \"reference\": \"AP-004\"\n            }\n        }\n    }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1875,7 +1875,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"merchantCode\": \"DS21819\",\n    \"amount\": \"15000\",\n    \"merchantOrderId\": \"100\"\n}",
+              "raw": "{\n    \"merchantCode\": \"DS0001\",\n    \"amount\": \"15000\",\n    \"merchantOrderId\": \"INV-001\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
