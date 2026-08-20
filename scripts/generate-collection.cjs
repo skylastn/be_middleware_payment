@@ -358,7 +358,7 @@ const updatedCollection = {
                     response: [],
                 },
                 {
-                    name: 'Create Order',
+                    name: 'Create Order (Standard / Multi-Gateway)',
                     request: {
                         method: 'POST',
                         header: [
@@ -367,7 +367,7 @@ const updatedCollection = {
                         ],
                         body: {
                             mode: 'raw',
-                            raw: '{\n    "paymentRepositoryId": "{{paymentRepositoryId}}",\n    "paymentAmount": 15000,\n    "paymentMethod": "SP",\n    "merchantOrderId": "INV-001",\n    "productDetails": "Pembayaran Item",\n    "expiryPeriod": 100,\n    "mode": "sandbox",\n    "firstName": "John",\n    "lastName": "Doe",\n    "email": "customer@example.com",\n    "address": "Jakarta",\n    "phone": "08123456789",\n    "currency": "idr",\n    "flow": "direct",\n    "returnUrl": "{{url_payment}}callback/duitku"\n}',
+                            raw: '{\n    "paymentRepositoryId": "{{paymentRepositoryId}}",\n    "merchantOrderId": "INV-{{$timestamp}}",\n    "paymentAmount": 50000,\n    "paymentMethod": "SP",\n    "productDetails": "Pembayaran Layanan",\n    "expiryPeriod": 60,\n    "mode": "sandbox",\n    "currency": "idr",\n    "firstName": "John",\n    "lastName": "Doe",\n    "email": "customer@example.com",\n    "phoneNumber": "08123456789",\n    "address": "Jakarta, Indonesia",\n    "customerVaName": "John Doe",\n    "callbackUrl": "{{url_callback}}",\n    "returnUrl": "https://merchant.example.com/return"\n}',
                             options: { raw: { language: 'json' } },
                         },
                         url: {
@@ -375,6 +375,51 @@ const updatedCollection = {
                             host: ['{{url_payment}}order'],
                             path: ['create'],
                         },
+                        description: 'Generic order creation across Duitku, Midtrans, Xendit, SPNPay, or Stripe.',
+                    },
+                    response: [],
+                },
+                {
+                    name: 'Create Order - Stripe (Checkout Session + Surcharge)',
+                    request: {
+                        method: 'POST',
+                        header: [
+                            { key: 'Content-Type', value: 'application/json', type: 'text' },
+                            { key: 'Accept', value: 'application/json', type: 'text' },
+                        ],
+                        body: {
+                            mode: 'raw',
+                            raw: '{\n    "paymentRepositoryId": "{{paymentRepositoryId}}",\n    "merchantOrderId": "INV-STRIPE-{{$timestamp}}",\n    "paymentAmount": 50000,\n    "productDetails": "Subscription Service",\n    "currency": "myr",\n    "flow": "checkout_session",\n    "mode": "sandbox",\n    "surcharge_mode": "middleware_calc",\n    "surcharge_percent": 2.9,\n    "surcharge_fixed": 2000,\n    "surcharge_label": "Processing Fee",\n    "firstName": "John",\n    "lastName": "Doe",\n    "email": "customer@example.com",\n    "phoneNumber": "08123456789",\n    "returnUrl": "https://merchant.example.com/return"\n}',
+                            options: { raw: { language: 'json' } },
+                        },
+                        url: {
+                            raw: '{{url_payment}}order/create',
+                            host: ['{{url_payment}}order'],
+                            path: ['create'],
+                        },
+                        description: 'Creates a Stripe Checkout Session with calculated surcharge fees.',
+                    },
+                    response: [],
+                },
+                {
+                    name: 'Create Order - Stripe (Direct Flow / PaymentIntent)',
+                    request: {
+                        method: 'POST',
+                        header: [
+                            { key: 'Content-Type', value: 'application/json', type: 'text' },
+                            { key: 'Accept', value: 'application/json', type: 'text' },
+                        ],
+                        body: {
+                            mode: 'raw',
+                            raw: '{\n    "paymentRepositoryId": "{{paymentRepositoryId}}",\n    "merchantOrderId": "INV-DIRECT-{{$timestamp}}",\n    "paymentAmount": 50000,\n    "productDetails": "Direct Card Payment",\n    "currency": "myr",\n    "flow": "direct",\n    "mode": "sandbox",\n    "surcharge_mode": "middleware_calc",\n    "surcharge_percent": 2.9,\n    "surcharge_fixed": 2000,\n    "surcharge_label": "Processing Fee",\n    "token": "{{stripe_card_token}}",\n    "firstName": "John",\n    "lastName": "Doe",\n    "email": "customer@example.com"\n}',
+                            options: { raw: { language: 'json' } },
+                        },
+                        url: {
+                            raw: '{{url_payment}}order/create',
+                            host: ['{{url_payment}}order'],
+                            path: ['create'],
+                        },
+                        description: 'Direct PaymentIntent flow supporting immediate card token confirmation or confirmation later via /stripe/confirm.',
                     },
                     response: [],
                 },
