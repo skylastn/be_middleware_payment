@@ -1,0 +1,1900 @@
+{
+  "info": {
+    "_postman_id": "cc267a45-ea29-45b2-88d4-aba0264e87ac",
+    "name": "MiddleWare Payment",
+    "description": "Comprehensive Postman collection for Payment Middleware APIs, Webhooks, Backoffice Management, and Payment Gateways.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "44845319",
+    "_collection_link": "https://go.postman.co/collection/17325151-cc267a45-ea29-45b2-88d4-aba0264e87ac?source=collection_link"
+  },
+  "auth": {
+    "type": "apikey",
+    "apikey": [
+      {
+        "key": "value",
+        "value": "{{Token}}",
+        "type": "string"
+      },
+      {
+        "key": "key",
+        "value": "Token",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const response = pm.response.json();",
+                  "",
+                  "if (response && response.data && response.data.token) {",
+                  "    pm.environment.set(\"paymentBearerToken\", response.data.token);",
+                  "    console.log(\"Token saved:\", response.data.token);",
+                  "} else if (response && response.token) {",
+                  "    pm.environment.set(\"paymentBearerToken\", response.token);",
+                  "    console.log(\"Token saved:\", response.token);",
+                  "} else {",
+                  "    console.error(\"Token not found in response\");",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"admin@example.com\",\n    \"password\": \"{{admin_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{url_payment}}login",
+              "host": [
+                "{{url_payment}}login"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Current Admin (Me)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{paymentBearerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{url_payment}}admin/me",
+              "host": [
+                "{{url_payment}}admin"
+              ],
+              "path": [
+                "me"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Logout",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{paymentBearerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{url_payment}}admin/logout",
+              "host": [
+                "{{url_payment}}admin"
+              ],
+              "path": [
+                "logout"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Dashboard",
+      "item": [
+        {
+          "name": "Get Dashboard Metrics",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{paymentBearerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{url_payment}}admin/dashboard",
+              "host": [
+                "{{url_payment}}admin"
+              ],
+              "path": [
+                "dashboard"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Project",
+      "item": [
+        {
+          "name": "Sync Missing Log",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{paymentBearerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{url_payment}}project/sync-missing-log",
+              "host": [
+                "{{url_payment}}project"
+              ],
+              "path": [
+                "sync-missing-log"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Projects (List)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{paymentBearerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{url_payment}}project?page=1&perPage=100",
+              "host": [
+                "{{url_payment}}project"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "perPage",
+                  "value": "100"
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "slug",
+                  "value": "duitku",
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Project by ID",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{paymentBearerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{url_payment}}project/:id",
+              "host": [
+                "{{url_payment}}project"
+              ],
+              "path": [
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Project",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{paymentBearerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"POS Order Store\",\n    \"type\": \"STORE\",\n    \"callback\": \"https://merchant.example.com/api/webhook/payment/callback\",\n    \"slug\": \"duitku\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{url_payment}}project/create",
+              "host": [
+                "{{url_payment}}project"
+              ],
+              "path": [
+                "create"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Project",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{paymentBearerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"Order Transaction Store\",\n    \"type\": \"STORE\",\n    \"callback\": \"https://merchant.example.com/api/callback/payment\",\n    \"slug\": \"duitku\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{url_payment}}project/:id",
+              "host": [
+                "{{url_payment}}project"
+              ],
+              "path": [
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Project",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{paymentBearerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{url_payment}}project/:id",
+              "host": [
+                "{{url_payment}}project"
+              ],
+              "path": [
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Order",
+      "item": [
+        {
+          "name": "Stripe",
+          "item": [
+            {
+              "name": "Confirm Stripe",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"reference\": \"AP-004\",\n    \"token\": \"{{stripe_card_token}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{url_payment}}order/stripe/confirm",
+                  "host": [
+                    "{{url_payment}}order"
+                  ],
+                  "path": [
+                    "stripe",
+                    "confirm"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Get Order (List)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{url_payment}}order?type=OTSA&page=1&perPage=10&status=all&mode=all",
+              "host": [
+                "{{url_payment}}order"
+              ],
+              "query": [
+                {
+                  "key": "type",
+                  "value": "OTSA"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "perPage",
+                  "value": "10"
+                },
+                {
+                  "key": "status",
+                  "value": "all"
+                },
+                {
+                  "key": "mode",
+                  "value": "all"
+                }
+              ]
+            },
+            "description": "Check History Transaction MiddleWare by type and filters"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Detail Order",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Key",
+                "value": "{{merchant_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{url_payment}}order/detail?reference=OTSA-20220912-00078",
+              "host": [
+                "{{url_payment}}order"
+              ],
+              "path": [
+                "detail"
+              ],
+              "query": [
+                {
+                  "key": "reference",
+                  "value": "OTSA-20220912-00078"
+                }
+              ]
+            },
+            "description": "Check History Transaction MiddleWare by reference"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Order by ID (Admin)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{paymentBearerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{url_payment}}order/:id",
+              "host": [
+                "{{url_payment}}order"
+              ],
+              "path": [
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Check Order Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Key",
+                "value": "{{merchant_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{url_payment}}order/checkOrderStatus?reference=OTDOD-5",
+              "host": [
+                "{{url_payment}}order"
+              ],
+              "path": [
+                "checkOrderStatus"
+              ],
+              "query": [
+                {
+                  "key": "reference",
+                  "value": "OTDOD-5"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Order",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"paymentRepositoryId\": \"{{paymentRepositoryId}}\",\n    \"paymentAmount\": 15000,\n    \"paymentMethod\": \"SP\",\n    \"merchantOrderId\": \"INV-001\",\n    \"productDetails\": \"Pembayaran Item\",\n    \"expiryPeriod\": 100,\n    \"mode\": \"sandbox\",\n    \"firstName\": \"John\",\n    \"lastName\": \"Doe\",\n    \"email\": \"customer@example.com\",\n    \"address\": \"Jakarta\",\n    \"phone\": \"08123456789\",\n    \"currency\": \"idr\",\n    \"flow\": \"direct\",\n    \"returnUrl\": \"{{url_payment}}callback/duitku\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{url_payment}}order/create",
+              "host": [
+                "{{url_payment}}order"
+              ],
+              "path": [
+                "create"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Resend Order Callback",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{paymentBearerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{url_payment}}order/:id/resend-callback",
+              "host": [
+                "{{url_payment}}order"
+              ],
+              "path": [
+                ":id",
+                "resend-callback"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Callback MiddleWare to Backend Membership",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"merchantOrderId\": \"pos:dev:12345\",\n    \"paymentCode\": \"SP\",\n    \"resultCode\": \"00\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{url_callback}}",
+              "host": [
+                "{{url_callback}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Payment",
+      "item": [
+        {
+          "name": "Create Order Payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Key",
+                "value": "{{merchant_key}}",
+                "type": "text"
+              },
+              {
+                "key": "PAYMENT_APP_KEY",
+                "value": "{{PAYMENT_APP_KEY}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"paymentRepositoryId\": \"{{paymentRepositoryId}}\",\n    \"paymentMethod\": \"BCA_VA\",\n    \"reference\": \"OTSA-20220912-00080\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{url_payment}}payment/createPayment",
+              "host": [
+                "{{url_payment}}payment"
+              ],
+              "path": [
+                "createPayment"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Payment Category",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{url_payment}}payment/getPaymentCategory",
+              "host": [
+                "{{url_payment}}payment"
+              ],
+              "path": [
+                "getPaymentCategory"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Payment Category by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{url_payment}}payment/category/:id",
+              "host": [
+                "{{url_payment}}payment"
+              ],
+              "path": [
+                "category",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Payment Category",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{paymentBearerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"key\": \"va\",\n    \"title\": \"Virtual Account\",\n    \"detail\": \"Bank Virtual Account Channels\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{url_payment}}payment/category/create",
+              "host": [
+                "{{url_payment}}payment"
+              ],
+              "path": [
+                "category",
+                "create"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Payment Category",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{paymentBearerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"key\": \"va\",\n    \"title\": \"Virtual Account Updated\",\n    \"detail\": \"Updated details\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{url_payment}}payment/category/:id",
+              "host": [
+                "{{url_payment}}payment"
+              ],
+              "path": [
+                "category",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Payment Category",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{paymentBearerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{url_payment}}payment/category/:id",
+              "host": [
+                "{{url_payment}}payment"
+              ],
+              "path": [
+                "category",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Payment Method",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{url_payment}}payment/getPaymentMethod?categoriesKey[]=virtual-account&from=spnpay",
+              "host": [
+                "{{url_payment}}payment"
+              ],
+              "path": [
+                "getPaymentMethod"
+              ],
+              "query": [
+                {
+                  "key": "categoriesKey[]",
+                  "value": "virtual-account"
+                },
+                {
+                  "key": "from",
+                  "value": "spnpay"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Detail Payment Method",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{url_payment}}payment/getDetailPaymentMethod?value=BCA_VA&from=spnpay",
+              "host": [
+                "{{url_payment}}payment"
+              ],
+              "path": [
+                "getDetailPaymentMethod"
+              ],
+              "query": [
+                {
+                  "key": "value",
+                  "value": "BCA_VA"
+                },
+                {
+                  "key": "from",
+                  "value": "spnpay"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Payment Method",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{paymentBearerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"key\": \"VA_BCA\",\n    \"name\": \"BCA Virtual Account\",\n    \"type\": \"VA\",\n    \"from\": \"duitku\",\n    \"bankCode\": \"BCA\",\n    \"value\": \"BC\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{url_payment}}payment/method/create",
+              "host": [
+                "{{url_payment}}payment"
+              ],
+              "path": [
+                "method",
+                "create"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Payment Method",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{paymentBearerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"key\": \"VA_BCA\",\n    \"name\": \"BCA Virtual Account (Updated)\",\n    \"type\": \"VA\",\n    \"from\": \"duitku\",\n    \"bankCode\": \"BCA\",\n    \"value\": \"BC\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{url_payment}}payment/method/:id",
+              "host": [
+                "{{url_payment}}payment"
+              ],
+              "path": [
+                "method",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Payment Method",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{paymentBearerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{url_payment}}payment/method/:id",
+              "host": [
+                "{{url_payment}}payment"
+              ],
+              "path": [
+                "method",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Payment Gateway (List)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{paymentBearerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{url_payment}}payment/getPaymentGateway",
+              "host": [
+                "{{url_payment}}payment"
+              ],
+              "path": [
+                "getPaymentGateway"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Payment Gateway",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{paymentBearerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"key\": \"stripe\",\n    \"name\": \"Stripe Global\",\n    \"description\": \"International card and digital wallet processor\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{url_payment}}payment/gateway/create",
+              "host": [
+                "{{url_payment}}payment"
+              ],
+              "path": [
+                "gateway",
+                "create"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Payment Repository (List)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{paymentBearerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{url_payment}}payment/getPaymentRepository",
+              "host": [
+                "{{url_payment}}payment"
+              ],
+              "path": [
+                "getPaymentRepository"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Payment Repository",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{paymentBearerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"payment_gateway_id\": \"1\",\n    \"key\": \"stripe\",\n    \"mode\": \"sandbox\",\n    \"value\": {\n        \"stripe_secretkey\": \"{{stripe_secret_key}}\",\n        \"stripe_publishablekey\": \"{{stripe_publishable_key}}\",\n        \"stripe_webhooksecret\": \"{{stripe_webhook_secret}}\",\n        \"surcharge_mode\": \"middleware_calc\",\n        \"surcharge_percent\": 2.9,\n        \"surcharge_fixed\": 2000,\n        \"surcharge_label\": \"Processing Fee\"\n    }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{url_payment}}payment/repository/create",
+              "host": [
+                "{{url_payment}}payment"
+              ],
+              "path": [
+                "repository",
+                "create"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Settings (List)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{paymentBearerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{url_payment}}payment/getSetting",
+              "host": [
+                "{{url_payment}}payment"
+              ],
+              "path": [
+                "getSetting"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Webhooks & Callbacks",
+      "item": [
+        {
+          "name": "Transaction Callback Duitku",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"merchantCode\": \"DS0001\",\n    \"amount\": \"15000.00\",\n    \"merchantOrderId\": \"INV-001\",\n    \"productDetail\": \"Pembayaran\",\n    \"additionalParam\": \"\",\n    \"paymentMethod\": \"VC\",\n    \"resultCode\": \"00\",\n    \"merchantUserId\": \"user@example.com\",\n    \"reference\": \"DSREF-001\",\n    \"signature\": \"{{duitku_signature}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{url_payment}}callback/duitku",
+              "host": [
+                "{{url_payment}}callback"
+              ],
+              "path": [
+                "duitku"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Transaction Callback Midtrans",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"transaction_time\": \"2026-08-08 18:16:37\",\n    \"transaction_status\": \"settlement\",\n    \"transaction_id\": \"441fbcf4-37e0-4fd2-b417-fae9e389e4d5\",\n    \"status_message\": \"midtrans payment notification\",\n    \"status_code\": \"200\",\n    \"signature_key\": \"{{midtrans_signature}}\",\n    \"gross_amount\": \"56004.00\",\n    \"order_id\": \"INV-001\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{url_payment}}callback/midtrans",
+              "host": [
+                "{{url_payment}}callback"
+              ],
+              "path": [
+                "midtrans"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Transaction Callback Xendit",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "x-callback-token",
+                "value": "{{xendit_tokencallback}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"id\": \"579c8d61f23fa4ca35e52da4\",\n    \"external_id\": \"INV-001\",\n    \"status\": \"PAID\",\n    \"amount\": 25000,\n    \"paid_amount\": 25000,\n    \"payment_method\": \"QRIS\",\n    \"paid_at\": \"2026-10-12T08:15:03.404Z\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{url_payment}}callback/xendit",
+              "host": [
+                "{{url_payment}}callback"
+              ],
+              "path": [
+                "xendit"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Transaction Callback SPNPay",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "On-Signature",
+                "value": "{{spnpay_signature}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"bill_no\": \"OTSP-20260820-00001\",\n    \"amount\": 50000,\n    \"status\": 1,\n    \"pay_time\": \"2026-08-20 20:00:00\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{url_payment}}callback/spnpay",
+              "host": [
+                "{{url_payment}}callback"
+              ],
+              "path": [
+                "spnpay"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Transaction Callback Stripe",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Stripe-Signature",
+                "value": "{{stripe_signature}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"id\": \"evt_test_123\",\n    \"object\": \"event\",\n    \"type\": \"payment_intent.succeeded\",\n    \"data\": {\n        \"object\": {\n            \"id\": \"pi_test_123\",\n            \"amount\": 15000,\n            \"currency\": \"myr\",\n            \"status\": \"succeeded\",\n            \"metadata\": {\n                \"reference\": \"AP-004\"\n            }\n        }\n    }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{url_payment}}callback/stripe",
+              "host": [
+                "{{url_payment}}callback"
+              ],
+              "path": [
+                "stripe"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Callback Paprika",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"order_id\": \"PAP-12345\",\n    \"status\": \"PAID\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{url_payment}}callback/paprika",
+              "host": [
+                "{{url_payment}}callback"
+              ],
+              "path": [
+                "paprika"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Callback Payout Stripe",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{url_payment}}callback/payout/stripe",
+              "host": [
+                "{{url_payment}}callback"
+              ],
+              "path": [
+                "payout",
+                "stripe"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Paprika",
+      "item": [
+        {
+          "name": "Transaction",
+          "item": [
+            {
+              "name": "Generate Token",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      ""
+                    ],
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {}
+                  }
+                },
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "exec": [
+                      "const moment = pm.require('npm:moment');",
+                      "const rs = pm.require('npm:jsrsasign');",
+                      "",
+                      "const clientKey = pm.environment.get(\"mk_paprika\");",
+                      "let privateKey = pm.environment.get(\"mk_private_key\");",
+                      "",
+                      "console.log(\"active env:\", pm.environment.name);",
+                      "console.log(\"clientKey:\", clientKey);",
+                      "console.log(\"privateKey raw:\", privateKey);",
+                      "",
+                      "if (!clientKey) {",
+                      "  throw new Error(\"Environment variable 'mk_paprika' tidak terbaca\");",
+                      "}",
+                      "",
+                      "// if (!privateKey) {",
+                      "//   throw new Error(\"Environment variable 'mk_private_key' tidak terbaca\");",
+                      "// }",
+                      "",
+                      "// privateKey = privateKey.replace(/\\\\n/g, '\\n');",
+                      "",
+                      "// if (",
+                      "//   !privateKey.includes(\"BEGIN PRIVATE KEY\") &&",
+                      "//   !privateKey.includes(\"BEGIN RSA PRIVATE KEY\")",
+                      "// ) {",
+                      "//   throw new Error(\"mk_private_key isinya bukan PRIVATE KEY\");",
+                      "// }",
+                      "",
+                      "const timestamp = moment().format(\"YYYY-MM-DDTHH:mm:ssZ\");",
+                      "const stringToSign = clientKey + \"|\" + timestamp;",
+                      "",
+                      "console.log(\"timestamp:\", timestamp);",
+                      "console.log(\"stringToSign:\", stringToSign);",
+                      "",
+                      "const signer = new rs.KJUR.crypto.Signature({ alg: \"SHA256withRSA\" });",
+                      "signer.init(privateKey);",
+                      "",
+                      "const signature = rs.hextob64(signer.signString(stringToSign));",
+                      "",
+                      "pm.environment.set(\"timestamp\", timestamp);",
+                      "pm.environment.set(\"signature\", signature);",
+                      "",
+                      "console.log(\"signature:\", signature);"
+                    ],
+                    "type": "text/javascript",
+                    "packages": {
+                      "npm:moment": {
+                        "id": "npm:moment"
+                      },
+                      "npm:jsrsasign": {
+                        "id": "npm:jsrsasign"
+                      }
+                    },
+                    "requests": {}
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{paprika_endpoint}}",
+                  "host": [
+                    "{{paprika_endpoint}}"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Payouts",
+      "item": [
+        {
+          "name": "Create Payout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Token",
+                "value": "{{Token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"amount\": 50000,\n    \"recipient\": \"acct_1234567890\",\n    \"currency\": \"myr\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{url_payment}}payout/create",
+              "host": [
+                "{{url_payment}}payout"
+              ],
+              "path": [
+                "create"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Testing & Logs",
+      "item": [
+        {
+          "name": "Queue Test",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{paymentBearerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{url_payment}}test/queue",
+              "host": [
+                "{{url_payment}}test"
+              ],
+              "path": [
+                "queue"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Duitku Encrypt Test",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"merchantCode\": \"DS0001\",\n    \"amount\": \"15000\",\n    \"merchantOrderId\": \"INV-001\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{url_payment}}other/duitkuEncrpyt",
+              "host": [
+                "{{url_payment}}other"
+              ],
+              "path": [
+                "duitkuEncrpyt"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

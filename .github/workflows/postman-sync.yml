@@ -1,0 +1,36 @@
+name: Sync Postman Collection
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'postman/**'
+      - 'routes/api.php'
+      - 'scripts/sync-postman.cjs'
+      - '.github/workflows/postman-sync.yml'
+  workflow_dispatch:
+
+jobs:
+  sync-postman:
+    name: Sync to Postman Cloud
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Run Postman Sync Script
+        env:
+          POSTMAN_API_KEY: ${{ secrets.POSTMAN_API_KEY }}
+          POSTMAN_COLLECTION_ID: ${{ secrets.POSTMAN_COLLECTION_ID }}
+        run: |
+          if [ -z "$POSTMAN_API_KEY" ]; then
+            echo "⚠️ Warning: POSTMAN_API_KEY secret is not configured. Skipping Postman cloud sync."
+            exit 0
+          fi
+          node scripts/sync-postman.cjs
