@@ -122,7 +122,7 @@ class PaymentRepoSeeder extends Seeder
                 ]
             );
 
-            PaymentRepository::firstOrCreate(
+            $stripeRepo = PaymentRepository::firstOrCreate(
                 [
                     'payment_gateway_id' => $stripe->id,
                     'mode' => $mode->value,
@@ -146,6 +146,28 @@ class PaymentRepoSeeder extends Seeder
                     ]),
                 ]
             );
+
+            // Check if existing Stripe record is missing surcharge fields, and append them without touching existing keys
+            $stripeValue = is_array($stripeRepo->value) ? $stripeRepo->value : (json_decode((string) $stripeRepo->value, true) ?: []);
+            $defaultSurchargeFields = [
+                'surcharge_mode' => SurchargeMode::MIDDLEWARE_CALC->value,
+                'surcharge_percent' => 2.9,
+                'surcharge_fixed' => 2000,
+                'surcharge_label' => 'Processing Fee',
+            ];
+
+            $needsUpdate = false;
+            foreach ($defaultSurchargeFields as $surchargeKey => $defaultValue) {
+                if (! array_key_exists($surchargeKey, $stripeValue)) {
+                    $stripeValue[$surchargeKey] = $defaultValue;
+                    $needsUpdate = true;
+                }
+            }
+
+            if ($needsUpdate) {
+                $stripeRepo->value = $stripeValue;
+                $stripeRepo->save();
+            }
         }
     }
 }

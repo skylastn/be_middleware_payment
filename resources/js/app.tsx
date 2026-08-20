@@ -1,14 +1,19 @@
 import './bootstrap';
 import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { ResourceKey, RouteInfo } from './src/model/resource_model';
-import { User } from './src/model/response_model';
-import { resourceDefinitions } from './src/shared/constant/resource_definitions';
-import { getStoredToken, removeStoredToken } from './src/shared/utils/auth_utils';
-import { useTheme } from './src/shared/hooks/use_theme';
-import { AuthService } from './src/services/auth_service';
-import { LoginPage } from './src/presentation/auth/login_ui';
-import { Shell } from './src/presentation/shell/shell_ui';
+import { ResourceKey, RouteInfo } from '@/features/resource/domain/model/resource_model';
+import { resourceDefinitions } from '@/features/resource/domain/constant/resource_definitions';
+import { User } from '@/features/auth/domain/model/response/user_response';
+import { authService } from '@/features/auth/application/auth_service';
+import { LoginPage } from '@/features/auth/presentation/login/login_ui';
+import { DashboardPage } from '@/features/dashboard/presentation/dashboard/dashboard_ui';
+import { LogsPage } from '@/features/logs/presentation/logs/logs_ui';
+import { ResourceIndex } from '@/features/resource/presentation/index/resource_index_ui';
+import { ResourceForm } from '@/features/resource/presentation/form/resource_form_ui';
+import { ResourceShow } from '@/features/resource/presentation/show/resource_show_ui';
+import { Shell } from '@/shared/component/layout/shell_ui';
+import { useTheme } from '@/shared/hooks/use_theme';
+import { getStoredToken, removeStoredToken } from '@/shared/utils/auth_utils';
 
 function parseRoute(pathname: string): RouteInfo {
     if (pathname === '/' || pathname === '/dashboard') {
@@ -66,7 +71,8 @@ export function App(): React.JSX.Element {
             return;
         }
 
-        AuthService.getMe()
+        authService
+            .getMe()
             .then(setAuthUser)
             .catch(() => {
                 removeStoredToken();
@@ -83,6 +89,28 @@ export function App(): React.JSX.Element {
         return <LoginPage onLogin={setAuthUser} theme={theme} onToggleTheme={toggleTheme} />;
     }
 
+    const renderContent = () => {
+        if (route.page === 'dashboard') {
+            return <DashboardPage />;
+        }
+        if (route.page === 'logs') {
+            return <LogsPage />;
+        }
+        if (route.page === 'resource-index') {
+            return <ResourceIndex resource={route.resource} />;
+        }
+        if (route.page === 'resource-create') {
+            return <ResourceForm resource={route.resource} />;
+        }
+        if (route.page === 'resource-edit') {
+            return <ResourceForm resource={route.resource} id={route.id} />;
+        }
+        if (route.page === 'resource-show') {
+            return <ResourceShow resource={route.resource} id={route.id} />;
+        }
+        return <DashboardPage />;
+    };
+
     return (
         <Shell
             route={route}
@@ -90,7 +118,9 @@ export function App(): React.JSX.Element {
             theme={theme}
             onToggleTheme={toggleTheme}
             onLogout={() => setAuthUser(null)}
-        />
+        >
+            {renderContent()}
+        </Shell>
     );
 }
 
