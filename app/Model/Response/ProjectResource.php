@@ -15,8 +15,8 @@ class ProjectResource extends ResponseResource
             'slug' => $this->slug?->value ?? $this->slug,
             'callback' => $this->callback,
             'value' => $this->value,
-            'created_at' => $this->created_at?->toISOString(),
-            'updated_at' => $this->updated_at?->toISOString(),
+            'created_at' => $this->formatDate($this->created_at),
+            'updated_at' => $this->formatDate($this->updated_at),
         ];
     }
 }

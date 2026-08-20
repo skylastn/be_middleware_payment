@@ -3,7 +3,7 @@ import { PageTitle } from '@/shared/component/ui/page_title';
 import { DataTable } from '@/shared/component/ui/data_table';
 import { CopyButton } from '@/shared/component/ui/copy_button';
 import { IconPlus, IconRefresh, IconSearch, IconX, IconArrowLeft } from '@/shared/component/ui/icons';
-import { navigate } from '@/shared/utils/format_utils';
+import { navigate, formatDate } from '@/shared/utils/format_utils';
 import { usePaymentCategoryLogic } from './payment_category_logic';
 
 export interface PaymentCategoryPageProps {
@@ -159,7 +159,7 @@ export function PaymentCategoryPage({ mode, id }: PaymentCategoryPageProps): Rea
 
                         <div className="field">
                             <span className="label">Created At</span>
-                            <div className="input">{record.created_at || '-'}</div>
+                            <div className="input">{formatDate(record.created_at)}</div>
                         </div>
                     </div>
                 ) : (
@@ -251,7 +251,7 @@ export function PaymentCategoryPage({ mode, id }: PaymentCategoryPageProps): Rea
                                     <td style={{ maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                         {row.detail}
                                     </td>
-                                    <td>{row.created_at || '-'}</td>
+                                    <td>{formatDate(row.created_at)}</td>
                                     <td>
                                         <div className="actions">
                                             <button

@@ -4,7 +4,7 @@ import { DataTable } from '@/shared/component/ui/data_table';
 import { CopyButton } from '@/shared/component/ui/copy_button';
 import { renderBadge } from '@/shared/component/ui/badge';
 import { IconPlus, IconRefresh, IconSearch, IconX, IconArrowLeft } from '@/shared/component/ui/icons';
-import { navigate, displayValue } from '@/shared/utils/format_utils';
+import { navigate, displayValue, formatDate } from '@/shared/utils/format_utils';
 import { usePaymentRepositoryLogic } from './payment_repository_logic';
 
 export interface PaymentRepositoryPageProps {
@@ -178,7 +178,7 @@ export function PaymentRepositoryPage({ mode, id }: PaymentRepositoryPageProps):
 
                             <div className="field">
                                 <span className="label">Created At</span>
-                                <div className="input">{record.created_at || '-'}</div>
+                                <div className="input">{formatDate(record.created_at)}</div>
                             </div>
                         </div>
 
@@ -306,7 +306,7 @@ export function PaymentRepositoryPage({ mode, id }: PaymentRepositoryPageProps):
                                     <td style={{ maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '12px' }}>
                                         <span className="muted">{valKeys}</span>
                                     </td>
-                                    <td>{row.created_at || '-'}</td>
+                                    <td>{formatDate(row.created_at)}</td>
                                     <td>
                                         <div className="actions">
                                             <button

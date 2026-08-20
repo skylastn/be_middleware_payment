@@ -41,4 +41,15 @@ trait BaseModelTrait
         // Use findOrFailCustom to keep not-found validation consistent.
         return static::findOrFailCustom($model->id);
     }
+
+    /**
+     * Prepare a date for array / JSON serialization with timezone offset.
+     *
+     * @param \DateTimeInterface $date
+     * @return string
+     */
+    protected function serializeDate(\DateTimeInterface $date): string
+    {
+        return $date->format(\DateTimeInterface::ATOM);
+    }
 }
