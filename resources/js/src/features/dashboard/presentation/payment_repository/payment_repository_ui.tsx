@@ -1,0 +1,371 @@
+import React from 'react';
+import { PageTitle } from '@/shared/component/ui/page_title';
+import { DataTable } from '@/shared/component/ui/data_table';
+import { CopyButton } from '@/shared/component/ui/copy_button';
+import { renderBadge } from '@/shared/component/ui/badge';
+import { IconPlus, IconRefresh, IconSearch, IconX, IconArrowLeft } from '@/shared/component/ui/icons';
+import { navigate, displayValue } from '@/shared/utils/format_utils';
+import { usePaymentRepositoryLogic } from './payment_repository_logic';
+
+export interface PaymentRepositoryPageProps {
+    mode: 'resource-index' | 'resource-create' | 'resource-edit' | 'resource-show';
+    id?: string | number;
+}
+
+export function PaymentRepositoryPage({ mode, id }: PaymentRepositoryPageProps): React.JSX.Element {
+    const {
+        isEdit,
+        records,
+        record,
+        form,
+        setForm,
+        jsonError,
+        loading,
+        saving,
+        error,
+        searchTerm,
+        setSearchTerm,
+        selectedMode,
+        setSelectedMode,
+        page,
+        perPage,
+        setPerPage,
+        total,
+        currentPage,
+        loadList,
+        handleSearchSubmit,
+        handleClearSearch,
+        handleFormSubmit,
+        handleDelete,
+    } = usePaymentRepositoryLogic({ mode, id });
+
+    if (mode === 'resource-create' || mode === 'resource-edit') {
+        return (
+            <>
+                <PageTitle
+                    eyebrow="Gateway Credentials"
+                    title={isEdit ? `Edit Repository: #${id}` : 'Create Payment Repository'}
+                    subtitle="Configure gateway credentials, API keys, webhook secrets, and surcharges."
+                >
+                    <div className="toolbar">
+                        <button type="button" className="button" onClick={() => navigate('/admin/payment-repositories')}>
+                            <IconArrowLeft /> Cancel
+                        </button>
+                    </div>
+                </PageTitle>
+
+                {error && <div className="panel alert danger" style={{ marginBottom: '16px' }}>{error}</div>}
+                {jsonError && <div className="panel alert danger" style={{ marginBottom: '16px' }}>{jsonError}</div>}
+
+                <div className="panel">
+                    <form className="form-grid" onSubmit={handleFormSubmit}>
+                        {isEdit && id && (
+                            <label className="field full">
+                                <span className="label">ID (Primary Key)</span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <input className="input" type="text" value={String(id)} disabled readOnly />
+                                    <CopyButton text={String(id)} />
+                                </div>
+                            </label>
+                        )}
+
+                        <label className="field">
+                            <span className="label">Payment Gateway ID *</span>
+                            <input
+                                className="input"
+                                type="text"
+                                required
+                                placeholder="Gateway ID (e.g. 1, 2, 3)"
+                                value={form.payment_gateway_id}
+                                onChange={(e) => setForm({ ...form, payment_gateway_id: e.target.value })}
+                            />
+                        </label>
+
+                        <label className="field">
+                            <span className="label">Key / Identifier</span>
+                            <input
+                                className="input"
+                                type="text"
+                                placeholder="e.g. duitku, stripe, xendit"
+                                value={form.key}
+                                onChange={(e) => setForm({ ...form, key: e.target.value })}
+                            />
+                        </label>
+
+                        <label className="field">
+                            <span className="label">Environment Mode *</span>
+                            <select
+                                className="input"
+                                value={form.mode}
+                                onChange={(e) => setForm({ ...form, mode: e.target.value })}
+                            >
+                                <option value="sandbox">Sandbox / Test</option>
+                                <option value="prod">Production / Live</option>
+                            </select>
+                        </label>
+
+                        <label className="field full">
+                            <span className="label">Configuration JSON (Keys & Surcharges) *</span>
+                            <textarea
+                                className="input mono"
+                                required
+                                rows={10}
+                                placeholder='{\n  "stripe_secretkey": "sk_...",\n  "stripe_publishablekey": "pk_...",\n  "surcharge_mode": "middleware_calc",\n  "surcharge_percent": 2.9,\n  "surcharge_fixed": 2000,\n  "surcharge_label": "Processing Fee"\n}'
+                                value={form.value}
+                                onChange={(e) => setForm({ ...form, value: e.target.value })}
+                            />
+                        </label>
+
+                        <div className="field full" style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
+                            <button className="button primary" type="submit" disabled={saving}>
+                                {saving ? 'Saving...' : isEdit ? 'Update Repository' : 'Create Repository'}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </>
+        );
+    }
+
+    if (mode === 'resource-show') {
+        const jsonValue = displayValue(record?.value);
+        return (
+            <>
+                <PageTitle
+                    eyebrow="Repository Details"
+                    title={`Repository #${id}`}
+                    subtitle="Gateway secret keys, webhook tokens, and surcharge settings."
+                >
+                    <div className="toolbar">
+                        <button type="button" className="button" onClick={() => navigate('/admin/payment-repositories')}>
+                            <IconArrowLeft /> Back to Repositories
+                        </button>
+                        <button type="button" className="button primary" onClick={() => navigate(`/admin/payment-repositories/${id}/edit`)}>
+                            Edit Repository
+                        </button>
+                    </div>
+                </PageTitle>
+
+                {error && <div className="panel alert danger" style={{ marginBottom: '16px' }}>{error}</div>}
+
+                {loading ? (
+                    <div className="panel empty">Loading repository details...</div>
+                ) : record ? (
+                    <>
+                        <div className="panel form-grid" style={{ marginBottom: '24px' }}>
+                            <div className="field">
+                                <span className="label">Repository ID</span>
+                                <div className="input mono" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span>#{record.id}</span>
+                                    <CopyButton text={String(record.id)} />
+                                </div>
+                            </div>
+
+                            <div className="field">
+                                <span className="label">Payment Gateway ID</span>
+                                <div className="input mono">Gateway #{record.payment_gateway_id}</div>
+                            </div>
+
+                            <div className="field">
+                                <span className="label">Identifier Key</span>
+                                <div><span className="badge blue">{record.key || '-'}</span></div>
+                            </div>
+
+                            <div className="field">
+                                <span className="label">Environment Mode</span>
+                                <div>{renderBadge('mode', record.mode)}</div>
+                            </div>
+
+                            <div className="field">
+                                <span className="label">Created At</span>
+                                <div className="input">{record.created_at || '-'}</div>
+                            </div>
+                        </div>
+
+                        <div className="panel" style={{ padding: '24px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                                <div className="panel-title" style={{ fontSize: '15px' }}>Configuration Credentials JSON</div>
+                                {jsonValue && <CopyButton text={jsonValue} />}
+                            </div>
+
+                            <pre
+                                className="mono"
+                                style={{
+                                    margin: 0,
+                                    padding: '16px',
+                                    background: 'var(--bg-page)',
+                                    border: '1px solid var(--border)',
+                                    borderRadius: 'var(--radius-md)',
+                                    whiteSpace: 'pre-wrap',
+                                    maxHeight: '360px',
+                                    overflowY: 'auto',
+                                    fontSize: '12px',
+                                }}
+                            >
+                                {jsonValue || '{}'}
+                            </pre>
+                        </div>
+                    </>
+                ) : (
+                    <div className="panel empty">Payment repository not found.</div>
+                )}
+            </>
+        );
+    }
+
+    return (
+        <>
+            <PageTitle
+                eyebrow="Gateway Credentials"
+                title="Payment Repositories"
+                subtitle="Manage API keys, merchant secret configurations, and surcharges across gateway drivers."
+            >
+                <div className="toolbar">
+                    <button
+                        type="button"
+                        className="button"
+                        onClick={() => loadList(page)}
+                        disabled={loading}
+                    >
+                        <IconRefresh /> Refresh
+                    </button>
+                    <button
+                        type="button"
+                        className="button primary"
+                        onClick={() => navigate('/admin/payment-repositories/create')}
+                    >
+                        <IconPlus /> Create Repository
+                    </button>
+                </div>
+            </PageTitle>
+
+            {error && <div className="panel alert danger" style={{ marginBottom: '16px' }}>{error}</div>}
+
+            <div className="panel">
+                <div className="filter-bar">
+                    <form className="search-box" onSubmit={handleSearchSubmit}>
+                        <span className="search-icon"><IconSearch /></span>
+                        <input
+                            className="search-input"
+                            type="text"
+                            placeholder="Search repositories (key, gateway id)..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                        {searchTerm && (
+                            <button className="search-clear" type="button" onClick={handleClearSearch}>
+                                <IconX />
+                            </button>
+                        )}
+                    </form>
+
+                    <div className="filter-group">
+                        <select
+                            className="filter-select"
+                            value={selectedMode}
+                            onChange={(e) => setSelectedMode(e.target.value)}
+                        >
+                            <option value="all">All Modes</option>
+                            <option value="prod">Production</option>
+                            <option value="sandbox">Sandbox</option>
+                        </select>
+
+                        <select
+                            className="filter-select"
+                            value={perPage}
+                            onChange={(e) => setPerPage(Number(e.target.value))}
+                        >
+                            <option value="15">15 / page</option>
+                            <option value="25">25 / page</option>
+                            <option value="50">50 / page</option>
+                        </select>
+                    </div>
+                </div>
+
+                <DataTable columns={['ID', 'Gateway ID', 'Key', 'Mode', 'Config Summary', 'Created', 'Actions']}>
+                    {loading ? (
+                        <tr>
+                            <td colSpan={7} className="empty" style={{ padding: '36px', textAlign: 'center' }}>
+                                Loading payment repositories...
+                            </td>
+                        </tr>
+                    ) : records.length > 0 ? (
+                        records.map((row: any) => {
+                            const primaryKey = row.id;
+                            const isProd = row.mode === 'prod';
+                            const valKeys = row.value && typeof row.value === 'object' ? Object.keys(row.value).join(', ') : 'JSON Config';
+                            return (
+                                <tr key={primaryKey}>
+                                    <td className="mono">
+                                        #{row.id}
+                                        <CopyButton text={String(row.id)} />
+                                    </td>
+                                    <td>Gateway #{row.payment_gateway_id}</td>
+                                    <td><span className="badge blue">{row.key || '-'}</span></td>
+                                    <td>{renderBadge('mode', row.mode)}</td>
+                                    <td style={{ maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '12px' }}>
+                                        <span className="muted">{valKeys}</span>
+                                    </td>
+                                    <td>{row.created_at || '-'}</td>
+                                    <td>
+                                        <div className="actions">
+                                            <button
+                                                className="button"
+                                                onClick={() => navigate(`/admin/payment-repositories/${primaryKey}`)}
+                                            >
+                                                View
+                                            </button>
+                                            <button
+                                                className="button"
+                                                onClick={() => navigate(`/admin/payment-repositories/${primaryKey}/edit`)}
+                                            >
+                                                Edit
+                                            </button>
+                                            <button
+                                                className="button danger"
+                                                onClick={() => handleDelete(primaryKey)}
+                                            >
+                                                Delete
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            );
+                        })
+                    ) : (
+                        <tr>
+                            <td colSpan={7} className="empty" style={{ padding: '36px', textAlign: 'center' }}>
+                                No payment repositories found.
+                            </td>
+                        </tr>
+                    )}
+                </DataTable>
+            </div>
+
+            {total > perPage && (
+                <div className="pagination">
+                    <div>
+                        Showing page {currentPage} of {Math.ceil(total / perPage)} ({total} total repositories)
+                    </div>
+                    <div className="pagination-actions">
+                        <button
+                            className="button"
+                            disabled={currentPage <= 1 || loading}
+                            onClick={() => loadList(currentPage - 1)}
+                        >
+                            Previous
+                        </button>
+                        <span className="button">Page {currentPage}</span>
+                        <button
+                            className="button"
+                            disabled={currentPage >= Math.ceil(total / perPage) || loading}
+                            onClick={() => loadList(currentPage + 1)}
+                        >
+                            Next
+                        </button>
+                    </div>
+                </div>
+            )}
+        </>
+    );
+}

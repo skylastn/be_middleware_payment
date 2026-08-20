@@ -7,10 +7,14 @@ import { User } from '@/features/auth/domain/model/response/user_response';
 import { authService } from '@/features/auth/application/auth_service';
 import { LoginPage } from '@/features/auth/presentation/login/login_ui';
 import { DashboardPage } from '@/features/dashboard/presentation/dashboard/dashboard_ui';
+import { OrderPage } from '@/features/dashboard/presentation/order/order_ui';
+import { ProjectPage } from '@/features/dashboard/presentation/project/project_ui';
+import { PaymentGatewayPage } from '@/features/dashboard/presentation/payment_gateway/payment_gateway_ui';
+import { PaymentRepositoryPage } from '@/features/dashboard/presentation/payment_repository/payment_repository_ui';
+import { PaymentMethodPage } from '@/features/dashboard/presentation/payment_method/payment_method_ui';
+import { PaymentCategoryPage } from '@/features/dashboard/presentation/payment_category/payment_category_ui';
+import { SettingPage } from '@/features/dashboard/presentation/setting/setting_ui';
 import { LogsPage } from '@/features/logs/presentation/logs/logs_ui';
-import { ResourceIndex } from '@/features/resource/presentation/index/resource_index_ui';
-import { ResourceForm } from '@/features/resource/presentation/form/resource_form_ui';
-import { ResourceShow } from '@/features/resource/presentation/show/resource_show_ui';
 import { Shell } from '@/shared/component/layout/shell_ui';
 import { useTheme } from '@/shared/hooks/use_theme';
 import { getStoredToken, removeStoredToken } from '@/shared/utils/auth_utils';
@@ -96,17 +100,30 @@ export function App(): React.JSX.Element {
         if (route.page === 'logs') {
             return <LogsPage />;
         }
-        if (route.page === 'resource-index') {
-            return <ResourceIndex resource={route.resource} />;
-        }
-        if (route.page === 'resource-create') {
-            return <ResourceForm resource={route.resource} />;
-        }
-        if (route.page === 'resource-edit') {
-            return <ResourceForm resource={route.resource} id={route.id} />;
-        }
-        if (route.page === 'resource-show') {
-            return <ResourceShow resource={route.resource} id={route.id} />;
+        if (
+            route.page === 'resource-index' ||
+            route.page === 'resource-create' ||
+            route.page === 'resource-edit' ||
+            route.page === 'resource-show'
+        ) {
+            switch (route.resource) {
+                case 'orders':
+                    return <OrderPage mode={route.page} id={route.id} />;
+                case 'projects':
+                    return <ProjectPage mode={route.page} id={route.id} />;
+                case 'payment-gateways':
+                    return <PaymentGatewayPage mode={route.page} id={route.id} />;
+                case 'payment-repositories':
+                    return <PaymentRepositoryPage mode={route.page} id={route.id} />;
+                case 'payment-methods':
+                    return <PaymentMethodPage mode={route.page} id={route.id} />;
+                case 'payment-categories':
+                    return <PaymentCategoryPage mode={route.page} id={route.id} />;
+                case 'settings':
+                    return <SettingPage mode={route.page} id={route.id} />;
+                default:
+                    return <DashboardPage />;
+            }
         }
         return <DashboardPage />;
     };
