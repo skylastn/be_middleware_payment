@@ -10,6 +10,7 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use InvalidArgumentException;
 use RuntimeException;
 
 class PaprikaService {
@@ -23,11 +24,19 @@ class PaprikaService {
     public function getPaymentRepo(string|PaymentModeType|null $mode, int|string|null $id): ?PaymentRepository
     {
         $modeValue = PaymentModeType::fromName($mode)?->value ?? (env('IS_DEFAULT_SANDBOX', false) ? PaymentModeType::prod->value : PaymentModeType::sandbox->value);
+
         if (FormatHelper::isNotEmpty($id)) {
             return $this->paymentRepositoryService->getById($id);
         }
 
         return $this->paymentRepositoryService->getByPaymentGatewayKey('paprika', $modeValue);
+    }
+
+    public static function getPublicKey(string $privateKey): string
+    {
+        return openssl_pkey_get_details(
+            openssl_get_privatekey($privateKey)
+        )['key'];
     }
 
     public function generateSignature(PaymentRepository $paymentRepo): array
@@ -130,7 +139,12 @@ class PaprikaService {
        );
     }
 
-    public function orderPaprika(Request $request, Project $project) {
+    public function orderPaprika(Request $request, Project $project)
+    {
+        Log::debug('Paprika QR MPM: Start', [
+            'project_id' => $project->id,
+            'request_ip' => $request->ip(),
+        ]);
 
         $paymentRepo = $this->getPaymentRepo(
             PaymentModeType::sandbox->value,
@@ -149,17 +163,16 @@ class PaprikaService {
             ],
         ];
 
-        // Generate B2B token
+
         $token = $this->getB2BToken($paymentRepo);
 
-        Log::debug('SNAP B2B Token', [
-            'token' => $token,
-        ]);
+        if(!isset($token['accessToken'])) {
+            throw new Error('access token is fail to genrate');
+        }
+
 
         // Timestamp
         $timestamp = gmdate('Y-m-d\TH:i:s\Z');
-
-        // Generate signature
         $signature = $this->generateSignature($paymentRepo);
 
         // Headers
@@ -167,24 +180,50 @@ class PaprikaService {
             'Authorization' => 'Bearer ' . $token['accessToken'],
             'X-TIMESTAMP' => $timestamp,
             'X-SIGNATURE' => $signature['X-SIGNATURE'],
-            'X-PARTNER-ID' => 'PARTNER_ID_ANDA',
-            'X-EXTERNAL-ID' => 'EXTERNAL_ID_UNIK_ANDA',
-            'CHANNEL-ID' => 'CHANNEL_ID_ANDA',
+            'X-PARTNER-ID' => $this->dailyUnique('X-PARTNER-ID', 28),
+            'X-EXTERNAL-ID' => $this->dailyUnique('X-EXTERNAL-ID',28),
+            'CHANNEL-ID' => 95221,
         ];
 
-        // Request
-        $response = Http::withHeaders($headers)
-            ->post($url, $body);
 
-        // Log response
-        Log::debug('SNAP QR MPM Response', [
+        // Request
+        Log::debug('Paprika QR MPM: Sending request', [
+            'method' => 'POST',
+            'url' => $url,
+            'headers' => $headers,
+            'body' => $body
+        ]);
+
+        try {
+            $response = Http::withHeaders($headers)
+                ->post($url, $body);
+
+            Log::debug('Paprika QR MPM: Response received', [
+                'status' => $response->status(),
+                'successful' => $response->successful(),
+                'body' => $response->body(),
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Paprika QR MPM: HTTP request exception', [
+                'message' => $e->getMessage(),
+                'exception' => get_class($e),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            throw $e;
+        }
+
+        if ($response->successful()) {
+
+            return $response->json();
+        }
+
+        Log::error('Paprika QR MPM: Failed to generate QR', [
             'status' => $response->status(),
             'body' => $response->body(),
         ]);
-
-        if ($response->successful()) {
-            return $response->json();
-        }
 
         throw new \Exception(
             'Failed to generate QR MPM: ' . $response->body()
@@ -192,5 +231,28 @@ class PaprikaService {
     }
 
     public function callback(Request $request) {}
+
+    function dailyUnique(string $param, int $length = 36): string
+    {
+        if ($length < 1 || $length > 36) {
+            throw new InvalidArgumentException('Length must be between 1 and 36.');
+        }
+
+        $date = now()->format('Y-m-d');
+
+        $hash = hash_hmac(
+            'sha256',
+            "{$param}|{$date}",
+            config('app.key')
+        );
+
+        $numeric = '';
+
+        foreach (str_split($hash, 2) as $chunk) {
+            $numeric .= str_pad((string) hexdec($chunk), 3, '0', STR_PAD_LEFT);
+        }
+
+        return substr($numeric, 0, $length);
+    }
 
 }
