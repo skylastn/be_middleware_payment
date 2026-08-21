@@ -104,6 +104,7 @@ export function ProjectPage({ mode, id }: ProjectPageProps): React.JSX.Element {
                                 <option value="xendit">Xendit</option>
                                 <option value="spnpay">SPNPay</option>
                                 <option value="stripe">Stripe</option>
+                                <option value="paprika">Paprika</option>
                             </select>
                         </label>
 
