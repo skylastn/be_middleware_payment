@@ -172,12 +172,11 @@ class XenditService
         $order = Order::findOrFailCustom($order->id);
         $paymentRepo = $this->getPaymentRepo($order->getMode(), $order->getPaymentRepositoryId());
 
-        $xenditToken = $paymentRepo->getValue()['xendit_tokencallback'] ?? '';
-        $reqHeaders = getallheaders();
-        $incomingTokenXendit = isset($reqHeaders['X-Callback-Token']) ? $reqHeaders['X-Callback-Token'] : '';
+        $xenditToken = (string) ($paymentRepo->getValue()['xendit_tokencallback'] ?? '');
+        $incomingTokenXendit = (string) ($request->header('x-callback-token') ?? $request->header('X-Callback-Token') ?? '');
 
-        if ($xenditToken != $incomingTokenXendit) {
-            throw new Exception('You are not permitted perform this action');
+        if (empty($xenditToken) || empty($incomingTokenXendit) || ! hash_equals($xenditToken, $incomingTokenXendit)) {
+            throw new Exception('You are not permitted perform this action', 403);
         }
 
         $status = OrderStatus::fromName($request->status);

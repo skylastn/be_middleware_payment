@@ -31,12 +31,20 @@ class ProjectService
 
     public function getListProject(Request $request): LengthAwarePaginator
     {
+        if (auth('sanctum')->check() && auth('sanctum')->user()?->isAdmin()) {
+            $search = $request->query('search');
+            $slug = $request->query('slug');
+            $perPage = (int) ($request->query('per_page', $request->query('perPage', 15)));
+
+            return $this->projects->latestPaginated($perPage, $search, $slug);
+        }
+
         $token = request()->header('Token');
         if ($token) {
             $project = $this->projects->findByToken($token);
             if ($project) {
                 $items = collect([$project]);
-                $perPage = (int) ($request->perPage ?? 15);
+                $perPage = (int) ($request->query('per_page', $request->query('perPage', 15)));
                 return new LengthAwarePaginator(
                     $items,
                     $items->count(),
@@ -45,23 +53,27 @@ class ProjectService
                     ['path' => request()->url()]
                 );
             }
-            throw new Exception('Unauthorized');
         }
 
-        return $this->projects->latestPaginated((int) ($request->perPage ?? 15));
+        throw new Exception('Unauthorized', 401);
     }
 
     public function getProjectById(int|string $id): ?Project
     {
+        if (auth('sanctum')->check() && auth('sanctum')->user()?->isAdmin()) {
+            return $this->projects->find($id);
+        }
+
         $token = request()->header('Token');
-        $project = $this->projects->find($id);
         if ($token) {
             $tokenProject = $this->projects->findByToken($token);
-            if (! $tokenProject || ! $project || $tokenProject->id != $project->id) {
-                throw new Exception('Unauthorized');
+            $project = $this->projects->find($id);
+            if ($tokenProject && $project && $tokenProject->id == $project->id) {
+                return $project;
             }
         }
-        return $project;
+
+        throw new Exception('Unauthorized', 401);
     }
 
     public function create(Request $request): Project
