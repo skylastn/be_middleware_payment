@@ -30,19 +30,58 @@ class PaprikaService {
         return $this->paymentRepositoryService->getByPaymentGatewayKey('paprika', $modeValue);
     }
 
-    function generateSignature(PaymentRepository $paymentRepo) {
-        $clientKey  = $paymentRepo->getValue()['SNAP_CLIENT_KEY'];
-        $privateKey =  $paymentRepo->getValue()['SNAP_CLIENT_SECRET'];
+    public function generateSignature(PaymentRepository $paymentRepo): array
+    {
+        $paymentConfig = $paymentRepo->getValue();
+
+        $clientKey = $paymentConfig['SNAP_CLIENT_KEY'];
+        $privateKey = $paymentConfig['PRIVATE_KEY'];
+
+        $privateKey = str_replace('\n', "\n", $privateKey);
 
         $timestamp = date('c');
-        $stringToSign = "$clientKey|$timestamp";
-        $signature = base64_encode(hash_hmac('sha512', $stringToSign, $privateKey, true));
+
+        $stringToSign = "{$clientKey}|{$timestamp}";
+
+        $signature = $this->signByAsymmetricSignature(
+            $stringToSign,
+            $privateKey
+        );
 
         return [
             'X-CLIENT-KEY' => $clientKey,
             'X-TIMESTAMP' => $timestamp,
             'X-SIGNATURE' => $signature,
         ];
+    }
+
+    public function signByAsymmetricSignature(string $stringToSign,string $privateKey): string {
+        
+        $privateKey = str_replace('\n', "\n", $privateKey);
+        $key = openssl_pkey_get_private($privateKey);
+
+        if ($key === false) {
+            throw new \RuntimeException(
+                'Invalid private key: ' .
+                (openssl_error_string() ?: 'Unknown OpenSSL error')
+            );
+        }
+
+        $result = openssl_sign(
+            $stringToSign,
+            $signature,
+            $key,
+            OPENSSL_ALGO_SHA256
+        );
+
+        if ($result === false) {
+            throw new \RuntimeException(
+                'Failed to generate signature: ' .
+                (openssl_error_string() ?: 'Unknown OpenSSL error')
+            );
+        }
+
+        return base64_encode($signature);
     }
 
     function getB2BToken(PaymentRepository $paymentRepo)
