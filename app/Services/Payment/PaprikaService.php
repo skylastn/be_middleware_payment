@@ -39,23 +39,18 @@ class PaprikaService {
         )['key'];
     }
 
-    public function generateSignature(PaymentRepository $paymentRepo): array
+    public function generateSignature(PaymentRepository $paymentRepo, ?string $timestamp = null): array
     {
         $paymentConfig = $paymentRepo->getValue();
 
         $clientKey = $paymentConfig['SNAP_CLIENT_KEY'];
         $privateKey = $paymentConfig['PRIVATE_KEY'];
 
-        $privateKey = str_replace('\n', "\n", $privateKey);
-
-        $timestamp = date('c');
+        $timestamp ??= date('c');
 
         $stringToSign = "{$clientKey}|{$timestamp}";
 
-        $signature = $this->signByAsymmetricSignature(
-            $stringToSign,
-            $privateKey
-        );
+        $signature = $this->signByAsymmetricSignature($stringToSign, $privateKey);
 
         return [
             'X-CLIENT-KEY' => $clientKey,
@@ -64,8 +59,8 @@ class PaprikaService {
         ];
     }
 
-    public function signByAsymmetricSignature(string $stringToSign,string $privateKey): string {
-        
+    public function signByAsymmetricSignature(string $stringToSign, string $privateKey): string
+    {
         $privateKey = str_replace('\n', "\n", $privateKey);
         $key = openssl_pkey_get_private($privateKey);
 
@@ -93,50 +88,74 @@ class PaprikaService {
         return base64_encode($signature);
     }
 
-    function getB2BToken(PaymentRepository $paymentRepo)
+    public function signBySymmetricSignature(
+        PaymentRepository $paymentRepo,
+        string $accessToken,
+        string $httpMethod,
+        string $endpoint,
+        string $requestBody,
+        ?string $timestamp = null
+    ): array {
+        $paymentConfig = $paymentRepo->getValue();
+
+        $clientKey = $paymentConfig['SNAP_CLIENT_KEY'];
+        $clientSecret = $paymentConfig['SNAP_CLIENT_SECRET'];
+
+        $timestamp ??= date('c');
+
+        $bodyHash = hash('sha256', $requestBody);
+        $stringToSign = "{$httpMethod}:{$endpoint}:{$accessToken}:{$bodyHash}:{$timestamp}";
+
+        $signature = base64_encode(
+            hash_hmac('sha512', $stringToSign, $clientSecret, true)
+        );
+
+        return [
+            'X-CLIENT-KEY' => $clientKey,
+            'X-TIMESTAMP' => $timestamp,
+            'X-SIGNATURE' => $signature,
+        ];
+    }
+
+    public function getB2BToken(PaymentRepository $paymentRepo): array
     {
-       $clientKey = $paymentRepo->getValue()['SNAP_CLIENT_KEY'];
-       $clientSecret = $paymentRepo->getValue()['SNAP_CLIENT_SECRET'];
-   
-       $url = 'http://staging-gateway.paprika.co.id/api/snap/v1.0/access-token/b2b';
-   
-       $headerGeneration = $this->generateSignature($paymentRepo);
-   
-       $headers = [
-           'Content-Type' => 'application/json',
-           'X-CLIENT-KEY' => $headerGeneration['X-CLIENT-KEY'],
-           'X-TIMESTAMP' => $headerGeneration['X-TIMESTAMP'],
-           'X-SIGNATURE' => $headerGeneration['X-SIGNATURE'],
-       ];
-   
-       $body = [
-           'grantType' => 'client_credentials',
-       ];
-   
-       Log::info('SNAP B2B Token Request', [
-           'url' => $url,
-           'method' => 'POST',
-           'headers' => $headers,
-           'body' => $body,
-           'SNAP_CLIENT_KEY' => $clientKey,
-           'SNAP_CLIENT_SECRET' => $clientSecret,
-       ]);
-   
-       $response = Http::withHeaders($headers)
-           ->post($url, $body);
-   
-       Log::info('SNAP B2B Token Response', [
-           'http_code' => $response->status(),
-           'response' => $response->body(),
-       ]);
-   
-       if ($response->successful()) {
-           return $response->json();
-       }
-   
-       throw new \Exception(
-           'Failed to get B2B token: ' . $response->body()
-       );
+        $url = 'http://staging-gateway.paprika.co.id/api/snap/v1.0/access-token/b2b';
+
+        $headerGeneration = $this->generateSignature($paymentRepo);
+
+        $headers = [
+            'Content-Type' => 'application/json',
+            'X-CLIENT-KEY' => $headerGeneration['X-CLIENT-KEY'],
+            'X-TIMESTAMP' => $headerGeneration['X-TIMESTAMP'],
+            'X-SIGNATURE' => $headerGeneration['X-SIGNATURE'],
+        ];
+
+        $body = [
+            'grantType' => 'client_credentials',
+        ];
+
+        Log::info('SNAP B2B Token Request', [
+            'url' => $url,
+            'method' => 'POST',
+            'headers' => $headers,
+            'body' => $body,
+        ]);
+
+        $response = Http::withHeaders($headers)
+            ->post($url, $body);
+
+        Log::info('SNAP B2B Token Response', [
+            'http_code' => $response->status(),
+            'response' => $response->body(),
+        ]);
+
+        if ($response->successful()) {
+            return $response->json();
+        }
+
+        throw new \Exception(
+            'Failed to get B2B token: ' . $response->body()
+        );
     }
 
     public function orderPaprika(Request $request, Project $project)
@@ -151,10 +170,8 @@ class PaprikaService {
             null
         );
 
-        // Endpoint URL API Generate QR MPM
         $url = 'http://staging-gateway.paprika.co.id/api/snap/v1.0/qr/qr-mpm-generate';
 
-        // Data body request
         $body = [
             'partnerReferenceNo' => 'GTEST' . now()->format('YmdHis'),
             'amount' => [
@@ -163,35 +180,39 @@ class PaprikaService {
             ],
         ];
 
-
         $token = $this->getB2BToken($paymentRepo);
 
-        if(!isset($token['accessToken'])) {
-            throw new Error('access token is fail to genrate');
+        if (!isset($token['accessToken'])) {
+            throw new \Error('access token is fail to generate');
         }
 
+        $timestamp = date('c');
 
-        // Timestamp
-        $timestamp = gmdate('Y-m-d\TH:i:s\Z');
-        $signature = $this->generateSignature($paymentRepo);
+        $endpoint = '/api/snap/v1.0/qr/qr-mpm-generate';
+        $headerGeneration = $this->signBySymmetricSignature(
+            $paymentRepo,
+            $token['accessToken'],
+            'POST',
+            $endpoint,
+            json_encode($body),
+            $timestamp
+        );
 
-        // Headers
         $headers = [
             'Authorization' => 'Bearer ' . $token['accessToken'],
-            'X-TIMESTAMP' => $timestamp,
-            'X-SIGNATURE' => $signature['X-SIGNATURE'],
-            'X-PARTNER-ID' => $this->dailyUnique('X-PARTNER-ID', 28),
-            'X-EXTERNAL-ID' => $this->dailyUnique('X-EXTERNAL-ID',28),
+            'Content-Type' => 'application/json',
+            'X-PARTNER-ID' => $headerGeneration['X-CLIENT-KEY'],
+            'X-TIMESTAMP' => $headerGeneration['X-TIMESTAMP'],
+            'X-SIGNATURE' => $headerGeneration['X-SIGNATURE'],
+            'X-EXTERNAL-ID' => $this->dailyUnique('X-EXTERNAL-ID', 28),
             'CHANNEL-ID' => 95221,
         ];
 
-
-        // Request
         Log::debug('Paprika QR MPM: Sending request', [
             'method' => 'POST',
             'url' => $url,
             'headers' => $headers,
-            'body' => $body
+            'body' => $body,
         ]);
 
         try {
@@ -216,7 +237,6 @@ class PaprikaService {
         }
 
         if ($response->successful()) {
-
             return $response->json();
         }
 
@@ -232,7 +252,7 @@ class PaprikaService {
 
     public function callback(Request $request) {}
 
-    function dailyUnique(string $param, int $length = 36): string
+    public function dailyUnique(string $param, int $length = 36): string
     {
         if ($length < 1 || $length > 36) {
             throw new InvalidArgumentException('Length must be between 1 and 36.');
@@ -254,5 +274,4 @@ class PaprikaService {
 
         return substr($numeric, 0, $length);
     }
-
 }
