@@ -50,8 +50,8 @@ class PaprikaService {
     {
         $paymentConfig = $paymentRepo->getValue();
 
-        $clientKey = $paymentConfig['SNAP_CLIENT_KEY'];
-        $privateKey = $paymentConfig['PRIVATE_KEY'];
+        $clientKey = $paymentConfig['api_key'];
+        $privateKey = $paymentConfig['private_key'];
 
         $timestamp ??= date('c');
 
@@ -105,8 +105,8 @@ class PaprikaService {
     ): array {
         $paymentConfig = $paymentRepo->getValue();
 
-        $clientKey = $paymentConfig['SNAP_CLIENT_KEY'];
-        $clientSecret = $paymentConfig['SNAP_CLIENT_SECRET'];
+        $clientKey = $paymentConfig['api_key'];
+        $clientSecret = $paymentConfig['api_secret'];
 
         $timestamp ??= date('c');
 
@@ -126,7 +126,8 @@ class PaprikaService {
 
     public function getB2BToken(PaymentRepository $paymentRepo): array
     {
-        $url = 'http://staging-gateway.paprika.co.id/api/snap/v1.0/access-token/b2b';
+        $baseurl = $paymentRepo->getValue()['base_url'];
+        $url = "$baseurl/api/snap/v1.0/access-token/b2b";
 
         $headerGeneration = $this->generateSignature($paymentRepo);
 
@@ -169,7 +170,7 @@ class PaprikaService {
     {
         $mode = PaymentModeType::fromName($request->mode) ?? PaymentModeType::sandbox;
         $paymentRepo = $this->getPaymentRepo($mode, $request->paymentRepositoryId);
-
+        $baseurl = $paymentRepo->getValue()['base_url'];
         $idSystem = OrderIdGenerator::generate();
         $reference = $project->type . '-' . $request->merchantOrderId;
 
@@ -179,7 +180,7 @@ class PaprikaService {
         $req['mode'] = $mode->value;
         $req['payment_method'] = $request->paymentMethod ?? '';
 
-        $url = 'https://staging-gateway.paprika.co.id/api/snap/v1.0/qr/qr-mpm-generate';
+        $url = "$baseurl/api/snap/v1.0/qr/qr-mpm-generate";
 
         $body = [
             'partnerReferenceNo' => $reference,
@@ -370,8 +371,8 @@ class PaprikaService {
     private function verifyCallbackSignature(Request $request, PaymentRepository $paymentRepo): void
     {
         $paymentConfig = $paymentRepo->getValue();
-        $clientSecret = $paymentConfig['SNAP_CLIENT_SECRET'];
-        $clientKey = $paymentConfig['SNAP_CLIENT_KEY'];
+        $clientSecret = $paymentConfig['api_secret'];
+        $clientKey = $paymentConfig['api_key'];
 
         $receivedSignature = $request->header('X-SIGNATURE');
         $timestamp = $request->header('X-TIMESTAMP');
