@@ -2,8 +2,15 @@
 
 namespace App\Services\Payment;
 
+use App\Enums\OrderStatus;
 use App\Enums\PaymentModeType;
 use App\Http\Helper\FormatHelper;
+use App\Http\Helper\LogHelper;
+use App\Jobs\SendMerchantCallback;
+use App\Jobs\SendNotificationJob;
+use App\Http\Helper\OrderIdGenerator;
+use App\Model\Entity\Order;
+use App\Model\Entity\PaymentMethod;
 use App\Model\Entity\PaymentRepository;
 use App\Model\Entity\Project;
 use Carbon\Carbon;
@@ -158,24 +165,26 @@ class PaprikaService {
         );
     }
 
-    public function orderPaprika(Request $request, Project $project)
+    public function orderPaprika(Request $request, Project $project): array
     {
-        Log::debug('Paprika QR MPM: Start', [
-            'project_id' => $project->id,
-            'request_ip' => $request->ip(),
-        ]);
+        $mode = PaymentModeType::fromName($request->mode) ?? PaymentModeType::sandbox;
+        $paymentRepo = $this->getPaymentRepo($mode, $request->paymentRepositoryId);
 
-        $paymentRepo = $this->getPaymentRepo(
-            PaymentModeType::sandbox->value,
-            null
-        );
+        $idSystem = OrderIdGenerator::generate();
+        $reference = $project->type . '-' . $request->merchantOrderId;
 
-        $url = 'http://staging-gateway.paprika.co.id/api/snap/v1.0/qr/qr-mpm-generate';
+        $req['id'] = $idSystem;
+        $req['reference'] = $reference;
+        $req['type'] = $project->type;
+        $req['mode'] = $mode->value;
+        $req['payment_method'] = $request->paymentMethod ?? '';
+
+        $url = 'https://staging-gateway.paprika.co.id/api/snap/v1.0/qr/qr-mpm-generate';
 
         $body = [
-            'partnerReferenceNo' => 'GTEST' . now()->format('YmdHis'),
+            'partnerReferenceNo' => $reference,
             'amount' => [
-                'value' => '100.00',
+                'value' => number_format($request->paymentAmount, 2, '.', ''),
                 'currency' => 'IDR',
             ],
         ];
@@ -204,16 +213,20 @@ class PaprikaService {
             'X-PARTNER-ID' => $headerGeneration['X-CLIENT-KEY'],
             'X-TIMESTAMP' => $headerGeneration['X-TIMESTAMP'],
             'X-SIGNATURE' => $headerGeneration['X-SIGNATURE'],
-            'X-EXTERNAL-ID' => $this->dailyUnique('X-EXTERNAL-ID', 28),
+            'X-EXTERNAL-ID' =>  $this->dailyUnique($reference, 28),
             'CHANNEL-ID' => 95221,
         ];
 
-        Log::debug('Paprika QR MPM: Sending request', [
-            'method' => 'POST',
-            'url' => $url,
-            'headers' => $headers,
-            'body' => $body,
-        ]);
+        $req['request'] = json_encode($body);
+        $req['status'] = OrderStatus::PENDING->value;
+        $order = Order::createAndFind($req);
+
+        LogHelper::sendLog(
+            'Request Order Paprika',
+            ['header' => json_encode($headers), 'body' => json_encode($body)],
+            $project->id,
+            'request_order_paprika'
+        );
 
         try {
             $response = Http::withHeaders($headers)
@@ -236,21 +249,150 @@ class PaprikaService {
             throw $e;
         }
 
-        if ($response->successful()) {
-            return $response->json();
-        }
+        $responseData = $response->json();
 
-        Log::error('Paprika QR MPM: Failed to generate QR', [
-            'status' => $response->status(),
-            'body' => $response->body(),
-        ]);
-
-        throw new \Exception(
-            'Failed to generate QR MPM: ' . $response->body()
+        LogHelper::sendLog(
+            'Response Order Paprika',
+            $responseData,
+            $project->id,
+            'response_order_paprika'
         );
+
+        $order->setResponse(json_encode($responseData));
+        $order->setPaymentRepositoryId($paymentRepo->id);
+        $order->save();
+
+        $qrCode = $responseData['qrContent'] ;
+        $msg = 'Success Create Order Paprika';
+        $result['link'] = $qrCode;
+        if (FormatHelper::isNotEmpty($request->version) && $request->version == '2') {
+            $result['link'] = env('PAYMENT_URL') . '/detailpayment?token=' . $project->value . '&reference=' . $order->getReference();
+        }
+        $result['result'] = $responseData;
+        $result['message'] = $msg;
+
+        return $result;
     }
 
-    public function callback(Request $request) {}
+    public function callback(Request $request)
+    {
+        LogHelper::sendLog('callback_paprika', $request->all());
+
+        $now = Carbon::now();
+        $dateBefore = date('Y-m-d', strtotime('-1 week'));
+        $order = Order::where('reference', $request->input('originalPartnerReferenceNo'))
+            ->whereBetween('created_at', [$dateBefore, $now])
+            ->orderBy('id', 'DESC')->first();
+
+        if (! $order) {
+            throw new \Exception('Order not found');
+        }
+
+        $required = ['originalPartnerReferenceNo', 'latestTransactionStatus', 'originalReferenceNo'];
+        foreach ($required as $field) {
+            if (empty($request->input($field))) {
+                throw new \Exception("Missing required field: $field");
+            }
+        }
+
+        $order = Order::findOrFailCustom($order->getId());
+
+        $currentStatus = $order->getStatus();
+        if ($currentStatus !== null && ($currentStatus->isSuccess() || $currentStatus->isFailed())) {
+            LogHelper::sendLog('callback_paprika_idempotent', [
+                'reference' => $order->getReference(),
+                'status' => $currentStatus->value,
+            ]);
+            return response()->json([
+                'responseCode' => '2002600',
+                'responseMessage' => 'Success',
+            ]);
+        }
+
+        $paymentRepo = $this->getPaymentRepo($order->getMode(), $order->getPaymentRepositoryId());
+        if (! FormatHelper::isNotEmpty($paymentRepo)) {
+            throw new \Exception('Payment Repository not found');
+        }
+
+        $this->verifyCallbackSignature($request, $paymentRepo);
+
+        $status = match ($request->input('latestTransactionStatus')) {
+            '00' => OrderStatus::SUCCESS,
+            '06' => OrderStatus::FAILED,
+            default => null,
+        };
+
+        $order->setCallback(json_encode($request->all()));
+
+        if ($status !== null) {
+            $order->setStatus($status);
+        }
+
+        $payerIssuer = $request->input('additionalInfo.payerIssuer', '');
+        $paymentMethod = PaymentMethod::where('key', $payerIssuer)->where('from', 'paprika')->first();
+        if (FormatHelper::isNotEmpty($paymentMethod)) {
+            $order->setPaymentMethod($paymentMethod->value);
+        }
+
+        $order->save();
+
+        $reference = $order->getReference();
+        $split = explode('-', $reference);
+        $project = Project::where('type', $split[0])->first();
+        if (! FormatHelper::isNotEmpty($project)) {
+            throw new \Exception('Project Not Found');
+        }
+
+        LogHelper::sendLog(
+            'Callback Paprika',
+            json_encode($order->getCallback()),
+            $project->id,
+            'callback_order_paprika'
+        );
+
+        $params = [
+            'originalPartnerReferenceNo' => $order->getMerchantOrderId(),
+            'originalReferenceNo' => $request->input('originalReferenceNo'),
+            'latestTransactionStatus' => $request->input('latestTransactionStatus'),
+            'amount' => $request->input('amount'),
+        ];
+
+        SendMerchantCallback::dispatch($project->value, $params, $project->callback);
+        SendNotificationJob::dispatch($reference);
+        $order->refresh();
+
+        return response()->json([
+            'responseCode' => '2002600',
+            'responseMessage' => 'Success',
+        ]);
+    }
+
+    private function verifyCallbackSignature(Request $request, PaymentRepository $paymentRepo): void
+    {
+        $paymentConfig = $paymentRepo->getValue();
+        $clientSecret = $paymentConfig['SNAP_CLIENT_SECRET'];
+        $clientKey = $paymentConfig['SNAP_CLIENT_KEY'];
+
+        $receivedSignature = $request->header('X-SIGNATURE');
+        $timestamp = $request->header('X-TIMESTAMP');
+        $partnerId = $request->header('X-PARTNER-ID');
+
+        if (empty($receivedSignature) || empty($timestamp) || empty($partnerId)) {
+            throw new \Exception('Missing callback signature headers');
+        }
+
+        $requestBody = json_encode($request->except('X-SIGNATURE'));
+        $bodyHash = hash('sha256', $requestBody);
+        $stringToSign = "POST:/api/callback/paprika:{$partnerId}:{$bodyHash}:{$timestamp}";
+
+        $expectedSignature = base64_encode(
+            hash_hmac('sha512', $stringToSign, $clientSecret, true)
+        );
+
+        if (! hash_equals($expectedSignature, $receivedSignature)) {
+            throw new \Exception('Invalid callback signature');
+        }
+    }
 
     public function dailyUnique(string $param, int $length = 36): string
     {
