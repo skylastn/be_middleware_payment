@@ -150,7 +150,7 @@ class CallbackController extends Controller
             $callback = $this->paprikaService->callback($request);
             DB::commit();
 
-            return ResponseHelper::successResponse('Success Send Callback');
+            return $callback;
         } catch (Exception $ex) {
             DB::rollback();
             LogHelper::sendErrorLog($ex);

@@ -281,7 +281,7 @@ class PaprikaService {
 
         $now = Carbon::now();
         $dateBefore = date('Y-m-d', strtotime('-1 week'));
-        $order = Order::where('reference', $request->input('originalPartnerReferenceNo'))
+        $order = Order::where('reference', $request->input('originalReferenceNo'))
             ->whereBetween('created_at', [$dateBefore, $now])
             ->orderBy('id', 'DESC')->first();
 
