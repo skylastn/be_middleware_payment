@@ -1,0 +1,33 @@
+export interface OrderItem {
+    id: string;
+    payment_repository_id?: string;
+    mode: string;
+    type: string;
+    reference: string;
+    payment_method: string;
+    status: string;
+    url?: string;
+    notes?: string;
+    address?: string;
+    phone?: string;
+    email?: string;
+    request?: string;
+    response?: string;
+    callback?: string;
+    payment_methods?: any;
+    payment_repository?: any;
+    project?: any;
+    histories?: any[];
+    created_at?: string;
+    updated_at?: string;
+}
+
+export interface OrderListResponse {
+    status?: boolean;
+    code?: number;
+    message?: string;
+    total?: number;
+    perPage?: number;
+    currentPage?: number;
+    data: OrderItem[];
+}

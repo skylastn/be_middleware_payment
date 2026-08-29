@@ -25,6 +25,7 @@ export interface ResourceEndpoints {
     delete?: (id: string | number) => string;
     resend?: (id: string | number) => string;
     setSuccess?: (id: string | number) => string;
+    testOrder?: (id: string | number) => string;
 }
 
 export interface ResourceDefinition {
@@ -39,10 +40,8 @@ export interface ResourceDefinition {
 
 export type Theme = 'dark' | 'light';
 
-export type RouteInfo =
-    | { page: 'dashboard'; resource?: undefined; id?: undefined }
-    | { page: 'logs'; resource?: undefined; id?: undefined }
-    | { page: 'resource-index'; resource: ResourceKey; id?: undefined }
-    | { page: 'resource-create'; resource: ResourceKey; id?: undefined }
-    | { page: 'resource-edit'; resource: ResourceKey; id: string }
-    | { page: 'resource-show'; resource: ResourceKey; id: string };
+export interface RouteInfo {
+    page: 'dashboard' | 'logs' | 'gateway-history' | 'resource-index' | 'resource-create' | 'resource-edit' | 'resource-show';
+    resource?: ResourceKey;
+    id?: string | number;
+}

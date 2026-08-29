@@ -2,7 +2,7 @@ import React from 'react';
 import { PageTitle } from '@/shared/component/ui/page_title';
 import { DataTable } from '@/shared/component/ui/data_table';
 import { CopyButton } from '@/shared/component/ui/copy_button';
-import { IconCalendar, IconDownload, IconRefresh, IconRepositories, IconX } from '@/shared/component/ui/icons';
+import { IconCalendar, IconRefresh, IconRepositories, IconX } from '@/shared/component/ui/icons';
 import { formatDate, getMonthRange, getLastDaysRange, getTodayDateString, displayValue } from '@/shared/utils/format_utils';
 import { SkeletonTableRows } from '@/shared/component/ui/skeleton';
 import { useGatewayHistoryLogic } from './gateway_history_logic';

@@ -1,12 +1,12 @@
 import './bootstrap';
 import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { ResourceKey, RouteInfo } from '@/features/resource/domain/model/resource_model';
-import { resourceDefinitions } from '@/features/resource/domain/constant/resource_definitions';
+import { ResourceKey, RouteInfo } from '@/features/dashboard/domain/model/resource_model';
+import { resourceDefinitions } from '@/features/dashboard/domain/constant/resource_definitions';
 import { User } from '@/features/auth/domain/model/response/user_response';
 import { authService } from '@/features/auth/application/auth_service';
 import { LoginPage } from '@/features/auth/presentation/login/login_ui';
-import { DashboardPage } from '@/features/dashboard/presentation/dashboard/dashboard_ui';
+import { DashboardPage } from '@/features/dashboard/presentation/overview/dashboard_ui';
 import { OrderPage } from '@/features/dashboard/presentation/order/order_ui';
 import { ProjectPage } from '@/features/dashboard/presentation/project/project_ui';
 import { PaymentGatewayPage } from '@/features/dashboard/presentation/payment_gateway/payment_gateway_ui';

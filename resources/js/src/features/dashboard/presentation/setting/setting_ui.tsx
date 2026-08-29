@@ -29,20 +29,20 @@ export function SettingPage({ mode, id }: SettingPageProps): React.JSX.Element {
         setPerPage,
         total,
         currentPage,
-        loadList,
         handleSearchSubmit,
         handleClearSearch,
         handleFormSubmit,
         handleDelete,
+        loadList,
     } = useSettingLogic({ mode, id });
 
     if (mode === 'resource-create' || mode === 'resource-edit') {
         return (
             <>
                 <PageTitle
-                    eyebrow="System Configuration"
-                    title={isEdit ? `Edit Setting: ${form.key || id}` : 'Create Setting'}
-                    subtitle="Configure system variables and middleware properties."
+                    eyebrow="Platform Settings"
+                    title={isEdit ? `Edit Setting #${id}` : 'Create Setting'}
+                    subtitle="Manage platform-level keys, system configurations, and dynamic settings."
                 >
                     <div className="toolbar">
                         <button type="button" className="button" onClick={() => navigate('/admin/settings')}>
@@ -55,20 +55,10 @@ export function SettingPage({ mode, id }: SettingPageProps): React.JSX.Element {
 
                 <div className="panel">
                     <form className="form-grid" onSubmit={handleFormSubmit}>
-                        {isEdit && id && (
-                            <label className="field full">
-                                <span className="label">ID (Primary Key)</span>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <input className="input" type="text" value={String(id)} disabled readOnly />
-                                    <CopyButton text={String(id)} />
-                                </div>
-                            </label>
-                        )}
-
                         <label className="field full">
                             <span className="label">Setting Key *</span>
                             <input
-                                className="input"
+                                className="input mono"
                                 type="text"
                                 required
                                 placeholder="e.g. system_maintenance, default_currency"
@@ -80,10 +70,10 @@ export function SettingPage({ mode, id }: SettingPageProps): React.JSX.Element {
                         <label className="field full">
                             <span className="label">Setting Value *</span>
                             <textarea
-                                className="input"
+                                className="input mono"
                                 required
                                 rows={6}
-                                placeholder="Value content or stringified configuration"
+                                placeholder="Setting content or serialized configuration..."
                                 value={form.value}
                                 onChange={(e) => setForm({ ...form, value: e.target.value })}
                             />
@@ -106,7 +96,7 @@ export function SettingPage({ mode, id }: SettingPageProps): React.JSX.Element {
                 <PageTitle
                     eyebrow="Setting Details"
                     title={record?.key || `Setting #${id}`}
-                    subtitle="System configuration variable details."
+                    subtitle="Detailed key-value pair and configuration metadata."
                 >
                     <div className="toolbar">
                         <button type="button" className="button" onClick={() => navigate('/admin/settings')}>
@@ -127,24 +117,37 @@ export function SettingPage({ mode, id }: SettingPageProps): React.JSX.Element {
                         <div className="field">
                             <span className="label">Setting ID</span>
                             <div className="input mono" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span>#{record.id}</span>
+                                <span>{record.id}</span>
                                 <CopyButton text={String(record.id)} />
                             </div>
                         </div>
 
                         <div className="field">
-                            <span className="label">Key</span>
-                            <div><span className="badge blue mono">{record.key}</span></div>
+                            <span className="label">Setting Key</span>
+                            <div className="input mono" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span>{record.key}</span>
+                                <CopyButton text={record.key} />
+                            </div>
                         </div>
 
                         <div className="field full">
                             <span className="label">Value</span>
-                            <div className="input mono" style={{ whiteSpace: 'pre-wrap' }}>{record.value || '-'}</div>
-                        </div>
-
-                        <div className="field">
-                            <span className="label">Updated At</span>
-                            <div className="input">{record.updated_at || '-'}</div>
+                            <pre
+                                className="mono"
+                                style={{
+                                    margin: 0,
+                                    padding: '16px',
+                                    background: 'var(--bg-page)',
+                                    border: '1px solid var(--border)',
+                                    borderRadius: 'var(--radius-md)',
+                                    whiteSpace: 'pre-wrap',
+                                    maxHeight: '300px',
+                                    overflowY: 'auto',
+                                    fontSize: '12px',
+                                }}
+                            >
+                                {record.value}
+                            </pre>
                         </div>
                     </div>
                 ) : (
@@ -158,8 +161,8 @@ export function SettingPage({ mode, id }: SettingPageProps): React.JSX.Element {
         <>
             <PageTitle
                 eyebrow="System Configuration"
-                title="System Settings"
-                subtitle="Manage runtime configuration parameters, feature flags, and global variables."
+                title="Platform Settings"
+                subtitle="Configure system variables, global parameters, and platform toggles."
             >
                 <div className="toolbar">
                     <button

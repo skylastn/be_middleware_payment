@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Theme } from '../../features/resource/domain/model/resource_model';
+import { Theme } from '@/features/dashboard/domain/model/resource_model';
 
 export function useTheme() {
     const [theme, setTheme] = useState<Theme>(() => {

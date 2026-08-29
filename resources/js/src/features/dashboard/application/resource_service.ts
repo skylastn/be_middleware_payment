@@ -40,4 +40,11 @@ export class ResourceService {
             method: 'POST',
         });
     }
+
+    static async testOrder(endpoint: string, data: Record<string, any> = {}): Promise<any> {
+        return apiClient(endpoint, {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    }
 }

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { resourceDefinitions } from '@/features/resource/domain/constant/resource_definitions';
-import { ResourceService } from '@/features/resource/application/resource_service';
-import { dataItems, dataRecord, navigate } from '@/shared/utils/format_utils';
+import { settingService } from '../../application/setting_service';
+import { SettingItem } from '../../domain/model/setting/setting_model';
+import { navigate } from '@/shared/utils/format_utils';
 
 export interface UseSettingLogicProps {
     mode: 'resource-index' | 'resource-create' | 'resource-edit' | 'resource-show';
@@ -9,11 +9,10 @@ export interface UseSettingLogicProps {
 }
 
 export function useSettingLogic({ mode, id }: UseSettingLogicProps) {
-    const definition = resourceDefinitions.settings;
     const isEdit = mode === 'resource-edit';
 
     const [payload, setPayload] = useState<any>(null);
-    const [record, setRecord] = useState<any | null>(null);
+    const [record, setRecord] = useState<SettingItem | null>(null);
     const [form, setForm] = useState<Record<string, any>>({
         key: '',
         value: '',
@@ -31,14 +30,11 @@ export function useSettingLogic({ mode, id }: UseSettingLogicProps) {
         setLoading(true);
         setError('');
         try {
-            const query = new URLSearchParams();
-            if (pageNum > 1) query.set('page', String(pageNum));
-            if (perPage !== 10) query.set('per_page', String(perPage));
-            if (searchTerm.trim()) query.set('search', searchTerm.trim());
-
-            const queryString = query.toString();
-            const url = `${definition.endpoints.list}${queryString ? `?${queryString}` : ''}`;
-            const res = await ResourceService.list(url);
+            const res = await settingService.getSettings({
+                page: pageNum,
+                per_page: perPage,
+                search: searchTerm.trim() || undefined,
+            });
             setPayload(res);
             setPage(pageNum);
         } catch (err: any) {
@@ -49,18 +45,16 @@ export function useSettingLogic({ mode, id }: UseSettingLogicProps) {
     };
 
     const loadItem = async () => {
-        if (!id || !definition.endpoints.show) return;
+        if (!id) return;
         setLoading(true);
         setError('');
         try {
-            const url = definition.endpoints.show(id);
-            const res = await ResourceService.show(url);
-            const itemData = dataRecord(res);
+            const itemData = await settingService.getSettingById(id);
             setRecord(itemData);
             if (isEdit) {
                 setForm({
                     key: itemData.key || '',
-                    value: typeof itemData.value === 'object' ? JSON.stringify(itemData.value, null, 2) : (itemData.value || ''),
+                    value: itemData.value || '',
                 });
             }
         } catch (err: any) {
@@ -95,10 +89,10 @@ export function useSettingLogic({ mode, id }: UseSettingLogicProps) {
         setSaving(true);
         setError('');
         try {
-            if (isEdit && id && definition.endpoints.update) {
-                await ResourceService.update(definition.endpoints.update(id), form);
-            } else if (definition.endpoints.create) {
-                await ResourceService.create(definition.endpoints.create, form);
+            if (isEdit && id) {
+                await settingService.updateSetting(id, form);
+            } else {
+                await settingService.createSetting(form);
             }
             navigate('/admin/settings');
         } catch (err: any) {
@@ -109,23 +103,21 @@ export function useSettingLogic({ mode, id }: UseSettingLogicProps) {
     };
 
     const handleDelete = async (settingId: string | number) => {
-        if (!definition.endpoints.delete) return;
         if (!window.confirm(`Are you sure you want to delete setting #${settingId}?`)) return;
         try {
-            await ResourceService.delete(definition.endpoints.delete(settingId));
+            await settingService.deleteSetting(settingId);
             loadList(page);
         } catch (err: any) {
             setError(err?.message || 'Failed to delete setting.');
         }
     };
 
-    const records = dataItems(payload);
+    const records = payload?.data || [];
     const total = Number(payload?.total ?? records.length);
     const currentPage = Number(payload?.currentPage ?? page);
     const currentPerPage = Number(payload?.perPage ?? perPage);
 
     return {
-        definition,
         isEdit,
         payload,
         records,

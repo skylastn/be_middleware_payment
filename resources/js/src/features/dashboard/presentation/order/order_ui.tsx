@@ -5,7 +5,7 @@ import { CopyButton } from '@/shared/component/ui/copy_button';
 import { renderBadge } from '@/shared/component/ui/badge';
 import { IconRefresh, IconSearch, IconX, IconArrowLeft, IconCalendar, IconRepositories } from '@/shared/component/ui/icons';
 import { navigate, displayValue, formatDate, getMonthRange, getLastDaysRange, getTodayDateString } from '@/shared/utils/format_utils';
-import { SkeletonFormFields, SkeletonTableRows } from '@/shared/component/ui/skeleton';
+import { Skeleton, SkeletonFormFields, SkeletonTableRows } from '@/shared/component/ui/skeleton';
 import { ModalDialog } from '@/shared/component/ui/modal_dialog';
 import { useOrderLogic } from './order_logic';
 
@@ -140,7 +140,7 @@ export function OrderPage({ mode, id }: OrderPageProps): React.JSX.Element {
 
                             <div className="form-grid">
                                 {['request', 'response', 'callback'].map((payloadKey) => {
-                                    const payloadData = record[payloadKey];
+                                    const payloadData = (record as any)[payloadKey];
                                     const jsonString = displayValue(payloadData);
 
                                     return (

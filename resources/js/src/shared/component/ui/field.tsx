@@ -1,5 +1,5 @@
 import React from 'react';
-import { FieldDefinition } from '@/features/resource/domain/model/resource_model';
+import { FieldDefinition } from '@/features/dashboard/domain/model/resource_model';
 import { title } from '@/shared/utils/format_utils';
 
 export interface FieldProps {

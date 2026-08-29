@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
-import { resourceDefinitions } from '@/features/resource/domain/constant/resource_definitions';
-import { ResourceService } from '@/features/resource/application/resource_service';
-import { apiClient } from '@/shared/network/api_client';
-import { dataItems, dataRecord, navigate } from '@/shared/utils/format_utils';
+import { projectService } from '../../application/project_service';
+import { ProjectItem } from '../../domain/model/project/project_model';
+import { navigate } from '@/shared/utils/format_utils';
 
 export interface UseProjectLogicProps {
     mode: 'resource-index' | 'resource-create' | 'resource-edit' | 'resource-show';
@@ -10,11 +9,10 @@ export interface UseProjectLogicProps {
 }
 
 export function useProjectLogic({ mode, id }: UseProjectLogicProps) {
-    const definition = resourceDefinitions.projects;
     const isEdit = mode === 'resource-edit';
 
     const [payload, setPayload] = useState<any>(null);
-    const [record, setRecord] = useState<any | null>(null);
+    const [record, setRecord] = useState<ProjectItem | null>(null);
     const [form, setForm] = useState<Record<string, any>>({
         name: '',
         type: '',
@@ -37,15 +35,12 @@ export function useProjectLogic({ mode, id }: UseProjectLogicProps) {
         setLoading(true);
         setError('');
         try {
-            const query = new URLSearchParams();
-            if (pageNum > 1) query.set('page', String(pageNum));
-            if (perPage !== 10) query.set('per_page', String(perPage));
-            if (searchTerm.trim()) query.set('search', searchTerm.trim());
-            if (selectedSlug !== 'all') query.set('slug', selectedSlug);
-
-            const queryString = query.toString();
-            const url = `${definition.endpoints.list}${queryString ? `?${queryString}` : ''}`;
-            const res = await ResourceService.list(url);
+            const res = await projectService.getProjects({
+                page: pageNum,
+                per_page: perPage,
+                search: searchTerm.trim() || undefined,
+                slug: selectedSlug !== 'all' ? selectedSlug : undefined,
+            });
             setPayload(res);
             setPage(pageNum);
         } catch (err: any) {
@@ -56,13 +51,11 @@ export function useProjectLogic({ mode, id }: UseProjectLogicProps) {
     };
 
     const loadItem = async () => {
-        if (!id || !definition.endpoints.show) return;
+        if (!id) return;
         setLoading(true);
         setError('');
         try {
-            const url = definition.endpoints.show(id);
-            const res = await ResourceService.show(url);
-            const itemData = dataRecord(res);
+            const itemData = await projectService.getProjectById(id);
             setRecord(itemData);
             if (isEdit) {
                 setForm({
@@ -105,10 +98,10 @@ export function useProjectLogic({ mode, id }: UseProjectLogicProps) {
         setError('');
         setNotice('');
         try {
-            if (isEdit && id && definition.endpoints.update) {
-                await ResourceService.update(definition.endpoints.update(id), form);
-            } else if (definition.endpoints.create) {
-                await ResourceService.create(definition.endpoints.create, form);
+            if (isEdit && id) {
+                await projectService.updateProject(id, form);
+            } else {
+                await projectService.createProject(form);
             }
             navigate('/admin/projects');
         } catch (err: any) {
@@ -119,10 +112,9 @@ export function useProjectLogic({ mode, id }: UseProjectLogicProps) {
     };
 
     const handleDelete = async (projectId: string | number) => {
-        if (!definition.endpoints.delete) return;
         if (!window.confirm(`Are you sure you want to delete project #${projectId}?`)) return;
         try {
-            await ResourceService.delete(definition.endpoints.delete(projectId));
+            await projectService.deleteProject(projectId);
             loadList(page);
         } catch (err: any) {
             setError(err?.message || 'Failed to delete project.');
@@ -134,7 +126,7 @@ export function useProjectLogic({ mode, id }: UseProjectLogicProps) {
         setNotice('');
         setError('');
         try {
-            const res = await apiClient<any>('/api/admin/projects/sync-missing-log', { method: 'POST' });
+            const res = await projectService.syncMissingLog();
             setNotice(`Sync complete: Checked ${res?.data?.checked ?? 0} projects, created ${res?.data?.created ?? 0} missing log tables.`);
         } catch (err: any) {
             setError(err?.message || 'Failed to sync log tables.');
@@ -143,13 +135,12 @@ export function useProjectLogic({ mode, id }: UseProjectLogicProps) {
         }
     };
 
-    const records = dataItems(payload);
+    const records = payload?.data || [];
     const total = Number(payload?.total ?? records.length);
     const currentPage = Number(payload?.currentPage ?? page);
     const currentPerPage = Number(payload?.perPage ?? perPage);
 
     return {
-        definition,
         isEdit,
         payload,
         records,

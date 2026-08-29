@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { resourceDefinitions } from '@/features/resource/domain/constant/resource_definitions';
-import { ResourceService } from '@/features/resource/application/resource_service';
-import { dataItems, dataRecord } from '@/shared/utils/format_utils';
+import { orderService } from '../../application/order_service';
+import { paymentRepositoryService } from '../../application/payment_repository_service';
+import { OrderItem } from '../../domain/model/order/order_response';
 
 export interface UseOrderLogicProps {
     mode: 'resource-index' | 'resource-create' | 'resource-edit' | 'resource-show';
@@ -9,9 +9,8 @@ export interface UseOrderLogicProps {
 }
 
 export function useOrderLogic({ mode, id }: UseOrderLogicProps) {
-    const definition = resourceDefinitions.orders;
     const [payload, setPayload] = useState<any>(null);
-    const [record, setRecord] = useState<any | null>(null);
+    const [record, setRecord] = useState<OrderItem | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string>('');
     const [notice, setNotice] = useState<string>('');
@@ -32,9 +31,9 @@ export function useOrderLogic({ mode, id }: UseOrderLogicProps) {
 
     useEffect(() => {
         if (mode === 'resource-index') {
-            ResourceService.list('/api/admin/payment-repositories?per_page=100')
+            paymentRepositoryService.getPaymentRepositories({ per_page: 100 })
                 .then((res: any) => {
-                    const items = dataItems(res) || [];
+                    const items = res?.data || [];
                     setRepositories(
                         items.map((repo: any) => ({
                             id: repo.id,
@@ -50,19 +49,16 @@ export function useOrderLogic({ mode, id }: UseOrderLogicProps) {
         setLoading(true);
         setError('');
         try {
-            const query = new URLSearchParams();
-            if (pageNum > 1) query.set('page', String(pageNum));
-            if (perPage !== 10) query.set('per_page', String(perPage));
-            if (searchTerm.trim()) query.set('search', searchTerm.trim());
-            if (selectedMode !== 'all') query.set('mode', selectedMode);
-            if (selectedStatus !== 'all') query.set('status', selectedStatus);
-            if (startDate) query.set('start_date', startDate);
-            if (endDate) query.set('end_date', endDate);
-            if (selectedRepository !== 'all') query.set('payment_repository_id', selectedRepository);
-
-            const queryString = query.toString();
-            const url = `${definition.endpoints.list}${queryString ? `?${queryString}` : ''}`;
-            const res = await ResourceService.list(url);
+            const res = await orderService.getOrders({
+                page: pageNum,
+                per_page: perPage,
+                search: searchTerm.trim() || undefined,
+                mode: selectedMode !== 'all' ? selectedMode : undefined,
+                status: selectedStatus !== 'all' ? selectedStatus : undefined,
+                start_date: startDate || undefined,
+                end_date: endDate || undefined,
+                payment_repository_id: selectedRepository !== 'all' ? selectedRepository : undefined,
+            });
             setPayload(res);
             setPage(pageNum);
         } catch (err: any) {
@@ -73,13 +69,12 @@ export function useOrderLogic({ mode, id }: UseOrderLogicProps) {
     };
 
     const loadItem = async () => {
-        if (!id || !definition.endpoints.show) return;
+        if (!id) return;
         setLoading(true);
         setError('');
         try {
-            const url = definition.endpoints.show(id);
-            const res = await ResourceService.show(url);
-            setRecord(dataRecord(res));
+            const res = await orderService.getOrderById(id);
+            setRecord(res);
         } catch (err: any) {
             setError(err?.message || 'Failed to load order details.');
         } finally {
@@ -110,12 +105,11 @@ export function useOrderLogic({ mode, id }: UseOrderLogicProps) {
     };
 
     const handleResendCallback = async (orderId: string | number) => {
-        if (!definition.endpoints.resend) return;
         setResending(true);
         setNotice('');
         setError('');
         try {
-            await ResourceService.resendCallback(definition.endpoints.resend(orderId));
+            await orderService.resendCallback(orderId);
             setNotice(`Callback for order #${orderId} was resent successfully.`);
             if (mode === 'resource-show') {
                 loadItem();
@@ -132,13 +126,13 @@ export function useOrderLogic({ mode, id }: UseOrderLogicProps) {
     };
 
     const confirmSetSuccessAction = async () => {
-        if (!confirmSuccessOrder || !definition.endpoints.setSuccess) return;
+        if (!confirmSuccessOrder) return;
         const orderId = confirmSuccessOrder.id;
         setUpdatingStatus(true);
         setNotice('');
         setError('');
         try {
-            await ResourceService.setSuccess(definition.endpoints.setSuccess(orderId));
+            await orderService.setSuccess(orderId);
             setNotice(`Order #${orderId} marked as SUCCESS and callback sent.`);
             setConfirmSuccessOrder(null);
             if (mode === 'resource-show') {
@@ -153,13 +147,12 @@ export function useOrderLogic({ mode, id }: UseOrderLogicProps) {
         }
     };
 
-    const records = dataItems(payload);
+    const records = payload?.data || [];
     const total = Number(payload?.total ?? records.length);
     const currentPage = Number(payload?.currentPage ?? page);
     const currentPerPage = Number(payload?.perPage ?? perPage);
 
     return {
-        definition,
         payload,
         records,
         record,

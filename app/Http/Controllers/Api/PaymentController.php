@@ -288,6 +288,30 @@ class PaymentController extends Controller
         return ResponseHelper::successResponse($repository);
     }
 
+    public function testOrder(Request $request, int|string $id): JsonResponse
+    {
+        try {
+            DB::beginTransaction();
+
+            $repository = $this->paymentService->getPaymentRepositoryById($id);
+            if (! $repository) {
+                return ResponseHelper::failedResponse('Payment Repository Not Found', 'Not Found', 404);
+            }
+
+            $result = $this->paymentService->testCreateOrder($repository, $request->all());
+            DB::commit();
+
+            return ResponseHelper::successResponse($result, 'Test order created successfully on gateway.');
+        } catch (Exception $ex) {
+            if (DB::transactionLevel() > 0) {
+                DB::rollback();
+            }
+            LogHelper::sendErrorLog($ex);
+
+            return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400, $ex->getLine(), $ex->getFile());
+        }
+    }
+
     public function createPaymentRepository(CreatePaymentRepositoryRequest $request): JsonResponse
     {
         try {

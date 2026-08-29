@@ -302,4 +302,97 @@ class PaymentService
                 throw new Exception('Undefined Project');
         }
     }
+
+    /**
+     * Test create order directly against the configured payment repository.
+     *
+     * @param PaymentRepository $repository
+     * @param array<string, mixed> $params
+     * @return array<string, mixed>
+     */
+    public function testCreateOrder(PaymentRepository $repository, array $params = []): array
+    {
+        $gatewayKey = strtolower(trim($repository->payment_gateway?->key ?? $repository->key ?? ''));
+        $slug = ProjectSlug::tryFrom($gatewayKey);
+
+        if (! $slug) {
+            foreach (ProjectSlug::cases() as $case) {
+                if (stripos($gatewayKey, $case->value) !== false) {
+                    $slug = $case;
+                    break;
+                }
+            }
+        }
+
+        if (! $slug) {
+            throw new Exception("Unsupported payment gateway: {$gatewayKey}");
+        }
+
+        // Find or create test merchant project
+        $project = Project::firstOrCreate(
+            ['type' => 'TEST'],
+            [
+                'name' => 'System Test Project',
+                'slug' => $slug->value,
+                'key' => 'test_key',
+                'secure' => 'test_secure',
+                'callback' => env('APP_URL', 'http://localhost:8000') . '/api/callback/test',
+                'value' => 'test_project_token_system',
+            ]
+        );
+
+        $project->slug = $slug;
+
+        $amount = (float) ($params['amount'] ?? $params['paymentAmount'] ?? 10000);
+        if ($amount <= 0) {
+            throw new Exception('Test amount must be greater than 0');
+        }
+        $currency = strtolower($params['currency'] ?? ($slug === ProjectSlug::STRIPE ? 'myr' : 'idr'));
+        $email = $params['email'] ?? 'test-buyer@example.com';
+        $customerName = $params['name'] ?? 'Test Buyer';
+        $paymentMethod = $params['paymentMethod'] ?? $params['payment_method'] ?? '';
+        $mode = $repository->mode?->value ?? (string) $repository->mode;
+        $orderNumber = 'TEST-' . strtoupper($slug->value) . '-' . time();
+
+        $requestData = [
+            'paymentRepositoryId' => $repository->id,
+            'merchantOrderId' => $orderNumber,
+            'paymentAmount' => $amount,
+            'paymentMethod' => $paymentMethod,
+            'productDetails' => "Test Order for {$repository->payment_gateway?->name} ({$mode})",
+            'email' => $email,
+            'firstName' => $customerName,
+            'lastName' => 'QA',
+            'phone' => '08123456789',
+            'address' => 'Jakarta, Indonesia',
+            'customerVaName' => $customerName,
+            'currency' => $currency,
+            'mode' => $mode,
+            'returnUrl' => env('APP_URL', 'http://localhost:8000') . '/admin/payment-repositories',
+            'callbackUrl' => env('APP_URL', 'http://localhost:8000') . '/api/callback/' . $slug->value,
+            'expiryPeriod' => 60,
+        ];
+
+        $simulatedRequest = new Request($requestData);
+
+        $result = match ($slug) {
+            ProjectSlug::DUITKU => $this->duitkuService->orderDuitku($simulatedRequest, $project),
+            ProjectSlug::MIDTRANS => $this->midtransService->orderMidtrans($simulatedRequest, $project),
+            ProjectSlug::XENDIT => $this->xenditService->order($simulatedRequest, $project),
+            ProjectSlug::SPNPAY => $this->spnPayService->createOrderSPNPay($simulatedRequest, $project),
+            ProjectSlug::STRIPE => $this->stripeService->order($simulatedRequest, $project),
+        };
+
+        return [
+            'success' => true,
+            'gateway' => $repository->payment_gateway?->name ?? strtoupper($slug->value),
+            'mode' => $mode,
+            'repository_id' => $repository->id,
+            'order_reference' => 'TEST-' . $orderNumber,
+            'amount' => $amount,
+            'currency' => strtoupper($currency),
+            'checkout_url' => $result['link'] ?? $result['url'] ?? $result['invoice_url'] ?? $result['paymentUrl'] ?? null,
+            'raw_result' => $result,
+        ];
+    }
 }

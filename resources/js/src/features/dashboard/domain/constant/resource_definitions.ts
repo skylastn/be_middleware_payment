@@ -70,6 +70,7 @@ export const resourceDefinitions: Record<ResourceKey, ResourceDefinition> = {
             create: '/api/admin/payment-repositories/create',
             update: (id: string | number) => `/api/admin/payment-repositories/${id}`,
             delete: (id: string | number) => `/api/admin/payment-repositories/${id}`,
+            testOrder: (id: string | number) => `/api/admin/payment-repositories/${id}/test-order`,
         },
     },
     'payment-methods': {

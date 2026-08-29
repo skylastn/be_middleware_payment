@@ -29,20 +29,20 @@ export function PaymentGatewayPage({ mode, id }: PaymentGatewayPageProps): React
         setPerPage,
         total,
         currentPage,
-        loadList,
         handleSearchSubmit,
         handleClearSearch,
         handleFormSubmit,
         handleDelete,
+        loadList,
     } = usePaymentGatewayLogic({ mode, id });
 
     if (mode === 'resource-create' || mode === 'resource-edit') {
         return (
             <>
                 <PageTitle
-                    eyebrow="Payment Providers"
-                    title={isEdit ? `Edit Gateway: ${form.name || id}` : 'Create Payment Gateway'}
-                    subtitle="Register or modify payment gateway provider entities."
+                    eyebrow="Gateway Provider"
+                    title={isEdit ? `Edit Gateway #${id}` : 'Create Payment Gateway'}
+                    subtitle="Register gateway drivers and metadata used to route payment transactions."
                 >
                     <div className="toolbar">
                         <button type="button" className="button" onClick={() => navigate('/admin/payment-gateways')}>
@@ -55,46 +55,36 @@ export function PaymentGatewayPage({ mode, id }: PaymentGatewayPageProps): React
 
                 <div className="panel">
                     <form className="form-grid" onSubmit={handleFormSubmit}>
-                        {isEdit && id && (
-                            <label className="field full">
-                                <span className="label">ID (Primary Key)</span>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <input className="input" type="text" value={String(id)} disabled readOnly />
-                                    <CopyButton text={String(id)} />
-                                </div>
-                            </label>
-                        )}
-
                         <label className="field">
-                            <span className="label">Gateway Key *</span>
+                            <span className="label">Key / Identifier *</span>
                             <input
                                 className="input"
                                 type="text"
                                 required
-                                placeholder="e.g. duitku, midtrans, stripe"
+                                placeholder="e.g. duitku, xendit, stripe"
                                 value={form.key}
                                 onChange={(e) => setForm({ ...form, key: e.target.value })}
                             />
                         </label>
 
                         <label className="field">
-                            <span className="label">Gateway Display Name *</span>
+                            <span className="label">Gateway Name *</span>
                             <input
                                 className="input"
                                 type="text"
                                 required
-                                placeholder="e.g. Duitku Payment, Stripe Global"
+                                placeholder="e.g. Duitku Gateway"
                                 value={form.name}
                                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                             />
                         </label>
 
                         <label className="field full">
-                            <span className="label">Description *</span>
+                            <span className="label">Description</span>
                             <textarea
                                 className="input"
-                                required
-                                placeholder="Provider description and documentation details"
+                                rows={4}
+                                placeholder="Driver descriptions and notes..."
                                 value={form.description}
                                 onChange={(e) => setForm({ ...form, description: e.target.value })}
                             />
@@ -245,9 +235,7 @@ export function PaymentGatewayPage({ mode, id }: PaymentGatewayPageProps): React
                                         </div>
                                     </td>
                                     <td><strong>{row.name}</strong></td>
-                                    <td style={{ maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                        {row.description}
-                                    </td>
+                                    <td>{row.description || '-'}</td>
                                     <td>{formatDate(row.created_at)}</td>
                                     <td>
                                         <div className="actions">

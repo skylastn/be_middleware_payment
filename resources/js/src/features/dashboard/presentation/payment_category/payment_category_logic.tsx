@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { resourceDefinitions } from '@/features/resource/domain/constant/resource_definitions';
-import { ResourceService } from '@/features/resource/application/resource_service';
-import { dataItems, dataRecord, navigate } from '@/shared/utils/format_utils';
+import { paymentCategoryService } from '../../application/payment_category_service';
+import { PaymentCategoryItem } from '../../domain/model/payment/payment_category_model';
+import { navigate } from '@/shared/utils/format_utils';
 
 export interface UsePaymentCategoryLogicProps {
     mode: 'resource-index' | 'resource-create' | 'resource-edit' | 'resource-show';
@@ -9,11 +9,10 @@ export interface UsePaymentCategoryLogicProps {
 }
 
 export function usePaymentCategoryLogic({ mode, id }: UsePaymentCategoryLogicProps) {
-    const definition = resourceDefinitions['payment-categories'];
     const isEdit = mode === 'resource-edit';
 
     const [payload, setPayload] = useState<any>(null);
-    const [record, setRecord] = useState<any | null>(null);
+    const [record, setRecord] = useState<PaymentCategoryItem | null>(null);
     const [form, setForm] = useState<Record<string, any>>({
         key: '',
         title: '',
@@ -32,14 +31,11 @@ export function usePaymentCategoryLogic({ mode, id }: UsePaymentCategoryLogicPro
         setLoading(true);
         setError('');
         try {
-            const query = new URLSearchParams();
-            if (pageNum > 1) query.set('page', String(pageNum));
-            if (perPage !== 10) query.set('per_page', String(perPage));
-            if (searchTerm.trim()) query.set('search', searchTerm.trim());
-
-            const queryString = query.toString();
-            const url = `${definition.endpoints.list}${queryString ? `?${queryString}` : ''}`;
-            const res = await ResourceService.list(url);
+            const res = await paymentCategoryService.getPaymentCategories({
+                page: pageNum,
+                per_page: perPage,
+                search: searchTerm.trim() || undefined,
+            });
             setPayload(res);
             setPage(pageNum);
         } catch (err: any) {
@@ -50,13 +46,11 @@ export function usePaymentCategoryLogic({ mode, id }: UsePaymentCategoryLogicPro
     };
 
     const loadItem = async () => {
-        if (!id || !definition.endpoints.show) return;
+        if (!id) return;
         setLoading(true);
         setError('');
         try {
-            const url = definition.endpoints.show(id);
-            const res = await ResourceService.show(url);
-            const itemData = dataRecord(res);
+            const itemData = await paymentCategoryService.getPaymentCategoryById(id);
             setRecord(itemData);
             if (isEdit) {
                 setForm({
@@ -66,7 +60,7 @@ export function usePaymentCategoryLogic({ mode, id }: UsePaymentCategoryLogicPro
                 });
             }
         } catch (err: any) {
-            setError(err?.message || 'Failed to load payment category details.');
+            setError(err?.message || 'Failed to load category details.');
         } finally {
             setLoading(false);
         }
@@ -97,10 +91,10 @@ export function usePaymentCategoryLogic({ mode, id }: UsePaymentCategoryLogicPro
         setSaving(true);
         setError('');
         try {
-            if (isEdit && id && definition.endpoints.update) {
-                await ResourceService.update(definition.endpoints.update(id), form);
-            } else if (definition.endpoints.create) {
-                await ResourceService.create(definition.endpoints.create, form);
+            if (isEdit && id) {
+                await paymentCategoryService.updatePaymentCategory(id, form);
+            } else {
+                await paymentCategoryService.createPaymentCategory(form);
             }
             navigate('/admin/payment-categories');
         } catch (err: any) {
@@ -110,24 +104,22 @@ export function usePaymentCategoryLogic({ mode, id }: UsePaymentCategoryLogicPro
         }
     };
 
-    const handleDelete = async (catId: string | number) => {
-        if (!definition.endpoints.delete) return;
-        if (!window.confirm(`Are you sure you want to delete payment category #${catId}?`)) return;
+    const handleDelete = async (categoryId: string | number) => {
+        if (!window.confirm(`Are you sure you want to delete payment category #${categoryId}?`)) return;
         try {
-            await ResourceService.delete(definition.endpoints.delete(catId));
+            await paymentCategoryService.deletePaymentCategory(categoryId);
             loadList(page);
         } catch (err: any) {
             setError(err?.message || 'Failed to delete payment category.');
         }
     };
 
-    const records = dataItems(payload);
+    const records = payload?.data || [];
     const total = Number(payload?.total ?? records.length);
     const currentPage = Number(payload?.currentPage ?? page);
     const currentPerPage = Number(payload?.perPage ?? perPage);
 
     return {
-        definition,
         isEdit,
         payload,
         records,

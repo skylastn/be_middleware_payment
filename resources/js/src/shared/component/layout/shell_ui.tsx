@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { User } from '@/features/auth/domain/model/response/user_response';
-import { RouteInfo, Theme } from '@/features/resource/domain/model/resource_model';
+import { RouteInfo, Theme } from '@/features/dashboard/domain/model/resource_model';
 import { navigate } from '@/shared/utils/format_utils';
 import {
     IconDashboard,
