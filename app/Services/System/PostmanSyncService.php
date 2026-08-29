@@ -462,6 +462,29 @@ class PostmanSyncService
                         'url' => ['raw' => '{{base_url}}/api/payment/getPaymentRepository', 'host' => ['{{base_url}}'], 'path' => ['api', 'payment', 'getPaymentRepository']],
                     ],
                 ],
+                [
+                    'name' => 'Test Create Order on Gateway Repository',
+                    'request' => [
+                        'method' => 'POST',
+                        'header' => [
+                            ['key' => 'Authorization', 'value' => 'Bearer {{admin_token}}'],
+                            ['key' => 'Content-Type', 'value' => 'application/json'],
+                            ['key' => 'Accept', 'value' => 'application/json'],
+                        ],
+                        'body' => [
+                            'mode' => 'raw',
+                            'raw' => json_encode([
+                                'amount' => 10000,
+                                'currency' => 'IDR',
+                                'email' => 'test-buyer@example.com',
+                                'name' => 'Test Buyer',
+                                'version' => '2',
+                                'paymentMethod' => '',
+                            ], JSON_PRETTY_PRINT),
+                        ],
+                        'url' => ['raw' => '{{base_url}}/api/admin/payment-repositories/:id/test-order', 'host' => ['{{base_url}}'], 'path' => ['api', 'admin', 'payment-repositories', ':id', 'test-order']],
+                    ],
+                ],
             ],
         ];
     }
@@ -578,6 +601,18 @@ class PostmanSyncService
                             ['key' => 'Stripe-Signature', 'value' => '{{stripe_signature}}'],
                         ],
                         'url' => ['raw' => '{{base_url}}/api/callback/stripe', 'host' => ['{{base_url}}'], 'path' => ['api', 'callback', 'stripe']],
+                    ],
+                ],
+                [
+                    'name' => 'Paprika Callback',
+                    'request' => [
+                        'method' => 'POST',
+                        'header' => [
+                            ['key' => 'Content-Type', 'value' => 'application/json'],
+                            ['key' => 'X-SIGNATURE', 'value' => '{{paprika_signature}}'],
+                            ['key' => 'X-TIMESTAMP', 'value' => '{{$isoTimestamp}}'],
+                        ],
+                        'url' => ['raw' => '{{base_url}}/api/callback/paprika', 'host' => ['{{base_url}}'], 'path' => ['api', 'callback', 'paprika']],
                     ],
                 ],
             ],

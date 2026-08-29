@@ -31,12 +31,14 @@ export function usePaymentRepositoryLogic({ mode, id }: UsePaymentRepositoryLogi
     const [testModalRepo, setTestModalRepo] = useState<any | null>(null);
     const [testingOrder, setTestingOrder] = useState<boolean>(false);
     const [testOrderResult, setTestOrderResult] = useState<any | null>(null);
+    const [testError, setTestError] = useState<string>('');
     const [testForm, setTestForm] = useState({
         amount: 10000,
         currency: 'IDR',
         email: 'test-customer@example.com',
         name: 'Test Buyer',
         paymentMethod: '',
+        version: '1',
     });
 
     // Filter states
@@ -167,30 +169,33 @@ export function usePaymentRepositoryLogic({ mode, id }: UsePaymentRepositoryLogi
         const isStripe = String(gwKey).toLowerCase().includes('stripe');
         setTestModalRepo(repo);
         setTestOrderResult(null);
+        setTestError('');
         setTestForm({
             amount: isStripe ? 50 : 10000,
             currency: isStripe ? 'MYR' : 'IDR',
             email: 'test-buyer@example.com',
             name: 'Test Buyer',
             paymentMethod: '',
+            version: '1',
         });
     };
 
     const closeTestModal = () => {
         setTestModalRepo(null);
         setTestOrderResult(null);
+        setTestError('');
     };
 
-    const handleExecuteTestOrder = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleExecuteTestOrder = async (e?: React.FormEvent) => {
+        if (e) e.preventDefault();
         if (!testModalRepo) return;
         setTestingOrder(true);
-        setError('');
+        setTestError('');
         try {
             const res = await paymentRepositoryService.testOrder(testModalRepo.id, testForm);
             setTestOrderResult(res?.data || res);
         } catch (err: any) {
-            setError(err?.message || 'Failed to execute test order on gateway.');
+            setTestError(err?.message || 'Failed to execute test order on gateway.');
         } finally {
             setTestingOrder(false);
         }
@@ -217,6 +222,7 @@ export function usePaymentRepositoryLogic({ mode, id }: UsePaymentRepositoryLogi
         testModalRepo,
         testingOrder,
         testOrderResult,
+        testError,
         testForm,
         setTestForm,
         openTestModal,

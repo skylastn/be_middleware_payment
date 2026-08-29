@@ -357,7 +357,8 @@ class PaymentService
         $customerName = $params['name'] ?? 'Test Buyer';
         $paymentMethod = $params['paymentMethod'] ?? $params['payment_method'] ?? '';
         $mode = $repository->mode?->value ?? (string) $repository->mode;
-        $orderNumber = 'TEST-' . strtoupper($slug->value) . '-' . time();
+        $orderNumber = 'TEST-' . strtoupper($slug->value) . '-' . time() . rand(100, 999);
+        $version = isset($params['version']) && $params['version'] !== '' ? (string) $params['version'] : '1';
 
         $requestData = [
             'paymentRepositoryId' => $repository->id,
@@ -376,6 +377,7 @@ class PaymentService
             'returnUrl' => env('APP_URL', 'http://localhost:8000') . '/admin/payment-repositories',
             'callbackUrl' => env('APP_URL', 'http://localhost:8000') . '/api/callback/' . $slug->value,
             'expiryPeriod' => 60,
+            'version' => $version,
         ];
 
         $simulatedRequest = new Request($requestData);
@@ -397,6 +399,7 @@ class PaymentService
             'order_reference' => 'TEST-' . $orderNumber,
             'amount' => $amount,
             'currency' => strtoupper($currency),
+            'version' => $version,
             'checkout_url' => $result['link'] ?? $result['url'] ?? $result['invoice_url'] ?? $result['paymentUrl'] ?? null,
             'raw_result' => $result,
         ];
