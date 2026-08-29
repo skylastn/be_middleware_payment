@@ -266,13 +266,13 @@ export function LogsPage(): React.JSX.Element {
 
                 {/* Log List / Table */}
                 <div className="table-wrap">
-                    <table>
+                    <table style={{ tableLayout: 'fixed', width: '100%' }}>
                         <thead>
                             <tr>
-                                <th style={{ width: '40px' }}></th>
-                                <th style={{ width: '120px' }}>Level</th>
-                                <th style={{ width: '170px' }}>Timestamp</th>
-                                <th style={{ width: '110px' }}>Environment</th>
+                                <th style={{ width: '38px', padding: '12px 8px', textAlign: 'center' }}></th>
+                                <th style={{ width: '110px' }}>Level</th>
+                                <th style={{ width: '160px' }}>Timestamp</th>
+                                <th style={{ width: '120px' }}>Environment</th>
                                 <th>Message</th>
                             </tr>
                         </thead>
@@ -288,9 +288,12 @@ export function LogsPage(): React.JSX.Element {
                                         <React.Fragment key={`${log.file_identifier}-${log.index}`}>
                                             <tr
                                                 onClick={() => hasDetails && toggleRow(log.index)}
-                                                style={{ cursor: hasDetails ? 'pointer' : 'default' }}
+                                                style={{
+                                                    cursor: hasDetails ? 'pointer' : 'default',
+                                                    background: isExpanded ? 'var(--surface-hover)' : undefined,
+                                                }}
                                             >
-                                                <td style={{ textAlign: 'center', color: 'var(--text-subtle)' }}>
+                                                <td style={{ textAlign: 'center', padding: '12px 8px', color: 'var(--text-subtle)' }}>
                                                     {hasDetails ? (
                                                         isExpanded ? <IconChevronDown /> : <IconChevronRight />
                                                     ) : null}
@@ -304,13 +307,16 @@ export function LogsPage(): React.JSX.Element {
                                                         {log.extra?.environment || 'laravel'}
                                                     </span>
                                                 </td>
-                                                <td style={{ maxWidth: '600px' }}>
+                                                <td style={{ minWidth: 0, overflow: 'hidden' }}>
                                                     <div
                                                         style={{
                                                             overflow: 'hidden',
                                                             textOverflow: 'ellipsis',
                                                             whiteSpace: isExpanded ? 'normal' : 'nowrap',
+                                                            wordBreak: 'break-word',
                                                             fontWeight: log.level === 'ERROR' ? 600 : 400,
+                                                            fontSize: '13px',
+                                                            lineHeight: 1.4,
                                                         }}
                                                     >
                                                         {log.message}
@@ -319,32 +325,49 @@ export function LogsPage(): React.JSX.Element {
                                             </tr>
                                             {isExpanded && (
                                                 <tr>
-                                                    <td colSpan={5} style={{ background: 'var(--surface-subtle)', padding: '16px 24px' }}>
+                                                    <td colSpan={5} style={{ background: 'var(--surface-subtle)', padding: '16px 20px', borderTop: 'none' }}>
                                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                                                            <strong style={{ fontSize: '13px', color: 'var(--text)' }}>
-                                                                Stack Trace & Context Payload:
+                                                            <strong style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>
+                                                                Stack Trace & Context Payload
                                                             </strong>
-                                                            <CopyButton text={log.full_text || log.message} />
+                                                            <CopyButton
+                                                                label="Copy Full Log"
+                                                                text={
+                                                                    [
+                                                                        log.full_text || log.message,
+                                                                        log.context && Object.keys(log.context).length > 0
+                                                                            ? `--- Context ---\n${typeof log.context === 'string' ? log.context : JSON.stringify(log.context, null, 2)}`
+                                                                            : '',
+                                                                        log.extra && Object.keys(log.extra).length > 0
+                                                                            ? `--- Extra ---\n${JSON.stringify(log.extra, null, 2)}`
+                                                                            : ''
+                                                                    ].filter(Boolean).join('\n\n')
+                                                                }
+                                                            />
                                                         </div>
                                                         <pre
                                                             className="mono"
                                                             style={{
                                                                 margin: 0,
-                                                                padding: '14px',
+                                                                padding: '14px 16px',
                                                                 background: 'var(--bg-page)',
                                                                 border: '1px solid var(--border)',
                                                                 borderRadius: 'var(--radius-md)',
                                                                 whiteSpace: 'pre-wrap',
-                                                                maxHeight: '340px',
+                                                                wordBreak: 'break-word',
+                                                                maxHeight: '450px',
                                                                 overflowY: 'auto',
                                                                 fontSize: '12px',
-                                                                lineHeight: 1.5,
+                                                                lineHeight: 1.55,
                                                                 color: 'var(--text)',
                                                             }}
                                                         >
                                                             {log.full_text || log.message}
                                                             {log.context && Object.keys(log.context).length > 0 && (
-                                                                `\n\n--- Context ---\n${JSON.stringify(log.context, null, 2)}`
+                                                                `\n\n--- Context ---\n${typeof log.context === 'string' ? log.context : JSON.stringify(log.context, null, 2)}`
+                                                            )}
+                                                            {log.extra && Object.keys(log.extra).length > 0 && (
+                                                                `\n\n--- Extra ---\n${JSON.stringify(log.extra, null, 2)}`
                                                             )}
                                                         </pre>
                                                     </td>

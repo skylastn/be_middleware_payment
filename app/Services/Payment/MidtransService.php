@@ -186,11 +186,8 @@ class MidtransService
         $order->setStatus($status);
 
         if ($type == 'bank_transfer') {
-            if (empty($request->bank) || $request->bank == 'permata') {
-                $paymentMethod = PaymentMethod::where('key', $type)->where('type', 'permata')->first();
-            } else {
-                $paymentMethod = PaymentMethod::where('key', $type)->where('type', $request->bank)->first();
-            }
+            $bankKey = ! empty($request->bank) ? $request->bank : 'permata';
+            $paymentMethod = PaymentMethod::where('key', $bankKey)->orWhere('bankCode', $bankKey)->first();
         } else {
             $paymentMethod = PaymentMethod::where('key', $type)->first();
         }
@@ -220,7 +217,7 @@ class MidtransService
             'callback_order_midtrans'
         );
         $params['merchantOrderId'] = $order->getMerchantOrderId();
-        $params['paymentCode'] = $order->getPaymentMethod();
+        $params['paymentCode'] = $paymentMethod->key;
         $params['resultCode'] = '00';
         $callback = RequestHelper::sendCallback($project->value, $params, $project->callback);
 

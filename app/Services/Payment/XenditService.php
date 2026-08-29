@@ -195,7 +195,8 @@ class XenditService
         $previousStatus = $order->status;
         $order->setCallback(json_encode($request->all()));
         $order->setStatus($status);
-        $order->setPaymentMethod($request->payment_channel);
+        $paymentCode = (string) ($request->payment_channel ?? $order->payment_method ?? 'xendit');
+        $order->setPaymentMethod($paymentCode);
         $order->save();
 
         $this->orderHistoryService->log(
@@ -217,7 +218,7 @@ class XenditService
         );
         if ($status->isSuccess()) {
             $params['merchantOrderId'] = $order->getMerchantOrderId();
-            $params['paymentCode'] = $order->payment_method;
+            $params['paymentCode'] = $order->payment_method ?: $paymentCode;
             $params['resultCode'] = '00';
             $callback = RequestHelper::sendCallback($project->value, $params, $project->callback);
         }

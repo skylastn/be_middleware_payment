@@ -36,6 +36,11 @@ class SendMerchantCallback implements ShouldQueue
      */
     public function handle(): void
     {
-        RequestHelper::sendCallback($this->token, $this->params, $this->urlCallback);
+        $payload = $this->params;
+        if (array_key_exists('paymentCode', $payload) && $payload['paymentCode'] === null) {
+            $payload['paymentCode'] = '';
+        }
+
+        RequestHelper::sendCallback($this->token, $payload, $this->urlCallback);
     }
 }

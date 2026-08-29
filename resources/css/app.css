@@ -1113,8 +1113,10 @@ tr:last-child td {
 }
 
 /* Sticky Actions Column */
-th:last-child,
-td:last-child {
+table.table-sticky-actions th:last-child,
+table.table-sticky-actions td:last-child,
+th.actions-col,
+td.actions-col {
     position: sticky;
     right: 0;
     background: var(--surface);
@@ -1123,17 +1125,21 @@ td:last-child {
     box-shadow: -4px 0 10px -2px rgba(0, 0, 0, 0.08);
 }
 
-th:last-child {
+table.table-sticky-actions th:last-child,
+th.actions-col {
     background: var(--surface-subtle);
     z-index: 6;
 }
 
-tbody tr:hover td:last-child {
+table.table-sticky-actions tbody tr:hover td:last-child,
+tbody tr:hover td.actions-col {
     background: var(--table-hover);
 }
 
-[data-theme="dark"] th:last-child,
-[data-theme="dark"] td:last-child {
+[data-theme="dark"] table.table-sticky-actions th:last-child,
+[data-theme="dark"] table.table-sticky-actions td:last-child,
+[data-theme="dark"] th.actions-col,
+[data-theme="dark"] td.actions-col {
     box-shadow: -6px 0 12px -2px rgba(0, 0, 0, 0.4);
 }
 

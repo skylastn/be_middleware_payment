@@ -275,7 +275,8 @@ class SPNPayService
             $previousStatus
         );
 
-        $paymentMethod = PaymentMethod::where('key', $order->payment_method)->first();
+        $paymentMethod = PaymentMethod::where('key', $order->payment_method)->where('from', 'spnpay')->first()
+            ?? PaymentMethod::where('key', $order->payment_method)->first();
 
         if (! FormatHelper::isNotEmpty($paymentMethod)) {
             throw new Exception('Payment not found');
@@ -290,7 +291,7 @@ class SPNPayService
             'callback_order_spnpay'
         );
         $params['merchantOrderId'] = $order->getMerchantOrderId();
-        $params['paymentCode'] = $order->payment_method;
+        $params['paymentCode'] = $paymentMethod->key;
         $params['resultCode'] = $resultCode;
         $callback = RequestHelper::sendCallback($project->value, $params, $project->callback);
 
