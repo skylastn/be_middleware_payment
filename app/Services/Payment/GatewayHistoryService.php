@@ -13,6 +13,7 @@ class GatewayHistoryService
     private MidtransService $midtransService;
     private DuitkuService $duitkuService;
     private SPNPayService $spnPayService;
+    private PaprikaService $paprikaService;
 
     public function __construct()
     {
@@ -21,6 +22,7 @@ class GatewayHistoryService
         $this->midtransService = new MidtransService();
         $this->duitkuService = new DuitkuService();
         $this->spnPayService = new SPNPayService();
+        $this->paprikaService = new PaprikaService();
     }
 
     /**
@@ -48,6 +50,7 @@ class GatewayHistoryService
             ProjectSlug::MIDTRANS => $this->midtransService->fetchHistory($repository, $filters),
             ProjectSlug::DUITKU => $this->duitkuService->fetchHistory($repository, $filters),
             ProjectSlug::SPNPAY => $this->spnPayService->fetchHistory($repository, $filters),
+            ProjectSlug::PAPRIKA => $this->paprikaService->fetchHistory($repository, $filters),
             default => throw new Exception("Live transaction history inquiry is not supported for gateway '{$gatewayKey}'"),
         };
     }

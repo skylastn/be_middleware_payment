@@ -35,6 +35,8 @@ class PaymentService
 
     private DuitkuService $duitkuService;
 
+    private PaprikaService $paprikaService;
+
     private OrderRepository $orders;
 
     private PaymentCategoryRepository $paymentCategories;
@@ -56,6 +58,7 @@ class PaymentService
         $this->xenditService = new XenditService;
         $this->midtransService = new MidtransService;
         $this->duitkuService = new DuitkuService;
+        $this->paprikaService = new PaprikaService;
         $this->orders = new OrderRepository;
         $this->paymentCategories = new PaymentCategoryRepository;
         $this->paymentMethods = new PaymentMethodRepository;
@@ -298,6 +301,8 @@ class PaymentService
                 return $this->spnPayService->createOrderPaymentSPNPay($request, $project, $order);
             case ProjectSlug::STRIPE:
                 return $this->stripeService->order($request, $project);
+            case ProjectSlug::PAPRIKA:
+                return $this->paprikaService->orderPaprika($request, $project);
             default:
                 throw new Exception('Undefined Project');
         }
@@ -381,6 +386,7 @@ class PaymentService
             ProjectSlug::XENDIT => $this->xenditService->order($simulatedRequest, $project),
             ProjectSlug::SPNPAY => $this->spnPayService->createOrderSPNPay($simulatedRequest, $project),
             ProjectSlug::STRIPE => $this->stripeService->order($simulatedRequest, $project),
+            ProjectSlug::PAPRIKA => $this->paprikaService->orderPaprika($simulatedRequest, $project),
         };
 
         return [
