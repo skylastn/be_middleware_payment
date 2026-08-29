@@ -14,6 +14,10 @@ class AuthenticateProjectToken
 
     public function handle(Request $request, Closure $next): Response
     {
+        if (auth('sanctum')->check() && auth('sanctum')->user()?->isAdmin()) {
+            return $next($request);
+        }
+
         $token = $request->header('Token');
         if (! $token) {
             return ResponseHelper::failedResponse('Unauthorized: Missing Token header', 'Unauthorized', 401);

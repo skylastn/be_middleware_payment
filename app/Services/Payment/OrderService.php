@@ -45,12 +45,24 @@ class OrderService
         $mode = $request->query('mode');
         $status = $request->query('status');
         $perPage = (int) ($request->query('per_page', $request->query('perPage', 15)));
+        $startDate = $request->query('start_date') ?: $request->query('startDate');
+        $endDate = $request->query('end_date') ?: $request->query('endDate');
+        $paymentRepositoryId = $request->query('payment_repository_id') ?: $request->query('paymentRepositoryId');
 
         $type = auth('sanctum')->user()?->isAdmin()
             ? $request->query('type')
             : $this->projectService->checkKey()->type;
 
-        return $this->orders->latestPaginated($perPage, $search, $mode, $status, $type);
+        return $this->orders->latestPaginated(
+            $perPage,
+            $search,
+            $mode,
+            $status,
+            $type,
+            $startDate,
+            $endDate,
+            $paymentRepositoryId
+        );
     }
 
     public function detailByReferenceAndKey(string $reference, ?string $projectType): ?Order

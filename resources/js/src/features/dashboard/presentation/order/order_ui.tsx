@@ -3,8 +3,8 @@ import { PageTitle } from '@/shared/component/ui/page_title';
 import { DataTable } from '@/shared/component/ui/data_table';
 import { CopyButton } from '@/shared/component/ui/copy_button';
 import { renderBadge } from '@/shared/component/ui/badge';
-import { IconRefresh, IconSearch, IconX, IconArrowLeft } from '@/shared/component/ui/icons';
-import { navigate, displayValue, formatDate } from '@/shared/utils/format_utils';
+import { IconRefresh, IconSearch, IconX, IconArrowLeft, IconCalendar, IconRepositories } from '@/shared/component/ui/icons';
+import { navigate, displayValue, formatDate, getMonthRange, getLastDaysRange, getTodayDateString } from '@/shared/utils/format_utils';
 import { useOrderLogic } from './order_logic';
 
 export interface OrderPageProps {
@@ -31,6 +31,13 @@ export function OrderPage({ mode, id }: OrderPageProps): React.JSX.Element {
         setSelectedMode,
         selectedStatus,
         setSelectedStatus,
+        startDate,
+        setStartDate,
+        endDate,
+        setEndDate,
+        selectedRepository,
+        setSelectedRepository,
+        repositories,
         loadList,
         handleSearchSubmit,
         handleClearSearch,
@@ -156,6 +163,46 @@ export function OrderPage({ mode, id }: OrderPageProps): React.JSX.Element {
         );
     }
 
+    const applyPreset = (preset: 'today' | '7days' | 'month' | '30days') => {
+        if (preset === 'today') {
+            const today = getTodayDateString();
+            setStartDate(today);
+            setEndDate(today);
+        } else if (preset === '7days') {
+            const { startDate: s, endDate: e } = getLastDaysRange(7);
+            setStartDate(s);
+            setEndDate(e);
+        } else if (preset === '30days') {
+            const { startDate: s, endDate: e } = getLastDaysRange(30);
+            setStartDate(s);
+            setEndDate(e);
+        } else if (preset === 'month') {
+            const { startDate: s, endDate: e } = getMonthRange();
+            setStartDate(s);
+            setEndDate(e);
+        }
+    };
+
+    const isMonthActive = (() => {
+        const { startDate: s, endDate: e } = getMonthRange();
+        return startDate === s && endDate === e;
+    })();
+
+    const isTodayActive = (() => {
+        const today = getTodayDateString();
+        return startDate === today && endDate === today;
+    })();
+
+    const is7DaysActive = (() => {
+        const { startDate: s, endDate: e } = getLastDaysRange(7);
+        return startDate === s && endDate === e;
+    })();
+
+    const is30DaysActive = (() => {
+        const { startDate: s, endDate: e } = getLastDaysRange(30);
+        return startDate === s && endDate === e;
+    })();
+
     return (
         <>
             <PageTitle
@@ -179,14 +226,14 @@ export function OrderPage({ mode, id }: OrderPageProps): React.JSX.Element {
             {notice && <div className="panel alert success" style={{ marginBottom: '16px' }}>{notice}</div>}
             {error && <div className="panel alert danger" style={{ marginBottom: '16px' }}>{error}</div>}
 
-            <div className="panel">
-                <div className="filter-bar">
-                    <form className="search-box" onSubmit={handleSearchSubmit}>
+            <div className="modern-filter-panel">
+                <div className="modern-filter-row">
+                    <form className="search-box" onSubmit={handleSearchSubmit} style={{ minWidth: '280px', flex: '1 1 300px' }}>
                         <span className="search-icon"><IconSearch /></span>
                         <input
                             className="search-input"
                             type="text"
-                            placeholder="Search orders (reference, email, notes)..."
+                            placeholder="Search reference, email, notes..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
@@ -197,7 +244,72 @@ export function OrderPage({ mode, id }: OrderPageProps): React.JSX.Element {
                         )}
                     </form>
 
-                    <div className="filter-group">
+                    <div className="modern-filter-chips">
+                        <span
+                            className={`filter-chip ${isTodayActive ? 'active' : ''}`}
+                            onClick={() => applyPreset('today')}
+                        >
+                            Today
+                        </span>
+                        <span
+                            className={`filter-chip ${is7DaysActive ? 'active' : ''}`}
+                            onClick={() => applyPreset('7days')}
+                        >
+                            Last 7 Days
+                        </span>
+                        <span
+                            className={`filter-chip ${isMonthActive ? 'active' : ''}`}
+                            onClick={() => applyPreset('month')}
+                        >
+                            This Month
+                        </span>
+                        <span
+                            className={`filter-chip ${is30DaysActive ? 'active' : ''}`}
+                            onClick={() => applyPreset('30days')}
+                        >
+                            Last 30 Days
+                        </span>
+                    </div>
+                </div>
+
+                <div className="modern-filter-row" style={{ paddingTop: '8px', borderTop: '1px solid var(--border)' }}>
+                    <div className="modern-filter-fields">
+                        <div className="modern-input-group">
+                            <span className="input-icon"><IconCalendar /></span>
+                            <label>From</label>
+                            <input
+                                type="date"
+                                value={startDate}
+                                onChange={(e) => setStartDate(e.target.value)}
+                            />
+                        </div>
+
+                        <div className="modern-input-group">
+                            <span className="input-icon"><IconCalendar /></span>
+                            <label>To</label>
+                            <input
+                                type="date"
+                                value={endDate}
+                                onChange={(e) => setEndDate(e.target.value)}
+                            />
+                        </div>
+
+                        <div className="modern-input-group">
+                            <span className="input-icon"><IconRepositories /></span>
+                            <label>Repo</label>
+                            <select
+                                value={selectedRepository}
+                                onChange={(e) => setSelectedRepository(e.target.value)}
+                            >
+                                <option value="all">All Repositories</option>
+                                {repositories.map((repo) => (
+                                    <option key={repo.id} value={repo.id}>
+                                        {repo.label}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
                         <select
                             className="filter-select"
                             value={selectedMode}
@@ -230,9 +342,23 @@ export function OrderPage({ mode, id }: OrderPageProps): React.JSX.Element {
                             <option value="50">50 / page</option>
                             <option value="100">100 / page</option>
                         </select>
+
+                        {(searchTerm || startDate || endDate || selectedRepository !== 'all' || selectedMode !== 'all' || selectedStatus !== 'all') && (
+                            <button
+                                type="button"
+                                className="filter-chip"
+                                onClick={handleClearSearch}
+                                style={{ background: 'var(--danger-light)', color: 'var(--danger)', borderColor: 'var(--danger)', height: '36px' }}
+                                title="Reset all filters"
+                            >
+                                <IconX /> Reset
+                            </button>
+                        )}
                     </div>
                 </div>
+            </div>
 
+            <div className="panel">
                 <DataTable columns={['Reference', 'Project', 'Method', 'Status', 'Mode', 'Created', 'Actions']}>
                     {loading ? (
                         <tr>

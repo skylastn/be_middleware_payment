@@ -4,10 +4,24 @@ import { StatCard } from '@/shared/component/ui/stat_card';
 import { PanelHeader } from '@/shared/component/ui/panel_header';
 import { DataTable } from '@/shared/component/ui/data_table';
 import { CopyButton } from '@/shared/component/ui/copy_button';
+import { IconCalendar, IconFilter, IconRefresh, IconRepositories, IconX } from '@/shared/component/ui/icons';
+import { getMonthRange, getLastDaysRange, getTodayDateString } from '@/shared/utils/format_utils';
 import { useDashboardLogic } from './dashboard_logic';
 
 export function DashboardPage(): React.JSX.Element {
-    const { data, error, loading, reload } = useDashboardLogic();
+    const {
+        data,
+        error,
+        loading,
+        startDate,
+        setStartDate,
+        endDate,
+        setEndDate,
+        selectedRepository,
+        setSelectedRepository,
+        handleClearFilters,
+        reload,
+    } = useDashboardLogic();
 
     if (error) {
         return <div className="panel empty">{error}</div>;
@@ -19,6 +33,51 @@ export function DashboardPage(): React.JSX.Element {
 
     const maxMode = Math.max(...(data.modeCounts || []).map((mode) => Number(mode.total || 0)), 1);
 
+    const applyPreset = (preset: 'today' | '7days' | 'month' | '30days') => {
+        if (preset === 'today') {
+            const today = getTodayDateString();
+            setStartDate(today);
+            setEndDate(today);
+        } else if (preset === '7days') {
+            const { startDate: s, endDate: e } = getLastDaysRange(7);
+            setStartDate(s);
+            setEndDate(e);
+        } else if (preset === '30days') {
+            const { startDate: s, endDate: e } = getLastDaysRange(30);
+            setStartDate(s);
+            setEndDate(e);
+        } else if (preset === 'month') {
+            const { startDate: s, endDate: e } = getMonthRange();
+            setStartDate(s);
+            setEndDate(e);
+        }
+    };
+
+    const isMonthActive = (() => {
+        const { startDate: s, endDate: e } = getMonthRange();
+        return startDate === s && endDate === e;
+    })();
+
+    const isTodayActive = (() => {
+        const today = getTodayDateString();
+        return startDate === today && endDate === today;
+    })();
+
+    const is7DaysActive = (() => {
+        const { startDate: s, endDate: e } = getLastDaysRange(7);
+        return startDate === s && endDate === e;
+    })();
+
+    const is30DaysActive = (() => {
+        const { startDate: s, endDate: e } = getLastDaysRange(30);
+        return startDate === s && endDate === e;
+    })();
+
+    const hasActiveFilters = Boolean(
+        (selectedRepository && selectedRepository !== 'all') ||
+        (!isMonthActive && (startDate || endDate))
+    );
+
     return (
         <>
             <PageTitle
@@ -26,11 +85,102 @@ export function DashboardPage(): React.JSX.Element {
                 title="Payment Monitoring Dashboard"
                 subtitle="Real-time operational metrics for orders, projects, and gateway transactions."
             >
-                <span className="filter-badge">Updated {data.updatedAt}</span>
+                <div className="toolbar">
+                    <span className="filter-badge">Updated {data.updatedAt}</span>
+                    <button
+                        type="button"
+                        className="button"
+                        onClick={reload}
+                        disabled={loading}
+                        title="Refresh metrics"
+                    >
+                        <IconRefresh /> Refresh
+                    </button>
+                </div>
             </PageTitle>
 
+            <div className="modern-filter-panel">
+                <div className="modern-filter-row">
+                    <div className="modern-filter-fields">
+                        <div className="modern-input-group">
+                            <span className="input-icon"><IconCalendar /></span>
+                            <label>From</label>
+                            <input
+                                type="date"
+                                value={startDate}
+                                onChange={(e) => setStartDate(e.target.value)}
+                            />
+                        </div>
+
+                        <div className="modern-input-group">
+                            <span className="input-icon"><IconCalendar /></span>
+                            <label>To</label>
+                            <input
+                                type="date"
+                                value={endDate}
+                                onChange={(e) => setEndDate(e.target.value)}
+                            />
+                        </div>
+
+                        <div className="modern-input-group">
+                            <span className="input-icon"><IconRepositories /></span>
+                            <label>Repo</label>
+                            <select
+                                value={selectedRepository}
+                                onChange={(e) => setSelectedRepository(e.target.value)}
+                            >
+                                <option value="all">All Repositories</option>
+                                {(data.repositories || []).map((repo) => (
+                                    <option key={repo.id} value={repo.id}>
+                                        {repo.gateway} ({repo.mode}) - #{repo.id}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div className="modern-filter-chips">
+                        <span
+                            className={`filter-chip ${isTodayActive ? 'active' : ''}`}
+                            onClick={() => applyPreset('today')}
+                        >
+                            Today
+                        </span>
+                        <span
+                            className={`filter-chip ${is7DaysActive ? 'active' : ''}`}
+                            onClick={() => applyPreset('7days')}
+                        >
+                            Last 7 Days
+                        </span>
+                        <span
+                            className={`filter-chip ${isMonthActive ? 'active' : ''}`}
+                            onClick={() => applyPreset('month')}
+                        >
+                            This Month
+                        </span>
+                        <span
+                            className={`filter-chip ${is30DaysActive ? 'active' : ''}`}
+                            onClick={() => applyPreset('30days')}
+                        >
+                            Last 30 Days
+                        </span>
+                        {hasActiveFilters && (
+                            <button
+                                type="button"
+                                className="filter-chip"
+                                onClick={handleClearFilters}
+                                style={{ background: 'var(--danger-light)', color: 'var(--danger)', borderColor: 'var(--danger)' }}
+                                title="Reset filter to default month"
+                            >
+                                <IconX /> Reset
+                            </button>
+                        )}
+                    </div>
+                </div>
+            </div>
+
             <section className="grid stats">
-                <StatCard label="Total Orders" value={data.summary.orders} note="All captured transactions" tone="blue" />
+                <StatCard label="Total Orders" value={data.summary.orders} note="Captured transactions" tone="blue" />
                 <StatCard label="Success" value={data.summary.paidOrders} note="Completed payments" />
                 <StatCard label="Pending" value={data.summary.pendingOrders} note="Awaiting callback" tone="warning" />
                 <StatCard label="Failed / Expired" value={data.summary.failedOrders} note="Failed / canceled" tone="danger" />
@@ -95,69 +245,41 @@ export function DashboardPage(): React.JSX.Element {
                 </div>
             </section>
 
-            <section className="grid columns">
-                <div className="panel">
-                    <PanelHeader
-                        title="Recent Orders"
-                        kicker="Latest payment requests"
-                        aside={`${data.recentOrders?.length || 0} latest`}
-                    />
-                    <DataTable columns={['Reference', 'Project', 'Method', 'Status', 'Mode', 'Created']}>
-                        {(data.recentOrders || []).length > 0 ? (
-                            data.recentOrders.map((order) => (
-                                <tr key={order.reference}>
-                                    <td className="mono">
-                                        {order.reference}
-                                        <CopyButton text={order.reference} />
-                                    </td>
-                                    <td>{order.type}</td>
-                                    <td>{order.paymentMethod || '-'}</td>
-                                    <td>
-                                        <span className={`badge ${order.statusClass}`}>{order.status}</span>
-                                    </td>
-                                    <td>
-                                        <span className={`badge ${order.mode === 'prod' ? 'success' : 'blue'}`}>
-                                            {order.mode}
-                                        </span>
-                                    </td>
-                                    <td>{order.createdAt || '-'}</td>
-                                </tr>
-                            ))
-                        ) : (
-                            <tr>
-                                <td className="empty" colSpan={6}>
-                                    No recent orders recorded.
+            <section className="panel" style={{ marginTop: '24px' }}>
+                <PanelHeader
+                    title="Recent Orders"
+                    kicker="Latest payment requests matching active filters"
+                    aside={`${data.recentOrders?.length || 0} records`}
+                />
+                <DataTable columns={['Reference', 'Project', 'Method', 'Status', 'Mode', 'Created']}>
+                    {(data.recentOrders || []).length > 0 ? (
+                        data.recentOrders.map((order) => (
+                            <tr key={order.reference}>
+                                <td className="mono">
+                                    {order.reference}
+                                    <CopyButton text={order.reference} />
                                 </td>
-                            </tr>
-                        )}
-                    </DataTable>
-                </div>
-
-                <div className="panel">
-                    <PanelHeader title="Active Repositories" kicker="Gateway credentials by mode" />
-                    <div className="list">
-                        {(data.repositories || []).length > 0 ? (
-                            data.repositories.map((repository) => (
-                                <div className="list-row" key={repository.id}>
-                                    <div className="list-main">
-                                        <span className="list-title">{repository.gateway}</span>
-                                        <div className="muted mono" style={{ fontSize: '11px' }}>
-                                            {repository.id}
-                                            <CopyButton text={repository.id} />
-                                        </div>
-                                    </div>
-                                    <span className={`badge ${repository.mode === 'prod' ? 'success' : 'blue'}`}>
-                                        {repository.mode}
+                                <td>{order.type}</td>
+                                <td>{order.paymentMethod || '-'}</td>
+                                <td>
+                                    <span className={`badge ${order.statusClass}`}>{order.status}</span>
+                                </td>
+                                <td>
+                                    <span className={`badge ${order.mode === 'prod' ? 'success' : 'blue'}`}>
+                                        {order.mode}
                                     </span>
-                                </div>
-                            ))
-                        ) : (
-                            <div className="empty" style={{ padding: '24px', textAlign: 'center' }}>
-                                No active repositories.
-                            </div>
-                        )}
-                    </div>
-                </div>
+                                </td>
+                                <td>{order.createdAt || '-'}</td>
+                            </tr>
+                        ))
+                    ) : (
+                        <tr>
+                            <td className="empty" colSpan={6} style={{ padding: '36px', textAlign: 'center' }}>
+                                No recent orders recorded.
+                            </td>
+                        </tr>
+                    )}
+                </DataTable>
             </section>
         </>
     );

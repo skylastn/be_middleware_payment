@@ -23,6 +23,26 @@ export function useOrderLogic({ mode, id }: UseOrderLogicProps) {
     const [perPage, setPerPage] = useState<number>(15);
     const [selectedMode, setSelectedMode] = useState<string>('all');
     const [selectedStatus, setSelectedStatus] = useState<string>('all');
+    const [startDate, setStartDate] = useState<string>('');
+    const [endDate, setEndDate] = useState<string>('');
+    const [selectedRepository, setSelectedRepository] = useState<string>('all');
+    const [repositories, setRepositories] = useState<Array<{ id: string | number; label: string }>>([]);
+
+    useEffect(() => {
+        if (mode === 'resource-index') {
+            ResourceService.list('/api/payment/getPaymentRepository?per_page=100')
+                .then((res: any) => {
+                    const items = dataItems(res) || [];
+                    setRepositories(
+                        items.map((repo: any) => ({
+                            id: repo.id,
+                            label: `${repo.key || repo.payment_gateway?.name || 'Repository'} (${repo.mode || 'sandbox'}) - #${repo.id}`,
+                        }))
+                    );
+                })
+                .catch(() => {});
+        }
+    }, [mode]);
 
     const loadList = async (pageNum = page) => {
         setLoading(true);
@@ -34,6 +54,9 @@ export function useOrderLogic({ mode, id }: UseOrderLogicProps) {
             if (searchTerm.trim()) query.set('search', searchTerm.trim());
             if (selectedMode !== 'all') query.set('mode', selectedMode);
             if (selectedStatus !== 'all') query.set('status', selectedStatus);
+            if (startDate) query.set('start_date', startDate);
+            if (endDate) query.set('end_date', endDate);
+            if (selectedRepository !== 'all') query.set('payment_repository_id', selectedRepository);
 
             const queryString = query.toString();
             const url = `${definition.endpoints.list}${queryString ? `?${queryString}` : ''}`;
@@ -68,7 +91,7 @@ export function useOrderLogic({ mode, id }: UseOrderLogicProps) {
         } else if (mode === 'resource-show') {
             loadItem();
         }
-    }, [mode, id, selectedMode, selectedStatus, perPage]);
+    }, [mode, id, selectedMode, selectedStatus, startDate, endDate, selectedRepository, perPage]);
 
     const handleSearchSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -77,7 +100,11 @@ export function useOrderLogic({ mode, id }: UseOrderLogicProps) {
 
     const handleClearSearch = () => {
         setSearchTerm('');
-        setTimeout(() => loadList(1), 0);
+        setStartDate('');
+        setEndDate('');
+        setSelectedRepository('all');
+        setSelectedMode('all');
+        setSelectedStatus('all');
     };
 
     const handleResendCallback = async (orderId: string | number) => {
@@ -124,6 +151,13 @@ export function useOrderLogic({ mode, id }: UseOrderLogicProps) {
         setSelectedMode,
         selectedStatus,
         setSelectedStatus,
+        startDate,
+        setStartDate,
+        endDate,
+        setEndDate,
+        selectedRepository,
+        setSelectedRepository,
+        repositories,
         loadList,
         loadItem,
         handleSearchSubmit,
