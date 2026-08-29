@@ -34,6 +34,8 @@ class OrderService
 
     private StripeService $stripeService;
 
+    private PaprikaService $paprikaService;
+
     public function __construct()
     {
         $this->projectService = new ProjectService;
@@ -44,6 +46,7 @@ class OrderService
         $this->midtransService = new MidtransService;
         $this->spnPayService = new SPNPayService;
         $this->stripeService = new StripeService;
+        $this->paprikaService = new PaprikaService;
     }
 
     public function getListOrder(Request $request): LengthAwarePaginator
@@ -119,6 +122,9 @@ class OrderService
         }
         if ($project->slug == ProjectSlug::STRIPE) {
             return $this->stripeService->order($request, $project);
+        }
+        if ($project->slug == ProjectSlug::PAPRIKA) {
+            return $this->paprikaService->orderPaprika($request, $project);
         }
         throw new Exception('Undefined Project');
     }

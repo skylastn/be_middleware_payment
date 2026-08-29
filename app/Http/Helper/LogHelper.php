@@ -31,6 +31,13 @@ class LogHelper
         // 'duitku_mk',
         // 'duitku_mc',
         // 'authorization',
+        // 'api_secret',
+        // 'api_key',
+        // 'x-signature',
+        // 'x-partner-id',
+        // 'signature',
+        // 'client_secret',
+        // 'client_key',
     ];
 
     public static function sendErrorLog(
@@ -43,13 +50,17 @@ class LogHelper
         $error['message']   = $ex->getMessage();
         $error['file']      = $ex->getFile();
         if (!empty($idProject)) {
-            $dateNow                    = date("Y-m-d H:i:s");
-            $dataLog['ip']              = LogHelper::getClientIP();
-            $dataLog['key']             = $key;
-            $dataLog['value']           = json_encode(self::redactSensitiveData($error));
-            $dataLog['created_at']      = $dateNow;
-            $dataLog['updated_at']      = $dateNow;
-            DB::table('log__' . $idProject)->insert($dataLog);
+            try {
+                $dateNow                    = date("Y-m-d H:i:s");
+                $dataLog['ip']              = LogHelper::getClientIP();
+                $dataLog['key']             = $key;
+                $dataLog['value']           = json_encode(self::redactSensitiveData($error));
+                $dataLog['created_at']      = $dateNow;
+                $dataLog['updated_at']      = $dateNow;
+                DB::table('log__' . $idProject)->insert($dataLog);
+            } catch (\Exception $e) {
+                Log::warning('Failed to insert error log to project table: ' . $e->getMessage());
+            }
         }
         Log::error(self::redactSensitiveData($error));
     }
@@ -66,13 +77,17 @@ class LogHelper
         $info['message']   = $msg;
         $info['data']      = $sanitizedData;
         if (!empty($idProject)) {
-            $dateNow                    = date("Y-m-d H:i:s");
-            $dataLog['ip']              = LogHelper::getClientIP();
-            $dataLog['key']             = $key;
-            $dataLog['value']           = is_string($sanitizedData) ? $sanitizedData : json_encode($sanitizedData);
-            $dataLog['created_at']      = $dateNow;
-            $dataLog['updated_at']      = $dateNow;
-            DB::table('log__' . $idProject)->insert($dataLog);
+            try {
+                $dateNow                    = date("Y-m-d H:i:s");
+                $dataLog['ip']              = LogHelper::getClientIP();
+                $dataLog['key']             = $key;
+                $dataLog['value']           = is_string($sanitizedData) ? $sanitizedData : json_encode($sanitizedData);
+                $dataLog['created_at']      = $dateNow;
+                $dataLog['updated_at']      = $dateNow;
+                DB::table('log__' . $idProject)->insert($dataLog);
+            } catch (\Exception $e) {
+                Log::warning('Failed to insert log to project table: ' . $e->getMessage());
+            }
         }
         Log::info($info);
     }
@@ -108,21 +123,10 @@ class LogHelper
 
     public static function getClientIP(): string
     {
-        $ipaddress = '';
-        if (getenv('HTTP_CLIENT_IP'))
-            $ipaddress = getenv('HTTP_CLIENT_IP');
-        else if (getenv('HTTP_X_FORWARDED_FOR'))
-            $ipaddress = getenv('HTTP_X_FORWARDED_FOR');
-        else if (getenv('HTTP_X_FORWARDED'))
-            $ipaddress = getenv('HTTP_X_FORWARDED');
-        else if (getenv('HTTP_FORWARDED_FOR'))
-            $ipaddress = getenv('HTTP_FORWARDED_FOR');
-        else if (getenv('HTTP_FORWARDED'))
-            $ipaddress = getenv('HTTP_FORWARDED');
-        else if (getenv('REMOTE_ADDR'))
-            $ipaddress = getenv('REMOTE_ADDR');
-        else
-            $ipaddress = 'UNKNOWN';
-        return $ipaddress;
+        $request = request();
+        if ($request->ip()) {
+            return $request->ip();
+        }
+        return 'UNKNOWN';
     }
 }

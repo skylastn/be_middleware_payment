@@ -8,6 +8,7 @@ use App\Http\Helper\LogHelper;
 use App\Http\Helper\ResponseHelper;
 use App\Services\Payment\DuitkuService;
 use App\Services\Payment\MidtransService;
+use App\Services\Payment\PaprikaService;
 use App\Services\Payment\PayoutService;
 use App\Services\Payment\SPNPayService;
 use App\Services\Payment\StripeService;
@@ -31,6 +32,8 @@ class CallbackController extends Controller
 
     private PayoutService $payoutService;
 
+    private PaprikaService $paprikaService;
+
     public function __construct()
     {
         $this->spnPayService = new SPNPayService;
@@ -39,6 +42,7 @@ class CallbackController extends Controller
         $this->midtransService = new MidtransService;
         $this->stripeService = new StripeService;
         $this->payoutService = new PayoutService;
+        $this->paprikaService = new PaprikaService;
     }
 
     public function callbackSPNPay(Request $request): JsonResponse
@@ -143,10 +147,10 @@ class CallbackController extends Controller
         try {
             DB::beginTransaction();
             LogHelper::sendLog('Paprika Callback', $request->all());
-            // $callback = $this->stripeService->callback($request);
+            $callback = $this->paprikaService->callback($request);
             DB::commit();
 
-            return ResponseHelper::successResponse('Success Send Callback');
+            return $callback;
         } catch (Exception $ex) {
             DB::rollback();
             LogHelper::sendErrorLog($ex);

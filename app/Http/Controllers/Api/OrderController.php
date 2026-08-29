@@ -88,6 +88,9 @@ class OrderController extends Controller
                 DB::rollback();
             }
             LogHelper::sendErrorLog($ex);
+            if ($ex->getMessage() === 'Unauthorized') {
+                return ResponseHelper::unauthorizedResponse($ex->getMessage());
+            }
             return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400, $ex->getLine(), $ex->getFile());
         }
     }

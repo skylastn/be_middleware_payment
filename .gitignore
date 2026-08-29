@@ -7,6 +7,7 @@
 /vendor
 .env
 .env.backup
+.env.testing
 .phpunit.result.cache
 Homestead.json
 Homestead.yaml
@@ -24,6 +25,7 @@ docker-compose.log
 deploy.log
 run_output.log
 .gitlab-ci.yml
-.phpunit.cache/test-results
+.phpunit.cache/test-resultsw
 storage/framework
 .commandcode/
+.phpunit.cache
