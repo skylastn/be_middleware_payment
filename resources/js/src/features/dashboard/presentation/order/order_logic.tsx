@@ -30,7 +30,7 @@ export function useOrderLogic({ mode, id }: UseOrderLogicProps) {
 
     useEffect(() => {
         if (mode === 'resource-index') {
-            ResourceService.list('/api/payment/getPaymentRepository?per_page=100')
+            ResourceService.list('/api/admin/payment-repositories?per_page=100')
                 .then((res: any) => {
                     const items = dataItems(res) || [];
                     setRepositories(

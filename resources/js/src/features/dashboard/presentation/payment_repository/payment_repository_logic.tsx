@@ -24,12 +24,22 @@ export function usePaymentRepositoryLogic({ mode, id }: UsePaymentRepositoryLogi
     const [loading, setLoading] = useState<boolean>(true);
     const [saving, setSaving] = useState<boolean>(false);
     const [error, setError] = useState<string>('');
+    const [gateways, setGateways] = useState<Array<{ id: string | number; name: string; key: string }>>([]);
 
     // Filter states
     const [searchTerm, setSearchTerm] = useState<string>('');
     const [selectedMode, setSelectedMode] = useState<string>('all');
     const [page, setPage] = useState<number>(1);
     const [perPage, setPerPage] = useState<number>(15);
+
+    useEffect(() => {
+        ResourceService.list('/api/admin/payment-gateways?per_page=100')
+            .then((res: any) => {
+                const items = dataItems(res) || [];
+                setGateways(items.map((g: any) => ({ id: g.id, name: g.name || g.key, key: g.key })));
+            })
+            .catch(() => {});
+    }, []);
 
     const loadList = async (pageNum = page) => {
         setLoading(true);
@@ -158,6 +168,7 @@ export function usePaymentRepositoryLogic({ mode, id }: UsePaymentRepositoryLogi
         record,
         form,
         setForm,
+        gateways,
         jsonError,
         loading,
         saving,

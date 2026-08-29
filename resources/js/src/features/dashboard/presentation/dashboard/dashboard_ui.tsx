@@ -4,8 +4,9 @@ import { StatCard } from '@/shared/component/ui/stat_card';
 import { PanelHeader } from '@/shared/component/ui/panel_header';
 import { DataTable } from '@/shared/component/ui/data_table';
 import { CopyButton } from '@/shared/component/ui/copy_button';
-import { IconCalendar, IconFilter, IconRefresh, IconRepositories, IconX } from '@/shared/component/ui/icons';
+import { IconCalendar, IconRefresh, IconRepositories, IconX } from '@/shared/component/ui/icons';
 import { getMonthRange, getLastDaysRange, getTodayDateString } from '@/shared/utils/format_utils';
+import { Skeleton, SkeletonDashboard, SkeletonStatsGrid, SkeletonTableRows } from '@/shared/component/ui/skeleton';
 import { useDashboardLogic } from './dashboard_logic';
 
 export function DashboardPage(): React.JSX.Element {
@@ -27,8 +28,21 @@ export function DashboardPage(): React.JSX.Element {
         return <div className="panel empty">{error}</div>;
     }
 
+    if (!data && loading) {
+        return (
+            <>
+                <PageTitle
+                    eyebrow="Live Overview"
+                    title="Payment Monitoring Dashboard"
+                    subtitle="Real-time operational metrics for orders, projects, and gateway transactions."
+                />
+                <SkeletonDashboard />
+            </>
+        );
+    }
+
     if (!data) {
-        return <div className="panel empty">Loading dashboard metrics...</div>;
+        return <div className="panel empty">No dashboard data available.</div>;
     }
 
     const maxMode = Math.max(...(data.modeCounts || []).map((mode) => Number(mode.total || 0)), 1);
@@ -94,7 +108,7 @@ export function DashboardPage(): React.JSX.Element {
                         disabled={loading}
                         title="Refresh metrics"
                     >
-                        <IconRefresh /> Refresh
+                        <IconRefresh /> {loading ? 'Refreshing...' : 'Refresh'}
                     </button>
                 </div>
             </PageTitle>
@@ -179,108 +193,145 @@ export function DashboardPage(): React.JSX.Element {
                 </div>
             </div>
 
-            <section className="grid stats">
-                <StatCard label="Total Orders" value={data.summary.orders} note="Captured transactions" tone="blue" />
-                <StatCard label="Success" value={data.summary.paidOrders} note="Completed payments" />
-                <StatCard label="Pending" value={data.summary.pendingOrders} note="Awaiting callback" tone="warning" />
-                <StatCard label="Failed / Expired" value={data.summary.failedOrders} note="Failed / canceled" tone="danger" />
-            </section>
+            {loading ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                    <SkeletonStatsGrid count={4} />
+                    <SkeletonStatsGrid count={4} />
 
-            <section className="grid stats">
-                <StatCard label="Projects" value={data.summary.projects} note="Registered merchant apps" />
-                <StatCard label="Gateways" value={data.summary.paymentGateways} note="Supported gateways" tone="purple" />
-                <StatCard label="Repositories" value={data.summary.paymentRepositories} note="Credential sets" tone="blue" />
-                <StatCard label="Methods" value={data.summary.paymentMethods} note="Payment channels" />
-            </section>
-
-            <section className="chart-grid">
-                <div className="panel">
-                    <PanelHeader title="Status Distribution" kicker="Success, pending, and failed ratio" />
-                    <div
-                        className="donut"
-                        style={
-                            {
-                                '--success-deg': `${data.statusMix?.successDeg || 0}deg`,
-                                '--pending-deg': `${data.statusMix?.pendingDeg || 0}deg`,
-                            } as React.CSSProperties
-                        }
-                    />
-                    <div className="list">
-                        <div className="list-row">
-                            <span className="list-title">Success</span>
-                            <strong>{Number(data.statusMix?.success || 0).toLocaleString()}</strong>
-                        </div>
-                        <div className="list-row">
-                            <span className="list-title">Pending</span>
-                            <strong>{Number(data.statusMix?.pending || 0).toLocaleString()}</strong>
-                        </div>
-                        <div className="list-row">
-                            <span className="list-title">Failed / Expired</span>
-                            <strong>{Number(data.statusMix?.failedExpired || 0).toLocaleString()}</strong>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="panel">
-                    <PanelHeader title="Environment Traffic" kicker="Transaction volume by mode" />
-                    <div className="bar-list">
-                        {(data.modeCounts || []).map((mode) => (
-                            <div className="bar-row" key={mode.mode}>
-                                <span className="list-title">{mode.mode.toUpperCase()}</span>
-                                <span className="bar-track">
-                                    <span
-                                        className={`bar-fill ${mode.mode === 'prod' ? 'blue' : 'warning'}`}
-                                        style={{
-                                            width: `${Math.max(
-                                                4,
-                                                Math.round((Number(mode.total || 0) / maxMode) * 100)
-                                            )}%`,
-                                        }}
-                                    />
-                                </span>
-                                <strong>{Number(mode.total || 0).toLocaleString()}</strong>
+                    <div className="chart-grid">
+                        <div className="panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            <Skeleton width="140px" height="16px" />
+                            <div style={{ display: 'flex', justifyContent: 'center', padding: '20px 0' }}>
+                                <Skeleton width="160px" height="160px" borderRadius="50%" />
                             </div>
-                        ))}
+                        </div>
+                        <div className="panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            <Skeleton width="140px" height="16px" />
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', paddingTop: '10px' }}>
+                                <Skeleton width="100%" height="24px" />
+                                <Skeleton width="85%" height="24px" />
+                                <Skeleton width="70%" height="24px" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="panel">
+                        <div style={{ padding: '20px', borderBottom: '1px solid var(--border)' }}>
+                            <Skeleton width="180px" height="18px" />
+                        </div>
+                        <table className="table" style={{ width: '100%' }}>
+                            <tbody>
+                                <SkeletonTableRows rows={6} columns={6} />
+                            </tbody>
+                        </table>
                     </div>
                 </div>
-            </section>
+            ) : (
+                <>
+                    <section className="grid stats">
+                        <StatCard label="Total Orders" value={data.summary.orders} note="Captured transactions" tone="blue" />
+                        <StatCard label="Success" value={data.summary.paidOrders} note="Completed payments" />
+                        <StatCard label="Pending" value={data.summary.pendingOrders} note="Awaiting callback" tone="warning" />
+                        <StatCard label="Failed / Expired" value={data.summary.failedOrders} note="Failed / canceled" tone="danger" />
+                    </section>
 
-            <section className="panel" style={{ marginTop: '24px' }}>
-                <PanelHeader
-                    title="Recent Orders"
-                    kicker="Latest payment requests matching active filters"
-                    aside={`${data.recentOrders?.length || 0} records`}
-                />
-                <DataTable columns={['Reference', 'Project', 'Method', 'Status', 'Mode', 'Created']}>
-                    {(data.recentOrders || []).length > 0 ? (
-                        data.recentOrders.map((order) => (
-                            <tr key={order.reference}>
-                                <td className="mono">
-                                    {order.reference}
-                                    <CopyButton text={order.reference} />
-                                </td>
-                                <td>{order.type}</td>
-                                <td>{order.paymentMethod || '-'}</td>
-                                <td>
-                                    <span className={`badge ${order.statusClass}`}>{order.status}</span>
-                                </td>
-                                <td>
-                                    <span className={`badge ${order.mode === 'prod' ? 'success' : 'blue'}`}>
-                                        {order.mode}
-                                    </span>
-                                </td>
-                                <td>{order.createdAt || '-'}</td>
-                            </tr>
-                        ))
-                    ) : (
-                        <tr>
-                            <td className="empty" colSpan={6} style={{ padding: '36px', textAlign: 'center' }}>
-                                No recent orders recorded.
-                            </td>
-                        </tr>
-                    )}
-                </DataTable>
-            </section>
+                    <section className="grid stats">
+                        <StatCard label="Projects" value={data.summary.projects} note="Registered merchant apps" />
+                        <StatCard label="Gateways" value={data.summary.paymentGateways} note="Supported gateways" tone="purple" />
+                        <StatCard label="Repositories" value={data.summary.paymentRepositories} note="Credential sets" tone="blue" />
+                        <StatCard label="Methods" value={data.summary.paymentMethods} note="Payment channels" />
+                    </section>
+
+                    <section className="chart-grid">
+                        <div className="panel">
+                            <PanelHeader title="Status Distribution" kicker="Success, pending, and failed ratio" />
+                            <div
+                                className="donut"
+                                style={
+                                    {
+                                        '--success-deg': `${data.statusMix?.successDeg || 0}deg`,
+                                        '--pending-deg': `${data.statusMix?.pendingDeg || 0}deg`,
+                                    } as React.CSSProperties
+                                }
+                            />
+                            <div className="list">
+                                <div className="list-row">
+                                    <span className="list-title">Success</span>
+                                    <strong>{Number(data.statusMix?.success || 0).toLocaleString()}</strong>
+                                </div>
+                                <div className="list-row">
+                                    <span className="list-title">Pending</span>
+                                    <strong>{Number(data.statusMix?.pending || 0).toLocaleString()}</strong>
+                                </div>
+                                <div className="list-row">
+                                    <span className="list-title">Failed / Expired</span>
+                                    <strong>{Number(data.statusMix?.failedExpired || 0).toLocaleString()}</strong>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="panel">
+                            <PanelHeader title="Environment Traffic" kicker="Transaction volume by mode" />
+                            <div className="bar-list">
+                                {(data.modeCounts || []).map((mode) => (
+                                    <div className="bar-row" key={mode.mode}>
+                                        <span className="list-title">{mode.mode.toUpperCase()}</span>
+                                        <span className="bar-track">
+                                            <span
+                                                className={`bar-fill ${mode.mode === 'prod' ? 'blue' : 'warning'}`}
+                                                style={{
+                                                    width: `${Math.max(
+                                                        4,
+                                                        Math.round((Number(mode.total || 0) / maxMode) * 100)
+                                                    )}%`,
+                                                }}
+                                            />
+                                        </span>
+                                        <strong>{Number(mode.total || 0).toLocaleString()}</strong>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </section>
+
+                    <section className="panel" style={{ marginTop: '24px' }}>
+                        <PanelHeader
+                            title="Recent Orders"
+                            kicker="Latest payment requests matching active filters"
+                            aside={`${data.recentOrders?.length || 0} records`}
+                        />
+                        <DataTable columns={['Reference', 'Project', 'Method', 'Status', 'Mode', 'Created']}>
+                            {(data.recentOrders || []).length > 0 ? (
+                                data.recentOrders.map((order) => (
+                                    <tr key={order.reference}>
+                                        <td className="mono">
+                                            {order.reference}
+                                            <CopyButton text={order.reference} />
+                                        </td>
+                                        <td>{order.type}</td>
+                                        <td>{order.paymentMethod || '-'}</td>
+                                        <td>
+                                            <span className={`badge ${order.statusClass}`}>{order.status}</span>
+                                        </td>
+                                        <td>
+                                            <span className={`badge ${order.mode === 'prod' ? 'success' : 'blue'}`}>
+                                                {order.mode}
+                                            </span>
+                                        </td>
+                                        <td>{order.createdAt || '-'}</td>
+                                    </tr>
+                                ))
+                            ) : (
+                                <tr>
+                                    <td className="empty" colSpan={6} style={{ padding: '36px', textAlign: 'center' }}>
+                                        No recent orders recorded.
+                                    </td>
+                                </tr>
+                            )}
+                        </DataTable>
+                    </section>
+                </>
+            )}
         </>
     );
 }

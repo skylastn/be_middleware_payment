@@ -134,7 +134,7 @@ export function useProjectLogic({ mode, id }: UseProjectLogicProps) {
         setNotice('');
         setError('');
         try {
-            const res = await apiClient('/api/project/sync-missing-log', { method: 'POST' });
+            const res = await apiClient<any>('/api/admin/projects/sync-missing-log', { method: 'POST' });
             setNotice(`Sync complete: Checked ${res?.data?.checked ?? 0} projects, created ${res?.data?.created ?? 0} missing log tables.`);
         } catch (err: any) {
             setError(err?.message || 'Failed to sync log tables.');

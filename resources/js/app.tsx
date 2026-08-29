@@ -86,7 +86,16 @@ export function App(): React.JSX.Element {
     }, []);
 
     if (checkingAuth) {
-        return <div className="panel empty">Loading backoffice console...</div>;
+        return (
+            <div className="app-loading-screen">
+                <div className="loading-card">
+                    <div className="loading-brand-mark">MP</div>
+                    <h2 className="loading-title">Middleware Payment</h2>
+                    <div className="loading-spinner" />
+                    <p className="loading-subtitle">Initializing console session...</p>
+                </div>
+            </div>
+        );
     }
 
     if (!authUser) {

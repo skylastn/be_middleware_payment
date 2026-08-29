@@ -6,6 +6,7 @@ import { DataTable } from '@/shared/component/ui/data_table';
 import { CopyButton } from '@/shared/component/ui/copy_button';
 import { renderBadge } from '@/shared/component/ui/badge';
 import { IconPlus, IconRefresh, IconSearch, IconX } from '@/shared/component/ui/icons';
+import { SkeletonTableRows } from '@/shared/component/ui/skeleton';
 import { useResourceIndexLogic } from './resource_index_logic';
 
 export interface ResourceIndexProps {
@@ -152,11 +153,7 @@ export function ResourceIndex({ resource }: ResourceIndexProps): React.JSX.Eleme
 
                 <DataTable columns={[...definition.columns.map(title), 'Actions']}>
                     {loading ? (
-                        <tr>
-                            <td className="empty" colSpan={definition.columns.length + 1} style={{ padding: '36px', textAlign: 'center' }}>
-                                Loading records from server...
-                            </td>
-                        </tr>
+                        <SkeletonTableRows rows={perPage > 15 ? 10 : 6} columns={definition.columns.length + 1} />
                     ) : records.length > 0 ? (
                         records.map((record: any) => (
                             <tr key={record.id || record.key || record.reference}>

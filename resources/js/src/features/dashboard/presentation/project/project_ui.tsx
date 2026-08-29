@@ -2,8 +2,9 @@ import React from 'react';
 import { PageTitle } from '@/shared/component/ui/page_title';
 import { DataTable } from '@/shared/component/ui/data_table';
 import { CopyButton } from '@/shared/component/ui/copy_button';
-import { IconPlus, IconRefresh, IconSearch, IconX, IconArrowLeft } from '@/shared/component/ui/icons';
-import { navigate, displayValue, formatDate } from '@/shared/utils/format_utils';
+import { IconArrowLeft, IconPlus, IconRefresh, IconSearch, IconX } from '@/shared/component/ui/icons';
+import { formatDate, navigate } from '@/shared/utils/format_utils';
+import { SkeletonFormFields, SkeletonTableRows } from '@/shared/component/ui/skeleton';
 import { useProjectLogic } from './project_logic';
 
 export interface ProjectPageProps {
@@ -177,7 +178,7 @@ export function ProjectPage({ mode, id }: ProjectPageProps): React.JSX.Element {
                 {error && <div className="panel alert danger" style={{ marginBottom: '16px' }}>{error}</div>}
 
                 {loading ? (
-                    <div className="panel empty">Loading project details...</div>
+                    <SkeletonFormFields count={8} />
                 ) : record ? (
                     <div className="panel form-grid">
                         <div className="field">
@@ -315,11 +316,7 @@ export function ProjectPage({ mode, id }: ProjectPageProps): React.JSX.Element {
 
                 <DataTable columns={['Name', 'Type', 'Slug', 'Callback URL', 'Created', 'Actions']}>
                     {loading ? (
-                        <tr>
-                            <td colSpan={6} className="empty" style={{ padding: '36px', textAlign: 'center' }}>
-                                Loading projects...
-                            </td>
-                        </tr>
+                        <SkeletonTableRows rows={perPage > 15 ? 10 : 6} columns={6} />
                     ) : records.length > 0 ? (
                         records.map((row: any) => {
                             const primaryKey = row.id || row.key || row.name;

@@ -4,6 +4,7 @@ import { DataTable } from '@/shared/component/ui/data_table';
 import { CopyButton } from '@/shared/component/ui/copy_button';
 import { IconPlus, IconRefresh, IconSearch, IconX, IconArrowLeft } from '@/shared/component/ui/icons';
 import { navigate } from '@/shared/utils/format_utils';
+import { SkeletonFormFields, SkeletonTableRows } from '@/shared/component/ui/skeleton';
 import { useSettingLogic } from './setting_logic';
 
 export interface SettingPageProps {
@@ -120,7 +121,7 @@ export function SettingPage({ mode, id }: SettingPageProps): React.JSX.Element {
                 {error && <div className="panel alert danger" style={{ marginBottom: '16px' }}>{error}</div>}
 
                 {loading ? (
-                    <div className="panel empty">Loading setting details...</div>
+                    <SkeletonFormFields count={3} />
                 ) : record ? (
                     <div className="panel form-grid">
                         <div className="field">
@@ -214,11 +215,7 @@ export function SettingPage({ mode, id }: SettingPageProps): React.JSX.Element {
 
                 <DataTable columns={['Key', 'Value', 'Updated', 'Actions']}>
                     {loading ? (
-                        <tr>
-                            <td colSpan={4} className="empty" style={{ padding: '36px', textAlign: 'center' }}>
-                                Loading settings...
-                            </td>
-                        </tr>
+                        <SkeletonTableRows rows={perPage > 15 ? 10 : 6} columns={4} />
                     ) : records.length > 0 ? (
                         records.map((row: any) => {
                             const primaryKey = row.id || row.key;

@@ -5,6 +5,7 @@ import { CopyButton } from '@/shared/component/ui/copy_button';
 import { renderBadge } from '@/shared/component/ui/badge';
 import { IconPlus, IconRefresh, IconSearch, IconX, IconArrowLeft } from '@/shared/component/ui/icons';
 import { navigate, displayValue, formatDate } from '@/shared/utils/format_utils';
+import { SkeletonFormFields, SkeletonTableRows } from '@/shared/component/ui/skeleton';
 import { usePaymentRepositoryLogic } from './payment_repository_logic';
 
 export interface PaymentRepositoryPageProps {
@@ -19,6 +20,7 @@ export function PaymentRepositoryPage({ mode, id }: PaymentRepositoryPageProps):
         record,
         form,
         setForm,
+        gateways,
         jsonError,
         loading,
         saving,
@@ -32,20 +34,20 @@ export function PaymentRepositoryPage({ mode, id }: PaymentRepositoryPageProps):
         setPerPage,
         total,
         currentPage,
-        loadList,
         handleSearchSubmit,
         handleClearSearch,
         handleFormSubmit,
         handleDelete,
+        loadList,
     } = usePaymentRepositoryLogic({ mode, id });
 
     if (mode === 'resource-create' || mode === 'resource-edit') {
         return (
             <>
                 <PageTitle
-                    eyebrow="Gateway Credentials"
-                    title={isEdit ? `Edit Repository: #${id}` : 'Create Payment Repository'}
-                    subtitle="Configure gateway credentials, API keys, webhook secrets, and surcharges."
+                    eyebrow="Gateway Configurations"
+                    title={isEdit ? `Edit Repository #${id}` : 'Create Payment Repository'}
+                    subtitle="Configure gateway credentials, environment mode, and fee surcharge settings."
                 >
                     <div className="toolbar">
                         <button type="button" className="button" onClick={() => navigate('/admin/payment-repositories')}>
@@ -70,15 +72,20 @@ export function PaymentRepositoryPage({ mode, id }: PaymentRepositoryPageProps):
                         )}
 
                         <label className="field">
-                            <span className="label">Payment Gateway ID *</span>
-                            <input
+                            <span className="label">Payment Gateway *</span>
+                            <select
                                 className="input"
-                                type="text"
                                 required
-                                placeholder="Gateway ID (e.g. 1, 2, 3)"
                                 value={form.payment_gateway_id}
                                 onChange={(e) => setForm({ ...form, payment_gateway_id: e.target.value })}
-                            />
+                            >
+                                <option value="">-- Select Payment Gateway --</option>
+                                {gateways.map((gw) => (
+                                    <option key={gw.id} value={gw.id}>
+                                        {gw.name} ({gw.key}) - #{gw.id}
+                                    </option>
+                                ))}
+                            </select>
                         </label>
 
                         <label className="field">
@@ -86,7 +93,7 @@ export function PaymentRepositoryPage({ mode, id }: PaymentRepositoryPageProps):
                             <input
                                 className="input"
                                 type="text"
-                                placeholder="e.g. duitku, stripe, xendit"
+                                placeholder="e.g. default_duitku_sandbox"
                                 value={form.key}
                                 onChange={(e) => setForm({ ...form, key: e.target.value })}
                             />
@@ -149,7 +156,7 @@ export function PaymentRepositoryPage({ mode, id }: PaymentRepositoryPageProps):
                 {error && <div className="panel alert danger" style={{ marginBottom: '16px' }}>{error}</div>}
 
                 {loading ? (
-                    <div className="panel empty">Loading repository details...</div>
+                    <SkeletonFormFields count={5} />
                 ) : record ? (
                     <>
                         <div className="panel form-grid" style={{ marginBottom: '24px' }}>
@@ -162,8 +169,10 @@ export function PaymentRepositoryPage({ mode, id }: PaymentRepositoryPageProps):
                             </div>
 
                             <div className="field">
-                                <span className="label">Payment Gateway ID</span>
-                                <div className="input mono">Gateway #{record.payment_gateway_id}</div>
+                                <span className="label">Gateway Name</span>
+                                <div className="input" style={{ fontWeight: 600 }}>
+                                    {record.payment_gateway?.name || `Gateway #${record.payment_gateway_id}`}
+                                </div>
                             </div>
 
                             <div className="field">
@@ -282,13 +291,9 @@ export function PaymentRepositoryPage({ mode, id }: PaymentRepositoryPageProps):
                     </div>
                 </div>
 
-                <DataTable columns={['ID', 'Gateway ID', 'Key', 'Mode', 'Config Summary', 'Created', 'Actions']}>
+                <DataTable columns={['ID', 'Gateway Name', 'Key', 'Mode', 'Config Summary', 'Created', 'Actions']}>
                     {loading ? (
-                        <tr>
-                            <td colSpan={7} className="empty" style={{ padding: '36px', textAlign: 'center' }}>
-                                Loading payment repositories...
-                            </td>
-                        </tr>
+                        <SkeletonTableRows rows={perPage > 15 ? 10 : 6} columns={7} />
                     ) : records.length > 0 ? (
                         records.map((row: any) => {
                             const primaryKey = row.id;
@@ -300,7 +305,12 @@ export function PaymentRepositoryPage({ mode, id }: PaymentRepositoryPageProps):
                                         #{row.id}
                                         <CopyButton text={String(row.id)} />
                                     </td>
-                                    <td>Gateway #{row.payment_gateway_id}</td>
+                                    <td>
+                                        <strong>{row.payment_gateway?.name || `Gateway #${row.payment_gateway_id}`}</strong>
+                                        <div className="muted mono" style={{ fontSize: '11px' }}>
+                                            ID: {row.payment_gateway_id}
+                                        </div>
+                                    </td>
                                     <td><span className="badge blue">{row.key || '-'}</span></td>
                                     <td>{renderBadge('mode', row.mode)}</td>
                                     <td style={{ maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '12px' }}>

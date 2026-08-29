@@ -4,6 +4,7 @@ import { DataTable } from '@/shared/component/ui/data_table';
 import { CopyButton } from '@/shared/component/ui/copy_button';
 import { IconPlus, IconRefresh, IconSearch, IconX, IconArrowLeft } from '@/shared/component/ui/icons';
 import { navigate } from '@/shared/utils/format_utils';
+import { SkeletonFormFields, SkeletonTableRows } from '@/shared/component/ui/skeleton';
 import { usePaymentMethodLogic } from './payment_method_logic';
 
 export interface PaymentMethodPageProps {
@@ -166,7 +167,7 @@ export function PaymentMethodPage({ mode, id }: PaymentMethodPageProps): React.J
                 {error && <div className="panel alert danger" style={{ marginBottom: '16px' }}>{error}</div>}
 
                 {loading ? (
-                    <div className="panel empty">Loading method details...</div>
+                    <SkeletonFormFields count={6} />
                 ) : record ? (
                     <div className="panel form-grid">
                         <div className="field">
@@ -276,11 +277,7 @@ export function PaymentMethodPage({ mode, id }: PaymentMethodPageProps): React.J
 
                 <DataTable columns={['Key', 'Name', 'Type', 'From', 'Bank Code', 'Value', 'Actions']}>
                     {loading ? (
-                        <tr>
-                            <td colSpan={7} className="empty" style={{ padding: '36px', textAlign: 'center' }}>
-                                Loading payment methods...
-                            </td>
-                        </tr>
+                        <SkeletonTableRows rows={perPage > 15 ? 10 : 6} columns={7} />
                     ) : records.length > 0 ? (
                         records.map((row: any) => {
                             const primaryKey = row.id || row.key;

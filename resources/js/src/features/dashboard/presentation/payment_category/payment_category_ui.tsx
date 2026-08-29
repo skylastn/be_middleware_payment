@@ -4,6 +4,7 @@ import { DataTable } from '@/shared/component/ui/data_table';
 import { CopyButton } from '@/shared/component/ui/copy_button';
 import { IconPlus, IconRefresh, IconSearch, IconX, IconArrowLeft } from '@/shared/component/ui/icons';
 import { navigate, formatDate } from '@/shared/utils/format_utils';
+import { SkeletonFormFields, SkeletonTableRows } from '@/shared/component/ui/skeleton';
 import { usePaymentCategoryLogic } from './payment_category_logic';
 
 export interface PaymentCategoryPageProps {
@@ -131,7 +132,7 @@ export function PaymentCategoryPage({ mode, id }: PaymentCategoryPageProps): Rea
                 {error && <div className="panel alert danger" style={{ marginBottom: '16px' }}>{error}</div>}
 
                 {loading ? (
-                    <div className="panel empty">Loading category details...</div>
+                    <SkeletonFormFields count={4} />
                 ) : record ? (
                     <div className="panel form-grid">
                         <div className="field">
@@ -230,11 +231,7 @@ export function PaymentCategoryPage({ mode, id }: PaymentCategoryPageProps): Rea
 
                 <DataTable columns={['Key', 'Title', 'Detail', 'Created', 'Actions']}>
                     {loading ? (
-                        <tr>
-                            <td colSpan={5} className="empty" style={{ padding: '36px', textAlign: 'center' }}>
-                                Loading payment categories...
-                            </td>
-                        </tr>
+                        <SkeletonTableRows rows={perPage > 15 ? 10 : 6} columns={5} />
                     ) : records.length > 0 ? (
                         records.map((row: any) => {
                             const primaryKey = row.id || row.key;

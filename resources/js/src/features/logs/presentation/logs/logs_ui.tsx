@@ -11,6 +11,7 @@ import {
     IconTrash,
     IconX,
 } from '@/shared/component/ui/icons';
+import { SkeletonTableRows } from '@/shared/component/ui/skeleton';
 import { LOG_LEVEL_OPTIONS } from '../../domain/model/enum/log_level';
 import { useLogsLogic } from './logs_logic';
 
@@ -277,11 +278,7 @@ export function LogsPage(): React.JSX.Element {
                         </thead>
                         <tbody>
                             {loading ? (
-                                <tr>
-                                    <td colSpan={5} className="empty" style={{ padding: '36px', textAlign: 'center' }}>
-                                        Loading log events...
-                                    </td>
-                                </tr>
+                                <SkeletonTableRows rows={perPage > 15 ? 10 : 6} columns={5} />
                             ) : logs.length > 0 ? (
                                 logs.map((log) => {
                                     const isExpanded = Boolean(expandedRows[log.index]);

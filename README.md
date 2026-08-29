@@ -102,6 +102,17 @@ Routes -> Controllers (Api) -> Services (Strategy Router) -> Repositories -> Elo
 
 ### Main API Endpoints
 
+- **Admin Backoffice (Protected by Sanctum Token + Admin Role):**
+  - `GET /api/admin/dashboard` — Live operations dashboard & metric aggregations.
+  - `GET /api/admin/orders` — Paginated orders list with date range & repository filters.
+  - `GET /api/admin/orders/{id}` — Order details with raw payload inspection.
+  - `POST /api/admin/orders/{id}/resend-callback` — Manually retry merchant webhook delivery.
+  - `GET /api/admin/projects` — Manage merchant project configurations.
+  - `GET /api/admin/payment-gateways` — Manage gateway adapters.
+  - `GET /api/admin/payment-repositories` — Manage credentials sets per environment mode.
+  - `GET /api/admin/payment-methods` — Configure payment channels.
+  - `GET /api/admin/payment-categories` — Manage UI payment categories.
+  - `GET /api/admin/settings` — Backoffice platform settings.
 - **Client Payment (Frontend Flow - Protected by Expirable Redis Token):**
   - `GET /api/client/order/detail` — Retrieve order details by reference using temporary Redis token.
   - `GET /api/client/order/checkOrderStatus` — Inquire payment status for client checkout.
