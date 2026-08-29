@@ -15,6 +15,7 @@ use App\Model\Entity\PaymentMethod;
 use App\Model\Entity\PaymentRepository;
 use App\Model\Entity\Project;
 use App\Repository\Payment\DuitkuRepository;
+use App\Services\System\RedisService;
 use Carbon\Carbon;
 use Duitku\Config;
 use Duitku\Pop;
@@ -26,10 +27,12 @@ use stdClass;
 class DuitkuService
 {
     private PaymentRepositoryService $paymentRepositoryService;
+    private RedisService $redisService;
 
     public function __construct()
     {
         $this->paymentRepositoryService = new PaymentRepositoryService;
+        $this->redisService = new RedisService;
     }
 
     public function getPaymentRepo(string|PaymentModeType|null $mode, int|string|null $id): ?PaymentRepository
@@ -203,7 +206,8 @@ class DuitkuService
         $msg = 'Success Create Order Duitku';
         $result['link'] = $response->paymentUrl;
         if (FormatHelper::isNotEmpty($request->version) && $request->version == '2') {
-            $result['link'] = env('PAYMENT_URL') . '/detailpayment?token=' . $project->value . '&reference=' . $order->reference;
+            $token = $this->redisService->generatePaymentToken($project->id, $project->value, $order->reference);
+            $result['link'] = env('PAYMENT_URL') . '/detailpayment?token=' . $token . '&reference=' . $order->reference;
         }
         $result['result'] = $response;
         $result['message'] = $msg;
