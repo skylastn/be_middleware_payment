@@ -22,6 +22,8 @@ class OrderService
 
     private OrderRepository $orders;
 
+    private OrderHistoryService $orderHistoryService;
+
     private XenditService $xenditService;
 
     private DuitkuService $duitkuService;
@@ -36,6 +38,7 @@ class OrderService
     {
         $this->projectService = new ProjectService;
         $this->orders = new OrderRepository;
+        $this->orderHistoryService = new OrderHistoryService;
         $this->xenditService = new XenditService;
         $this->duitkuService = new DuitkuService;
         $this->midtransService = new MidtransService;
@@ -131,7 +134,7 @@ class OrderService
 
     public function getOrderById(int|string $id): ?Order
     {
-        return $this->orders->findById($id);
+        return $this->orders->findById($id, ['histories']);
     }
 
     public function resendCallbackById(int|string $id): Order
@@ -166,7 +169,7 @@ class OrderService
 
     public function setSuccessById(int|string $id): Order
     {
-        $order = $this->orders->findById($id);
+        $order = $this->orders->findById($id, ['histories']);
         if (! $order) {
             throw new Exception('Order Not Found', 404);
         }
@@ -174,10 +177,20 @@ class OrderService
         return $this->markAsSuccessAndSendCallback($order);
     }
 
-    public function markAsSuccessAndSendCallback(Order $order, ?Project $project = null): Order
+    public function markAsSuccessAndSendCallback(Order $order, ?Project $project = null, string $source = 'MANUAL_OVERRIDE'): Order
     {
+        $previousStatus = $order->status;
         $order->setStatus(OrderStatus::SUCCESS);
         $order->save();
+
+        $this->orderHistoryService->log(
+            $order,
+            OrderStatus::SUCCESS,
+            $source,
+            'Status marked as SUCCESS and callback dispatched to merchant.',
+            ['updated_by' => auth('sanctum')->user()?->email ?? 'API'],
+            $previousStatus
+        );
 
         $project ??= $order->project ?: Project::where('type', $order->type)->first();
         if ($project && $project->value && $project->callback) {
@@ -185,7 +198,7 @@ class OrderService
                 $project->value,
                 [
                     'merchantOrderId' => $order->getMerchantOrderId(),
-                    'paymentCode' => $order->payment_method ?: 'MANUAL',
+                    'paymentCode' => $order->payment_method ?: '',
                     'resultCode' => '00',
                 ],
                 $project->callback,

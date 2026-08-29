@@ -27,10 +27,13 @@ class XenditService
 
     private PaymentRepositoryService $paymentRepositoryService;
 
+    private OrderHistoryService $orderHistoryService;
+
     public function __construct()
     {
         $this->apiInstance = new InvoiceApi;
         $this->paymentRepositoryService = new PaymentRepositoryService;
+        $this->orderHistoryService = new OrderHistoryService;
     }
 
     public function getPaymentRepo(string|PaymentModeType|null $mode, int|string|null $id): ?PaymentRepository
@@ -187,10 +190,20 @@ class XenditService
             throw new Exception('Status Undefined', 403);
         }
 
+        $previousStatus = $order->status;
         $order->setCallback(json_encode($request->all()));
         $order->setStatus($status);
         $order->setPaymentMethod($request->payment_channel);
         $order->save();
+
+        $this->orderHistoryService->log(
+            $order,
+            $status,
+            'WEBHOOK_XENDIT',
+            "Xendit invoice webhook callback received: {$request->status}",
+            $request->all(),
+            $previousStatus
+        );
 
         $split = explode('-', $request->external_id);
         $project = Project::where('type', $split[0])->first();

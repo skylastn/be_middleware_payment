@@ -5,7 +5,7 @@ import { CopyButton } from '@/shared/component/ui/copy_button';
 import { renderBadge } from '@/shared/component/ui/badge';
 import { IconRefresh, IconSearch, IconX, IconArrowLeft, IconCalendar, IconRepositories } from '@/shared/component/ui/icons';
 import { navigate, displayValue, formatDate, getMonthRange, getLastDaysRange, getTodayDateString } from '@/shared/utils/format_utils';
-import { Skeleton, SkeletonTableRows } from '@/shared/component/ui/skeleton';
+import { SkeletonFormFields, SkeletonTableRows } from '@/shared/component/ui/skeleton';
 import { ModalDialog } from '@/shared/component/ui/modal_dialog';
 import { useOrderLogic } from './order_logic';
 
@@ -88,7 +88,7 @@ export function OrderPage({ mode, id }: OrderPageProps): React.JSX.Element {
                 {error && <div className="panel alert danger" style={{ marginBottom: '16px' }}>{error}</div>}
 
                 {loading ? (
-                    <div className="panel empty">Loading order details...</div>
+                    <SkeletonFormFields count={6} />
                 ) : record ? (
                     <>
                         <div className="panel form-grid" style={{ marginBottom: '24px' }}>
@@ -133,7 +133,7 @@ export function OrderPage({ mode, id }: OrderPageProps): React.JSX.Element {
                             </div>
                         </div>
 
-                        <div className="panel" style={{ padding: '24px' }}>
+                        <div className="panel" style={{ padding: '24px', marginBottom: '24px' }}>
                             <div className="panel-title" style={{ fontSize: '15px', marginBottom: '16px' }}>
                                 Raw Payload Inspection
                             </div>
@@ -171,6 +171,61 @@ export function OrderPage({ mode, id }: OrderPageProps): React.JSX.Element {
                                     );
                                 })}
                             </div>
+                        </div>
+
+                        {/* Status Change Audit History */}
+                        <div className="panel" style={{ padding: '24px' }}>
+                            <div className="panel-title" style={{ fontSize: '15px', marginBottom: '16px' }}>
+                                Status Change History & Audit Logs
+                            </div>
+
+                            {Array.isArray(record.histories) && record.histories.length > 0 ? (
+                                <div className="table-wrap">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>Timestamp</th>
+                                                <th>Status Transition</th>
+                                                <th>Source</th>
+                                                <th>Description</th>
+                                                <th>Payload Snapshot</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {record.histories.map((h: any) => (
+                                                <tr key={h.id}>
+                                                    <td>{formatDate(h.created_at)}</td>
+                                                    <td>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                            {h.from_status ? renderBadge('status', h.from_status) : <span className="muted">-</span>}
+                                                            <span style={{ color: 'var(--text-subtle)' }}>&rarr;</span>
+                                                            {renderBadge('status', h.to_status)}
+                                                        </div>
+                                                    </td>
+                                                    <td>
+                                                        <span className="badge blue mono">{h.source || 'SYSTEM'}</span>
+                                                    </td>
+                                                    <td>{h.description || '-'}</td>
+                                                    <td className="mono" style={{ maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                        {h.payload ? (
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                <span>{JSON.stringify(h.payload).slice(0, 40)}...</span>
+                                                                <CopyButton text={JSON.stringify(h.payload, null, 2)} />
+                                                            </div>
+                                                        ) : (
+                                                            <span className="muted">-</span>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ) : (
+                                <div className="muted" style={{ fontSize: '13px', padding: '12px 0' }}>
+                                    No status changes logged yet for this order.
+                                </div>
+                            )}
                         </div>
                     </>
                 ) : (

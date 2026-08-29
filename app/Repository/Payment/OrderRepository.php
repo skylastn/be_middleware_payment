@@ -49,9 +49,9 @@ class OrderRepository extends BaseRepository
             ->first();
     }
 
-    public function findById(int|string $id): ?Order
+    public function findById(int|string $id, array $with = []): ?Order
     {
-        return $this->find($id);
+        return $this->find($id, $with);
     }
 
     protected function modelClass(): string

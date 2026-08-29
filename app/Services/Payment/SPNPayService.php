@@ -23,11 +23,13 @@ class SPNPayService
 {
     private PaymentRepositoryService $paymentRepositoryService;
     private RedisService $redisService;
+    private OrderHistoryService $orderHistoryService;
 
     public function __construct()
     {
         $this->paymentRepositoryService = new PaymentRepositoryService;
         $this->redisService = new RedisService;
+        $this->orderHistoryService = new OrderHistoryService;
     }
 
     public function getPaymentRepo(string|PaymentModeType|null $mode, int|string|null $id): ?PaymentRepository
@@ -247,9 +249,19 @@ class SPNPayService
             default:
                 throw new Exception('Status not found');
         }
+        $previousStatus = $order->status;
         $order->setCallback(json_encode($request->all()));
         $order->setStatus($status);
         $order->save();
+
+        $this->orderHistoryService->log(
+            $order,
+            $status,
+            'WEBHOOK_SPNPAY',
+            "SPNPay callback status received: {$status->value}",
+            $request->all(),
+            $previousStatus
+        );
 
         $paymentMethod = PaymentMethod::where('value', $order->payment_method)->first();
 

@@ -31,10 +31,12 @@ use Stripe\Webhook;
 class StripeService
 {
     private PaymentRepositoryService $paymentRepositoryService;
+    private OrderHistoryService $orderHistoryService;
 
     public function __construct()
     {
         $this->paymentRepositoryService = new PaymentRepositoryService;
+        $this->orderHistoryService = new OrderHistoryService;
     }
 
     public function getPaymentRepo(string|PaymentModeType|null $mode, int|string|null $id): ?PaymentRepository
@@ -477,6 +479,7 @@ class StripeService
                     $isSuccessEvent = $event->type === 'payment_intent.succeeded';
                     $alreadySucceeded = $matchedOrder->getStatus()?->isSuccess();
 
+                    $previousStatus = $matchedOrder->status;
                     if ($isSuccessEvent) {
                         if (! $alreadySucceeded) {
                             $matchedOrder->setStatus(OrderStatus::SUCCESS);
@@ -486,6 +489,15 @@ class StripeService
                         $matchedOrder->setStatus(OrderStatus::FAILED);
                     }
                     $matchedOrder->save();
+
+                    $this->orderHistoryService->log(
+                        $matchedOrder,
+                        $matchedOrder->status ?? OrderStatus::SUCCESS,
+                        'WEBHOOK_STRIPE',
+                        "Stripe webhook event processed: {$event->type}",
+                        $event->toArray(),
+                        $previousStatus
+                    );
 
                     // Send merchant callback after save (and controller will commit after this method)
                     // Skip if already succeeded (e.g. confirmStripe already processed success + sent the merchant callback)
@@ -636,11 +648,23 @@ class StripeService
 
             $order->setResponse($resultJson);
             $order->setPaymentMethod('card');
+            $previousStatus = $order->status;
             $newStatus = $this->mapStripePiStatusToOrder($confirmedIntent->status);
             if ($newStatus) {
                 $order->setStatus($newStatus);
             }
             $order->save();
+
+            if ($newStatus) {
+                $this->orderHistoryService->log(
+                    $order,
+                    $newStatus,
+                    'DIRECT_CARD_CONFIRM',
+                    "Stripe PaymentIntent confirmed: {$confirmedIntent->status}",
+                    $confirmedIntent->toArray(),
+                    $previousStatus
+                );
+            }
 
             if ($confirmedIntent->status === 'succeeded') {
                 // Merchant callback (project's webhook) is sent here, right after save but before the controller's DB::commit().

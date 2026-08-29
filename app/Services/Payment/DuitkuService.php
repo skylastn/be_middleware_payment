@@ -28,11 +28,13 @@ class DuitkuService
 {
     private PaymentRepositoryService $paymentRepositoryService;
     private RedisService $redisService;
+    private OrderHistoryService $orderHistoryService;
 
     public function __construct()
     {
         $this->paymentRepositoryService = new PaymentRepositoryService;
         $this->redisService = new RedisService;
+        $this->orderHistoryService = new OrderHistoryService;
     }
 
     public function getPaymentRepo(string|PaymentModeType|null $mode, int|string|null $id): ?PaymentRepository
@@ -261,6 +263,7 @@ class DuitkuService
             default => throw new Exception("Status Undefined: resultCode={$notif->resultCode}"),
         };
         $reference = $request->merchantOrderId;
+        $previousStatus = $order->status;
         $order->setCallback(json_encode($request->all()));
         $order->setStatus($status);
         $paymentMethod = PaymentMethod::where('key', $request->paymentCode)->where('from', 'duitku')->first();
@@ -271,6 +274,15 @@ class DuitkuService
 
         $order->setPaymentMethod($paymentMethod->value);
         $order->save();
+
+        $this->orderHistoryService->log(
+            $order,
+            $status,
+            'WEBHOOK_DUITKU',
+            "Duitku webhook callback received with resultCode: {$notif->resultCode}",
+            $request->all(),
+            $previousStatus
+        );
 
         $split = explode('-', $reference);
         $project = Project::where('type', $split[0])->first();

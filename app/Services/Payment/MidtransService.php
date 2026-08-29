@@ -24,10 +24,12 @@ use Midtrans\Notification;
 class MidtransService
 {
     private PaymentRepositoryService $paymentRepositoryService;
+    private OrderHistoryService $orderHistoryService;
 
     public function __construct()
     {
         $this->paymentRepositoryService = new PaymentRepositoryService;
+        $this->orderHistoryService = new OrderHistoryService;
     }
 
     public function getPaymentRepo(string|PaymentModeType|null $mode, int|string|null $id): ?PaymentRepository
@@ -167,6 +169,7 @@ class MidtransService
             throw new Exception('Status '.$status->value, 403);
         }
 
+        $previousStatus = $order->status;
         $order->setCallback(json_encode($request->all()));
         $order->setStatus($status);
 
@@ -186,6 +189,15 @@ class MidtransService
 
         $order->setPaymentMethod($paymentMethod->value);
         $order->save();
+
+        $this->orderHistoryService->log(
+            $order,
+            $status,
+            'WEBHOOK_MIDTRANS',
+            "Midtrans transaction status received: {$transaction}",
+            $request->all(),
+            $previousStatus
+        );
 
         $split = explode('-', $reference);
         $project = Project::where('type', $split[0])->first();

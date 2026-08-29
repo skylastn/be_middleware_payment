@@ -7,6 +7,7 @@ use App\Enums\PaymentModeType;
 use App\Traits\BaseModelTrait;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Order extends Model
@@ -60,6 +61,11 @@ class Order extends Model
     public function payment_repository(): HasOne
     {
         return $this->hasOne(PaymentRepository::class, 'id', 'payment_repository_id');
+    }
+
+    public function histories(): HasMany
+    {
+        return $this->hasMany(OrderHistory::class, 'order_id', 'id')->orderBy('created_at', 'asc');
     }
 
     // ------------------------------------------------------------
