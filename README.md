@@ -112,6 +112,7 @@ Routes -> Controllers (Api) -> Services (Strategy Router) -> Repositories -> Elo
   - `GET /api/admin/projects` — Manage merchant project configurations.
   - `GET /api/admin/payment-gateways` — Manage gateway adapters.
   - `GET /api/admin/payment-repositories` — Manage credentials sets per environment mode.
+  - `POST /api/admin/payment-repositories/{id}/test-order` — Simulate test order creation with API version selection (`v1`/`v2`) & credentials testing.
   - `GET /api/admin/payment-methods` — Configure payment channels.
   - `GET /api/admin/payment-categories` — Manage UI payment categories.
   - `GET /api/admin/settings` — Backoffice platform settings.
@@ -123,7 +124,7 @@ Routes -> Controllers (Api) -> Services (Strategy Router) -> Repositories -> Elo
   - `GET /api/client/payment/getPaymentMethod` — Retrieve payment methods for client UI.
   - `GET /api/client/payment/getDetailPaymentMethod` — Get details for a specific payment method.
 - **Order Management (Server-to-Server - Protected by Merchant Project Token):**
-  - `POST /api/order/create` — Create a new payment order (auto-routed to the configured gateway).
+  - `POST /api/order/create` — Create a new payment order (auto-routed to the configured gateway, supports `version` parameter for tokenized checkout).
   - `GET /api/order` — Fetch list of payment orders.
   - `GET /api/order/detail` — Retrieve order details by reference.
   - `GET /api/order/checkOrderStatus` — Real-time status inquiry directly against the payment gateway engine.
@@ -140,6 +141,7 @@ Routes -> Controllers (Api) -> Services (Strategy Router) -> Repositories -> Elo
   - `POST /api/callback/xendit` — Webhook handler for Xendit.
   - `POST /api/callback/spnpay` — Webhook handler for SPNPay.
   - `POST /api/callback/stripe` — Webhook handler for Stripe.
+  - `POST /api/callback/paprika` — Webhook handler for Paprika (SNAP 1.0 format).
 - **Merchant Project Management:**
   - `GET /api/project` — List registered merchant projects.
   - `POST /api/project/create` — Register a new merchant project.

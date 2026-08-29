@@ -899,6 +899,29 @@ const updatedCollection = {
                     response: [],
                 },
                 {
+                    name: 'Test Create Order (Payment Repository)',
+                    request: {
+                        auth: bearerAuth,
+                        method: 'POST',
+                        header: [
+                            { key: 'Content-Type', value: 'application/json', type: 'text' },
+                            { key: 'Accept', value: 'application/json', type: 'text' },
+                        ],
+                        body: {
+                            mode: 'raw',
+                            raw: '{\n    "amount": 10000,\n    "currency": "IDR",\n    "email": "test-customer@example.com",\n    "name": "Test Buyer",\n    "version": "2",\n    "paymentMethod": ""\n}',
+                            options: { raw: { language: 'json' } },
+                        },
+                        url: {
+                            raw: '{{url_payment}}admin/payment-repositories/{{paymentRepositoryId}}/test-order',
+                            host: ['{{url_payment}}admin'],
+                            path: ['payment-repositories', '{{paymentRepositoryId}}', 'test-order'],
+                        },
+                        description: 'Simulate create order on gateway repository with version (v1: Direct Gateway URL, v2: Hosted Payment URL /detailpayment).',
+                    },
+                    response: [],
+                },
+                {
                     name: 'Get Settings (List)',
                     request: {
                         auth: bearerAuth,
