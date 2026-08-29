@@ -164,7 +164,7 @@ class OrderService
             $project->value,
             [
                 'merchantOrderId' => $order->getMerchantOrderId(),
-                'paymentCode' => $order->payment_method ?: '',
+                'paymentCode' => $order->payment_method,
                 'resultCode' => '00',
             ],
             $project->callback,

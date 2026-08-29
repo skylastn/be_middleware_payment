@@ -36,7 +36,7 @@ class ClientPaymentController extends Controller
                 throw new Exception('Unknown Order', 400);
             }
 
-            return ResponseHelper::successResponse($response);
+            return ResponseHelper::successResponse(new \App\Model\Response\Order\OrderResource($response));
         } catch (Exception $ex) {
             $error['line'] = $ex->getLine();
             $error['message'] = $ex->getMessage();

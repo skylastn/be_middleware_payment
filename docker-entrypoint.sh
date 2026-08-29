@@ -7,12 +7,18 @@ set -e
 # 777 allows the root process (FrankenPHP/Octane) to always write logs, sessions, views, etc.
 # even if the mounted dir on host was created with restrictive perms.
 mkdir -p /app/storage/logs \
+         /app/storage/app/public/payment-methods \
          /app/storage/framework/cache \
          /app/storage/framework/sessions \
          /app/storage/framework/views \
          /app/bootstrap/cache
 
 chmod -R 777 /app/storage /app/bootstrap/cache
+
+# Ensure public/storage symlink exists for serving uploaded public files
+if [ ! -L /app/public/storage ] && [ ! -e /app/public/storage ]; then
+    php artisan storage:link --force || true
+fi
 
 # Also make sure built assets (public/build) are world-readable inside container
 # (the anon volume in compose inits from image; this ensures access).

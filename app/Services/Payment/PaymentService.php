@@ -143,17 +143,21 @@ class PaymentService
             if (str_starts_with($data['image'], 'data:image/')) {
                 $imageParts = explode(';base64,', $data['image']);
                 if (count($imageParts) === 2) {
-                    $imageTypeAux = explode('image/', $imageParts[0]);
-                    $imageType = $imageTypeAux[1] ?? 'png';
-                    if (str_contains($imageType, 'svg')) {
+                    $header = strtolower($imageParts[0]);
+                    $imageType = 'png';
+                    if (\Illuminate\Support\Str::contains($header, 'svg')) {
                         $imageType = 'svg';
+                    } elseif (\Illuminate\Support\Str::contains($header, ['jpeg', 'jpg'])) {
+                        $imageType = 'jpg';
+                    } elseif (\Illuminate\Support\Str::contains($header, 'webp')) {
+                        $imageType = 'webp';
                     }
                     $imageBase64 = base64_decode($imageParts[1]);
                     $fileName = 'payment-methods/' . uniqid('pm_') . '.' . $imageType;
                     Storage::disk('public')->put($fileName, $imageBase64);
                     $data['image'] = $fileName;
                 }
-            } elseif (str_contains($data['image'], '/storage/')) {
+            } elseif (\Illuminate\Support\Str::contains($data['image'], '/storage/')) {
                 $parts = explode('/storage/', $data['image']);
                 $data['image'] = end($parts);
             }
