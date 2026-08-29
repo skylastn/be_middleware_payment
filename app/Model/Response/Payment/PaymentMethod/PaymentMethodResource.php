@@ -16,7 +16,8 @@ class PaymentMethodResource extends ResponseResource
                 $imageUrl = $this->image;
             } else {
                 $relativePath = ltrim(preg_replace('#^storage/#', '', $this->image), '/');
-                $imageUrl = url('/storage/' . $relativePath);
+                $baseUrl = rtrim(config('app.url', env('APP_URL', 'http://localhost:8000')), '/');
+                $imageUrl = $baseUrl . '/storage/' . $relativePath;
             }
         }
 
