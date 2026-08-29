@@ -28,6 +28,8 @@ class OrderService
 
     private StripeService $stripeService;
 
+    private PaprikaService $paprikaService;
+
     public function __construct()
     {
         $this->projectService = new ProjectService;
@@ -37,17 +39,21 @@ class OrderService
         $this->midtransService = new MidtransService;
         $this->spnPayService = new SPNPayService;
         $this->stripeService = new StripeService;
+        $this->paprikaService = new PaprikaService;
     }
 
     public function getListOrder(Request $request): LengthAwarePaginator
     {
-        if (auth('sanctum')->user()?->isAdmin()) {
-            return $this->orders->latestPaginated((int) ($request->perPage ?? 15));
-        }
+        $search = $request->query('search');
+        $mode = $request->query('mode');
+        $status = $request->query('status');
+        $perPage = (int) ($request->query('per_page', $request->query('perPage', 15)));
 
-        $project = $this->projectService->checkKey();
+        $type = auth('sanctum')->user()?->isAdmin()
+            ? $request->query('type')
+            : $this->projectService->checkKey()->type;
 
-        return $this->orders->latestByType($project->type, (int) ($request->perPage ?? 15));
+        return $this->orders->latestPaginated($perPage, $search, $mode, $status, $type);
     }
 
     public function detailByReferenceAndKey(string $reference, ?string $projectType): ?Order
@@ -97,6 +103,9 @@ class OrderService
         }
         if ($project->slug == ProjectSlug::STRIPE) {
             return $this->stripeService->order($request, $project);
+        }
+        if ($project->slug == ProjectSlug::PAPRIKA) {
+            return $this->paprikaService->orderPaprika($request, $project);
         }
         throw new Exception('Undefined Project');
     }

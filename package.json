@@ -3,13 +3,19 @@
     "type": "module",
     "scripts": {
         "dev": "vite",
-        "build": "vite build"
+        "build": "vite build",
+        "lint": "tsc --noEmit",
+        "typecheck": "tsc --noEmit"
     },
     "devDependencies": {
+        "@types/lodash": "^4.17.25",
+        "@types/react": "^19.2.18",
+        "@types/react-dom": "^19.2.4",
         "axios": "^1.8",
         "laravel-vite-plugin": "^1.2",
         "lodash": "^4.17.21",
         "postcss": "^8.5",
+        "typescript": "^7.0.2",
         "vite": "^6.3"
     },
     "dependencies": {

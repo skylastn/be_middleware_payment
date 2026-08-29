@@ -22,8 +22,8 @@ class OrderResource extends ResponseResource
             'address' => $this->address,
             'phone' => $this->phone,
             'email' => $this->email,
-            'created_at' => $this->created_at?->toISOString(),
-            'updated_at' => $this->updated_at?->toISOString(),
+            'created_at' => $this->formatDate($this->created_at),
+            'updated_at' => $this->formatDate($this->updated_at),
         ];
     }
 }
