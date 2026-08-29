@@ -323,6 +323,44 @@ const updatedCollection = {
                     response: [],
                 },
                 {
+                    name: 'Get Project Logs',
+                    request: {
+                        auth: bearerAuth,
+                        method: 'GET',
+                        header: [{ key: 'Accept', value: 'application/json', type: 'text' }],
+                        url: {
+                            raw: '{{url_payment}}admin/projects/:id/logs?page=1&per_page=20',
+                            host: ['{{url_payment}}admin'],
+                            path: ['projects', ':id', 'logs'],
+                            query: [
+                                { key: 'page', value: '1' },
+                                { key: 'per_page', value: '20' },
+                                { key: 'search', value: '', disabled: true },
+                                { key: 'key', value: '', disabled: true },
+                            ],
+                            variable: [{ key: 'id', value: '1' }],
+                        },
+                        description: 'Fetch dedicated project transaction and event logs with pagination and filters.',
+                    },
+                    response: [],
+                },
+                {
+                    name: 'Clear Project Logs',
+                    request: {
+                        auth: bearerAuth,
+                        method: 'DELETE',
+                        header: [{ key: 'Accept', value: 'application/json', type: 'text' }],
+                        url: {
+                            raw: '{{url_payment}}admin/projects/:id/logs',
+                            host: ['{{url_payment}}admin'],
+                            path: ['projects', ':id', 'logs'],
+                            variable: [{ key: 'id', value: '1' }],
+                        },
+                        description: 'Truncate log table for specified project.',
+                    },
+                    response: [],
+                },
+                {
                     name: 'Create Project',
                     request: {
                         auth: bearerAuth,

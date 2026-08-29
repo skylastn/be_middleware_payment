@@ -49,10 +49,14 @@ class PaprikaOrderCreateTest extends TestCase
             'value' => Str::random(60),
             'callback' => 'https://example.com/callback',
         ]);
+
+        Order::where('reference', 'like', 'AD-FM-%')->forceDelete();
     }
 
     protected function tearDown(): void
     {
+        Order::where('reference', 'like', 'AD-FM-%')->forceDelete();
+
         if ($this->project && $this->project->exists) {
             $this->project->delete();
         }

@@ -10,6 +10,7 @@ export interface ModalDialogProps {
     cancelText?: string;
     confirmTone?: 'primary' | 'danger' | 'success';
     loading?: boolean;
+    maxWidth?: string;
     onConfirm: () => void;
     onClose: () => void;
 }
@@ -23,6 +24,7 @@ export function ModalDialog({
     cancelText = 'Cancel',
     confirmTone = 'primary',
     loading = false,
+    maxWidth,
     onConfirm,
     onClose,
 }: ModalDialogProps): React.JSX.Element | null {
@@ -30,7 +32,7 @@ export function ModalDialog({
 
     return (
         <div className="modal-backdrop" onClick={onClose}>
-            <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-card" style={maxWidth ? { maxWidth } : undefined} onClick={(e) => e.stopPropagation()}>
                 <div className="modal-header">
                     <div className="modal-title-wrap">
                         <h3 className="modal-title">{title}</h3>

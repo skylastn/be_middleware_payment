@@ -15,6 +15,7 @@ import { PaymentMethodPage } from '@/features/dashboard/presentation/payment_met
 import { PaymentCategoryPage } from '@/features/dashboard/presentation/payment_category/payment_category_ui';
 import { SettingPage } from '@/features/dashboard/presentation/setting/setting_ui';
 import { GatewayHistoryPage } from '@/features/dashboard/presentation/gateway_history/gateway_history_ui';
+import { ProjectLogPage } from '@/features/dashboard/presentation/project_log/project_log_ui';
 import { LogsPage } from '@/features/logs/presentation/logs/logs_ui';
 import { Shell } from '@/shared/component/layout/shell_ui';
 import { useTheme } from '@/shared/hooks/use_theme';
@@ -31,6 +32,11 @@ function parseRoute(pathname: string): RouteInfo {
 
     if (pathname === '/admin/gateway-history' || pathname === '/gateway-history') {
         return { page: 'gateway-history' as any };
+    }
+
+    const projectLogsMatch = pathname.match(/^\/(?:admin\/)?projects\/([^/]+)\/logs$/);
+    if (projectLogsMatch) {
+        return { page: 'project-logs', resource: 'projects', id: projectLogsMatch[1] };
     }
 
     const match = pathname.match(/^\/admin\/([^/]+)(?:\/([^/]+))?(?:\/(edit))?$/);
@@ -116,6 +122,9 @@ export function App(): React.JSX.Element {
         }
         if ((route.page as string) === 'gateway-history') {
             return <GatewayHistoryPage />;
+        }
+        if (route.page === 'project-logs' && route.id) {
+            return <ProjectLogPage projectId={route.id} />;
         }
         if (
             route.page === 'resource-index' ||

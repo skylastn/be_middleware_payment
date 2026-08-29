@@ -7,6 +7,7 @@ use App\Repository\System\ProjectRepository;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Http\Request;
 use App\Model\Entity\Project;
+use App\Model\Response\Project\ProjectLogResource;
 use Exception;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -117,6 +118,34 @@ class ProjectService
             'slug' => ProjectSlug::fromName($payload['slug']),
             'callback' => $payload['callback'],
         ]);
+    }
+
+    public function getProjectLogs(int|string $id, Request $request): LengthAwarePaginator
+    {
+        $project = Project::findOrFailCustom($id);
+        $search = $request->query('search');
+        $key = $request->query('key');
+        $dateFrom = $request->query('date_from');
+        $dateTo = $request->query('date_to');
+        $perPage = (int) ($request->query('per_page', $request->query('perPage', 20)));
+
+        $paginator = $this->projects->getProjectLogs($project->id, $perPage, $search, $key, $dateFrom, $dateTo);
+
+        return $paginator->through(fn ($item) => (new ProjectLogResource($item))->toArray(request()));
+    }
+
+    public function getProjectLogKeys(int|string $id): array
+    {
+        $project = Project::findOrFailCustom($id);
+
+        return $this->projects->getDistinctLogKeys($project->id);
+    }
+
+    public function clearProjectLogs(int|string $id): bool
+    {
+        $project = Project::findOrFailCustom($id);
+
+        return $this->projects->clearProjectLogs($project->id);
     }
 
     public function delete(int|string $id): Project
