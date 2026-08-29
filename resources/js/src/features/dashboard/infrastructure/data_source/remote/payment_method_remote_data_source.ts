@@ -1,5 +1,6 @@
 import { apiClient } from '@/shared/network/api_client';
-import { PaymentMethodFilterRequest, PaymentMethodItem, PaymentMethodListResponse } from '@/features/dashboard/domain/model/payment/payment_method_model';
+import { PaymentMethodFilterRequest } from '@/features/dashboard/domain/model/request/payment/payment_method_filter_request';
+import { PaymentMethodItem, PaymentMethodListResponse } from '@/features/dashboard/domain/model/response/payment/payment_method_response';
 
 export class PaymentMethodRemoteDataSource {
     async getPaymentMethods(params?: PaymentMethodFilterRequest): Promise<PaymentMethodListResponse> {

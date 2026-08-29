@@ -1,5 +1,6 @@
 import { PaymentMethodRepository } from '../../domain/repository/payment_method_repository';
-import { PaymentMethodFilterRequest, PaymentMethodItem, PaymentMethodListResponse } from '../../domain/model/payment/payment_method_model';
+import { PaymentMethodFilterRequest } from '../../domain/model/request/payment/payment_method_filter_request';
+import { PaymentMethodItem, PaymentMethodListResponse } from '../../domain/model/response/payment/payment_method_response';
 import { PaymentMethodRemoteDataSource } from '../data_source/remote/payment_method_remote_data_source';
 
 export class PaymentMethodRepositoryImpl implements PaymentMethodRepository {

@@ -1,5 +1,5 @@
-import { OrderItem, OrderListResponse } from '../model/order/order_response';
-import { OrderFilterRequest } from '../model/order/order_filter_request';
+import { OrderItem, OrderListResponse } from '../model/response/order/order_response';
+import { OrderFilterRequest } from '../model/request/order/order_filter_request';
 
 export interface OrderRepository {
     getOrders(params?: OrderFilterRequest): Promise<OrderListResponse>;

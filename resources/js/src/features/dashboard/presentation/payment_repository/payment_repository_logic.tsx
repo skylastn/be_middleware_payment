@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { paymentRepositoryService } from '../../application/payment_repository_service';
 import { paymentGatewayService } from '../../application/payment_gateway_service';
-import { PaymentRepositoryItem } from '../../domain/model/payment/payment_repository_model';
+import { PaymentRepositoryItem } from '../../domain/model/response/payment/payment_repository_response';
 import { navigate } from '@/shared/utils/format_utils';
 
 export interface UsePaymentRepositoryLogicProps {

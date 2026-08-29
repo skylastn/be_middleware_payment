@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { orderService } from '../../application/order_service';
 import { paymentRepositoryService } from '../../application/payment_repository_service';
-import { OrderItem } from '../../domain/model/order/order_response';
+import { OrderItem } from '../../domain/model/response/order/order_response';
 
 export interface UseOrderLogicProps {
     mode: 'resource-index' | 'resource-create' | 'resource-edit' | 'resource-show';

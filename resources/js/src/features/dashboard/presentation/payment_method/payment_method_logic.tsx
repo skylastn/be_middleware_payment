@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { paymentMethodService } from '../../application/payment_method_service';
-import { PaymentMethodItem } from '../../domain/model/payment/payment_method_model';
+import { PaymentMethodItem } from '../../domain/model/response/payment/payment_method_response';
 import { navigate } from '@/shared/utils/format_utils';
 
 export interface UsePaymentMethodLogicProps {

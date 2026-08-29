@@ -1,5 +1,6 @@
 import { apiClient } from '@/shared/network/api_client';
-import { PaymentCategoryFilterRequest, PaymentCategoryItem, PaymentCategoryListResponse } from '@/features/dashboard/domain/model/payment/payment_category_model';
+import { PaymentCategoryFilterRequest } from '@/features/dashboard/domain/model/request/payment/payment_category_filter_request';
+import { PaymentCategoryItem, PaymentCategoryListResponse } from '@/features/dashboard/domain/model/response/payment/payment_category_response';
 
 export class PaymentCategoryRemoteDataSource {
     async getPaymentCategories(params?: PaymentCategoryFilterRequest): Promise<PaymentCategoryListResponse> {

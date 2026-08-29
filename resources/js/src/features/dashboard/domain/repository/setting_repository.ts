@@ -1,4 +1,5 @@
-import { SettingFilterRequest, SettingItem, SettingListResponse } from '../model/setting/setting_model';
+import { SettingItem, SettingListResponse } from '../model/response/setting/setting_response';
+import { SettingFilterRequest } from '../model/request/setting/setting_filter_request';
 
 export interface SettingRepository {
     getSettings(params?: SettingFilterRequest): Promise<SettingListResponse>;

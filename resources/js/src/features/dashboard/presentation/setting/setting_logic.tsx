@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { settingService } from '../../application/setting_service';
-import { SettingItem } from '../../domain/model/setting/setting_model';
+import { SettingItem } from '../../domain/model/response/setting/setting_response';
 import { navigate } from '@/shared/utils/format_utils';
 
 export interface UseSettingLogicProps {

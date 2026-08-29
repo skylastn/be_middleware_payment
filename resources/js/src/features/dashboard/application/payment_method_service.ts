@@ -1,6 +1,7 @@
 import { PaymentMethodRepository } from '../domain/repository/payment_method_repository';
 import { PaymentMethodRepositoryImpl } from '../infrastructure/persistence/payment_method_repository_impl';
-import { PaymentMethodFilterRequest, PaymentMethodItem, PaymentMethodListResponse } from '../domain/model/payment/payment_method_model';
+import { PaymentMethodFilterRequest } from '../domain/model/request/payment/payment_method_filter_request';
+import { PaymentMethodItem, PaymentMethodListResponse } from '../domain/model/response/payment/payment_method_response';
 
 export class PaymentMethodService {
     private repo: PaymentMethodRepository;

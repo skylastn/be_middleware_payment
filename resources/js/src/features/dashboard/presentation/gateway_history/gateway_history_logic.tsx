@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { gatewayHistoryService } from '../../application/gateway_history_service';
 import { paymentRepositoryService } from '../../application/payment_repository_service';
-import { GatewayHistoryItem, GatewayHistoryPayload } from '../../domain/model/gateway_history/gateway_history_model';
+import { GatewayHistoryItem, GatewayHistoryPayload } from '../../domain/model/response/gateway_history/gateway_history_response';
 
 export function useGatewayHistoryLogic() {
     const [payload, setPayload] = useState<GatewayHistoryPayload | null>(null);

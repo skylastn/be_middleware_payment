@@ -1,6 +1,6 @@
 import { OrderRepository } from '../../domain/repository/order_repository';
-import { OrderItem, OrderListResponse } from '../../domain/model/order/order_response';
-import { OrderFilterRequest } from '../../domain/model/order/order_filter_request';
+import { OrderItem, OrderListResponse } from '../../domain/model/response/order/order_response';
+import { OrderFilterRequest } from '../../domain/model/request/order/order_filter_request';
 import { OrderRemoteDataSource } from '../data_source/remote/order_remote_data_source';
 
 export class OrderRepositoryImpl implements OrderRepository {

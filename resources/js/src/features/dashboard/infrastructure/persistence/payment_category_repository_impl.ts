@@ -1,5 +1,6 @@
 import { PaymentCategoryRepository } from '../../domain/repository/payment_category_repository';
-import { PaymentCategoryFilterRequest, PaymentCategoryItem, PaymentCategoryListResponse } from '../../domain/model/payment/payment_category_model';
+import { PaymentCategoryFilterRequest } from '../../domain/model/request/payment/payment_category_filter_request';
+import { PaymentCategoryItem, PaymentCategoryListResponse } from '../../domain/model/response/payment/payment_category_response';
 import { PaymentCategoryRemoteDataSource } from '../data_source/remote/payment_category_remote_data_source';
 
 export class PaymentCategoryRepositoryImpl implements PaymentCategoryRepository {

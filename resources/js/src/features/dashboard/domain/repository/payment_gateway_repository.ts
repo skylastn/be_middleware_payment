@@ -1,4 +1,5 @@
-import { PaymentGatewayFilterRequest, PaymentGatewayItem, PaymentGatewayListResponse } from '../model/payment/payment_gateway_model';
+import { PaymentGatewayItem, PaymentGatewayListResponse } from '../model/response/payment/payment_gateway_response';
+import { PaymentGatewayFilterRequest } from '../model/request/payment/payment_gateway_filter_request';
 
 export interface PaymentGatewayRepository {
     getPaymentGateways(params?: PaymentGatewayFilterRequest): Promise<PaymentGatewayListResponse>;

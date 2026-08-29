@@ -1,6 +1,6 @@
 import { apiClient } from '@/shared/network/api_client';
-import { OrderItem, OrderListResponse } from '@/features/dashboard/domain/model/order/order_response';
-import { OrderFilterRequest } from '@/features/dashboard/domain/model/order/order_filter_request';
+import { OrderItem, OrderListResponse } from '@/features/dashboard/domain/model/response/order/order_response';
+import { OrderFilterRequest } from '@/features/dashboard/domain/model/request/order/order_filter_request';
 
 export class OrderRemoteDataSource {
     async getOrders(params?: OrderFilterRequest): Promise<OrderListResponse> {

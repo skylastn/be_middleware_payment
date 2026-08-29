@@ -1,6 +1,7 @@
 import { ProjectRepository } from '../domain/repository/project_repository';
 import { ProjectRepositoryImpl } from '../infrastructure/persistence/project_repository_impl';
-import { ProjectFilterRequest, ProjectItem, ProjectListResponse } from '../domain/model/project/project_model';
+import { ProjectFilterRequest } from '../domain/model/request/project/project_filter_request';
+import { ProjectItem, ProjectListResponse } from '../domain/model/response/project/project_response';
 
 export class ProjectService {
     private repo: ProjectRepository;

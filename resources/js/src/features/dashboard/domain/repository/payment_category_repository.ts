@@ -1,4 +1,5 @@
-import { PaymentCategoryFilterRequest, PaymentCategoryItem, PaymentCategoryListResponse } from '../model/payment/payment_category_model';
+import { PaymentCategoryItem, PaymentCategoryListResponse } from '../model/response/payment/payment_category_response';
+import { PaymentCategoryFilterRequest } from '../model/request/payment/payment_category_filter_request';
 
 export interface PaymentCategoryRepository {
     getPaymentCategories(params?: PaymentCategoryFilterRequest): Promise<PaymentCategoryListResponse>;

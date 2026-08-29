@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { paymentGatewayService } from '../../application/payment_gateway_service';
-import { PaymentGatewayItem } from '../../domain/model/payment/payment_gateway_model';
+import { PaymentGatewayItem } from '../../domain/model/response/payment/payment_gateway_response';
 import { navigate } from '@/shared/utils/format_utils';
 
 export interface UsePaymentGatewayLogicProps {

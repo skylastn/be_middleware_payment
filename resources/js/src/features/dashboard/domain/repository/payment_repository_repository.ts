@@ -1,4 +1,5 @@
-import { PaymentRepositoryFilterRequest, PaymentRepositoryItem, PaymentRepositoryListResponse } from '../model/payment/payment_repository_model';
+import { PaymentRepositoryItem, PaymentRepositoryListResponse } from '../model/response/payment/payment_repository_response';
+import { PaymentRepositoryFilterRequest } from '../model/request/payment/payment_repository_filter_request';
 
 export interface PaymentRepositoryRepository {
     getPaymentRepositories(params?: PaymentRepositoryFilterRequest): Promise<PaymentRepositoryListResponse>;

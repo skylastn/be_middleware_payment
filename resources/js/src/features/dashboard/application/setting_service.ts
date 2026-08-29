@@ -1,6 +1,7 @@
 import { SettingRepository } from '../domain/repository/setting_repository';
 import { SettingRepositoryImpl } from '../infrastructure/persistence/setting_repository_impl';
-import { SettingFilterRequest, SettingItem, SettingListResponse } from '../domain/model/setting/setting_model';
+import { SettingFilterRequest } from '../domain/model/request/setting/setting_filter_request';
+import { SettingItem, SettingListResponse } from '../domain/model/response/setting/setting_response';
 
 export class SettingService {
     private repo: SettingRepository;

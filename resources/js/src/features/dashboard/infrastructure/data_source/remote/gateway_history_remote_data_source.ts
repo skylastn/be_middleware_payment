@@ -1,5 +1,6 @@
 import { apiClient } from '@/shared/network/api_client';
-import { GatewayHistoryFilterRequest, GatewayHistoryPayload } from '@/features/dashboard/domain/model/gateway_history/gateway_history_model';
+import { GatewayHistoryFilterRequest } from '@/features/dashboard/domain/model/request/gateway_history/gateway_history_filter_request';
+import { GatewayHistoryPayload } from '@/features/dashboard/domain/model/response/gateway_history/gateway_history_response';
 
 export class GatewayHistoryRemoteDataSource {
     async getGatewayHistory(params: GatewayHistoryFilterRequest): Promise<GatewayHistoryPayload> {

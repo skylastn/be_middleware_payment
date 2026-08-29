@@ -1,6 +1,7 @@
 import { PaymentCategoryRepository } from '../domain/repository/payment_category_repository';
 import { PaymentCategoryRepositoryImpl } from '../infrastructure/persistence/payment_category_repository_impl';
-import { PaymentCategoryFilterRequest, PaymentCategoryItem, PaymentCategoryListResponse } from '../domain/model/payment/payment_category_model';
+import { PaymentCategoryFilterRequest } from '../domain/model/request/payment/payment_category_filter_request';
+import { PaymentCategoryItem, PaymentCategoryListResponse } from '../domain/model/response/payment/payment_category_response';
 
 export class PaymentCategoryService {
     private repo: PaymentCategoryRepository;

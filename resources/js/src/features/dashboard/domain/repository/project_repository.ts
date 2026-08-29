@@ -1,4 +1,5 @@
-import { ProjectFilterRequest, ProjectItem, ProjectListResponse } from '../model/project/project_model';
+import { ProjectItem, ProjectListResponse } from '../model/response/project/project_response';
+import { ProjectFilterRequest } from '../model/request/project/project_filter_request';
 
 export interface ProjectRepository {
     getProjects(params?: ProjectFilterRequest): Promise<ProjectListResponse>;

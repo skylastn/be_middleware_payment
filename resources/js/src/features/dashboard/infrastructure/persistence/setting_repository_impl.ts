@@ -1,5 +1,6 @@
 import { SettingRepository } from '../../domain/repository/setting_repository';
-import { SettingFilterRequest, SettingItem, SettingListResponse } from '../../domain/model/setting/setting_model';
+import { SettingFilterRequest } from '../../domain/model/request/setting/setting_filter_request';
+import { SettingItem, SettingListResponse } from '../../domain/model/response/setting/setting_response';
 import { SettingRemoteDataSource } from '../data_source/remote/setting_remote_data_source';
 
 export class SettingRepositoryImpl implements SettingRepository {

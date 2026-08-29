@@ -1,5 +1,6 @@
 import { apiClient } from '@/shared/network/api_client';
-import { ProjectFilterRequest, ProjectItem, ProjectListResponse } from '@/features/dashboard/domain/model/project/project_model';
+import { ProjectFilterRequest } from '@/features/dashboard/domain/model/request/project/project_filter_request';
+import { ProjectItem, ProjectListResponse } from '@/features/dashboard/domain/model/response/project/project_response';
 
 export class ProjectRemoteDataSource {
     async getProjects(params?: ProjectFilterRequest): Promise<ProjectListResponse> {

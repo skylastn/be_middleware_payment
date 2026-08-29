@@ -1,4 +1,5 @@
-import { PaymentMethodFilterRequest, PaymentMethodItem, PaymentMethodListResponse } from '../model/payment/payment_method_model';
+import { PaymentMethodItem, PaymentMethodListResponse } from '../model/response/payment/payment_method_response';
+import { PaymentMethodFilterRequest } from '../model/request/payment/payment_method_filter_request';
 
 export interface PaymentMethodRepository {
     getPaymentMethods(params?: PaymentMethodFilterRequest): Promise<PaymentMethodListResponse>;

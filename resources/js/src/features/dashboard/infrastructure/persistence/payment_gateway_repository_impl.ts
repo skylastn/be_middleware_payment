@@ -1,5 +1,6 @@
 import { PaymentGatewayRepository } from '../../domain/repository/payment_gateway_repository';
-import { PaymentGatewayFilterRequest, PaymentGatewayItem, PaymentGatewayListResponse } from '../../domain/model/payment/payment_gateway_model';
+import { PaymentGatewayFilterRequest } from '../../domain/model/request/payment/payment_gateway_filter_request';
+import { PaymentGatewayItem, PaymentGatewayListResponse } from '../../domain/model/response/payment/payment_gateway_response';
 import { PaymentGatewayRemoteDataSource } from '../data_source/remote/payment_gateway_remote_data_source';
 
 export class PaymentGatewayRepositoryImpl implements PaymentGatewayRepository {

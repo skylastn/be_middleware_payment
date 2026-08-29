@@ -1,6 +1,7 @@
 import { PaymentRepositoryRepository } from '../domain/repository/payment_repository_repository';
 import { PaymentRepositoryRepositoryImpl } from '../infrastructure/persistence/payment_repository_repository_impl';
-import { PaymentRepositoryFilterRequest, PaymentRepositoryItem, PaymentRepositoryListResponse } from '../domain/model/payment/payment_repository_model';
+import { PaymentRepositoryFilterRequest } from '../domain/model/request/payment/payment_repository_filter_request';
+import { PaymentRepositoryItem, PaymentRepositoryListResponse } from '../domain/model/response/payment/payment_repository_response';
 
 export class PaymentRepositoryService {
     private repo: PaymentRepositoryRepository;

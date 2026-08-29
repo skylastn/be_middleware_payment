@@ -1,5 +1,6 @@
 import { apiClient } from '@/shared/network/api_client';
-import { PaymentGatewayFilterRequest, PaymentGatewayItem, PaymentGatewayListResponse } from '@/features/dashboard/domain/model/payment/payment_gateway_model';
+import { PaymentGatewayFilterRequest } from '@/features/dashboard/domain/model/request/payment/payment_gateway_filter_request';
+import { PaymentGatewayItem, PaymentGatewayListResponse } from '@/features/dashboard/domain/model/response/payment/payment_gateway_response';
 
 export class PaymentGatewayRemoteDataSource {
     async getPaymentGateways(params?: PaymentGatewayFilterRequest): Promise<PaymentGatewayListResponse> {

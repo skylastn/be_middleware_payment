@@ -1,5 +1,6 @@
 import { apiClient } from '@/shared/network/api_client';
-import { SettingFilterRequest, SettingItem, SettingListResponse } from '@/features/dashboard/domain/model/setting/setting_model';
+import { SettingFilterRequest } from '@/features/dashboard/domain/model/request/setting/setting_filter_request';
+import { SettingItem, SettingListResponse } from '@/features/dashboard/domain/model/response/setting/setting_response';
 
 export class SettingRemoteDataSource {
     async getSettings(params?: SettingFilterRequest): Promise<SettingListResponse> {

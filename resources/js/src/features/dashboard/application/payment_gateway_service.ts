@@ -1,6 +1,7 @@
 import { PaymentGatewayRepository } from '../domain/repository/payment_gateway_repository';
 import { PaymentGatewayRepositoryImpl } from '../infrastructure/persistence/payment_gateway_repository_impl';
-import { PaymentGatewayFilterRequest, PaymentGatewayItem, PaymentGatewayListResponse } from '../domain/model/payment/payment_gateway_model';
+import { PaymentGatewayFilterRequest } from '../domain/model/request/payment/payment_gateway_filter_request';
+import { PaymentGatewayItem, PaymentGatewayListResponse } from '../domain/model/response/payment/payment_gateway_response';
 
 export class PaymentGatewayService {
     private repo: PaymentGatewayRepository;

@@ -1,5 +1,6 @@
 import { ProjectRepository } from '../../domain/repository/project_repository';
-import { ProjectFilterRequest, ProjectItem, ProjectListResponse } from '../../domain/model/project/project_model';
+import { ProjectFilterRequest } from '../../domain/model/request/project/project_filter_request';
+import { ProjectItem, ProjectListResponse } from '../../domain/model/response/project/project_response';
 import { ProjectRemoteDataSource } from '../data_source/remote/project_remote_data_source';
 
 export class ProjectRepositoryImpl implements ProjectRepository {

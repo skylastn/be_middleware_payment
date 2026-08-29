@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { paymentCategoryService } from '../../application/payment_category_service';
-import { PaymentCategoryItem } from '../../domain/model/payment/payment_category_model';
+import { PaymentCategoryItem } from '../../domain/model/response/payment/payment_category_response';
 import { navigate } from '@/shared/utils/format_utils';
 
 export interface UsePaymentCategoryLogicProps {

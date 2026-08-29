@@ -1,7 +1,7 @@
 import { OrderRepository } from '../domain/repository/order_repository';
 import { OrderRepositoryImpl } from '../infrastructure/persistence/order_repository_impl';
-import { OrderItem, OrderListResponse } from '../domain/model/order/order_response';
-import { OrderFilterRequest } from '../domain/model/order/order_filter_request';
+import { OrderItem, OrderListResponse } from '../domain/model/response/order/order_response';
+import { OrderFilterRequest } from '../domain/model/request/order/order_filter_request';
 
 export class OrderService {
     private repo: OrderRepository;

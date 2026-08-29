@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { projectService } from '../../application/project_service';
-import { ProjectItem } from '../../domain/model/project/project_model';
+import { ProjectItem } from '../../domain/model/response/project/project_response';
 import { navigate } from '@/shared/utils/format_utils';
 
 export interface UseProjectLogicProps {

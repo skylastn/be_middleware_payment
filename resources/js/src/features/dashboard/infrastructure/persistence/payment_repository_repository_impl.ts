@@ -1,5 +1,6 @@
 import { PaymentRepositoryRepository } from '../../domain/repository/payment_repository_repository';
-import { PaymentRepositoryFilterRequest, PaymentRepositoryItem, PaymentRepositoryListResponse } from '../../domain/model/payment/payment_repository_model';
+import { PaymentRepositoryFilterRequest } from '../../domain/model/request/payment/payment_repository_filter_request';
+import { PaymentRepositoryItem, PaymentRepositoryListResponse } from '../../domain/model/response/payment/payment_repository_response';
 import { PaymentRepositoryRemoteDataSource } from '../data_source/remote/payment_repository_remote_data_source';
 
 export class PaymentRepositoryRepositoryImpl implements PaymentRepositoryRepository {

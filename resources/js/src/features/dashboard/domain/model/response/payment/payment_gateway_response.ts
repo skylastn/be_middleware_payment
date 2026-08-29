@@ -16,9 +16,3 @@ export interface PaymentGatewayListResponse {
     currentPage?: number;
     data: PaymentGatewayItem[];
 }
-
-export interface PaymentGatewayFilterRequest {
-    page?: number;
-    per_page?: number;
-    search?: string;
-}
