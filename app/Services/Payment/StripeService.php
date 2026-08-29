@@ -171,7 +171,8 @@ class StripeService
                 'response_order_stripe'
             );
             $order->setResponse($result);
-            $order->setUrl($paymentIntent->client_secret);
+            $order->setUrl($paymentIntent->client_secret ?? null);
+            $order->setValue(null);
             $order->setPaymentRepositoryId($paymentRepo->id);
             $order->save();
 
@@ -348,7 +349,8 @@ class StripeService
             'response_order_stripe'
         );
         $order->setResponse($result);
-        $order->setUrl($checkoutSession->url);
+        $order->setUrl($checkoutSession->url ?? null);
+        $order->setValue(null);
         $order->setPaymentRepositoryId($paymentRepo->id);
         $order->save();
 

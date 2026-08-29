@@ -131,6 +131,16 @@ export function OrderPage({ mode, id }: OrderPageProps): React.JSX.Element {
                                 <span className="label">Payment Method</span>
                                 <div className="input mono">{record.payment_method || '-'}</div>
                             </div>
+
+                            <div className="field full">
+                                <span className="label">Value (QRIS / VA / Link / Code)</span>
+                                <div className="input mono" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        {record.value || '-'}
+                                    </span>
+                                    {record.value && <CopyButton text={record.value} />}
+                                </div>
+                            </div>
                         </div>
 
                         <div className="panel" style={{ padding: '24px', marginBottom: '24px' }}>

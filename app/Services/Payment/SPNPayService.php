@@ -77,8 +77,8 @@ class SPNPayService
         $req['request'] = json_encode($params);
         $order = Order::createAndFind($req);
 
-        // $order->response                    = json_encode(SPNPayRepository::responseOrderFilter($response));
         $order->url = $paymentUrl;
+        $order->setValue(null);
         $order->setStatus(OrderStatus::PENDING);
         $order->save();
 
@@ -156,8 +156,17 @@ class SPNPayService
             $project->id,
             'response_order_spnpay'
         );
+        $resData = $response->responseData ?? null;
+        $globalValue = $resData->virtualAccount->vaNumber
+            ?? $resData->qris->content
+            ?? $resData->retail->paymentCode
+            ?? null;
+
         $order->setPaymentRepositoryId($paymentRepo->id);
-        $order->setResponse(json_encode(SPNPayRepository::responseOrderFilter($response->responseData)));
+        if (isset($response->responseData)) {
+            $order->setResponse(json_encode(SPNPayRepository::responseOrderFilter($response->responseData)));
+        }
+        $order->setValue($globalValue);
         $order->save();
 
         $result['result'] = SPNPayRepository::responseOrderFilter($response->responseData);

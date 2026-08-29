@@ -157,8 +157,10 @@ class XenditService
             $project->id,
             'response_order_xendit'
         );
+        $globalValue = $createInvoice['account_number'] ?? $createInvoice['qr_string'] ?? null;
         $order->setResponse($result);
-        $order->setUrl($createInvoice['invoice_url']);
+        $order->setUrl($createInvoice['invoice_url'] ?? null);
+        $order->setValue($globalValue);
         $order->setPaymentRepositoryId($paymentRepo->id);
         $order->save();
 

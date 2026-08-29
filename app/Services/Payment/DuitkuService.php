@@ -200,8 +200,10 @@ class DuitkuService
             'response_order_duitku'
         );
 
+        $globalValue = $response->vaNumber ?? $response->qrString ?? null;
         $order->setResponse(json_encode($response));
-        $order->setUrl($response->paymentUrl);
+        $order->setUrl($response->paymentUrl ?? null);
+        $order->setValue($globalValue);
         $order->setPaymentRepositoryId($paymentRepo->id);
         $order->save();
 
