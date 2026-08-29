@@ -9,6 +9,7 @@ enum ProjectSlug: string
     case DUITKU = 'duitku';
     case SPNPAY = 'spnpay';
     case STRIPE = 'stripe';
+    case PAPRIKA = 'paprika';
 
     public static function toArray(): array
     {
@@ -18,6 +19,7 @@ enum ProjectSlug: string
             self::DUITKU,
             self::SPNPAY,
             self::STRIPE,
+            self::PAPRIKA
         ];
     }
 
@@ -34,6 +36,8 @@ enum ProjectSlug: string
                 return 'SPNPay';
             case self::STRIPE:
                 return 'Stripe';
+            case self::PAPRIKA:
+                return 'Paprika';
             default:
                 return 'Duitku';
                 break;
@@ -57,6 +61,8 @@ enum ProjectSlug: string
                 return ProjectSlug::SPNPAY;
             case self::STRIPE->value:
                 return ProjectSlug::STRIPE;
+            case self::PAPRIKA->value:
+                return ProjectSlug::PAPRIKA;
             default:
                 return ProjectSlug::DUITKU;
         }
