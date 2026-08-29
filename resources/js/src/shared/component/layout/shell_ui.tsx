@@ -1,14 +1,22 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { User } from '@/features/auth/domain/model/response/user_response';
 import { RouteInfo, Theme } from '@/features/resource/domain/model/resource_model';
-import { resourceList } from '@/features/resource/domain/constant/resource_definitions';
 import { navigate } from '@/shared/utils/format_utils';
 import {
-    getResourceIcon,
     IconDashboard,
     IconLogs,
+    IconLogout,
+    IconMenu,
     IconMoon,
+    IconOrders,
+    IconProjects,
+    IconGateways,
+    IconRepositories,
+    IconMethods,
+    IconCategories,
+    IconSettings,
     IconSun,
+    IconX,
 } from '@/shared/component/ui/icons';
 import { useShellLogic } from './shell_logic';
 
@@ -23,24 +31,158 @@ export interface ShellProps {
 
 export function Shell({ user, route, children, theme, onToggleTheme, onLogout }: ShellProps): React.JSX.Element {
     const { handleLogout } = useShellLogic({ user, route, theme, onToggleTheme, onLogout });
+    const [sidebarOpen, setSidebarOpen] = useState(false);
     const activeResource = route.resource;
 
+    const navSections = [
+        {
+            title: 'OVERVIEW',
+            items: [
+                {
+                    key: 'dashboard',
+                    label: 'Dashboard',
+                    icon: <IconDashboard />,
+                    active: route.page === 'dashboard',
+                    path: '/dashboard',
+                },
+                {
+                    key: 'orders',
+                    label: 'Orders',
+                    icon: <IconOrders />,
+                    active: activeResource === 'orders',
+                    path: '/admin/orders',
+                },
+                {
+                    key: 'projects',
+                    label: 'Projects',
+                    icon: <IconProjects />,
+                    active: activeResource === 'projects',
+                    path: '/admin/projects',
+                },
+            ],
+        },
+        {
+            title: 'GATEWAYS & CONFIG',
+            items: [
+                {
+                    key: 'payment-gateways',
+                    label: 'Payment Gateways',
+                    icon: <IconGateways />,
+                    active: activeResource === 'payment-gateways',
+                    path: '/admin/payment-gateways',
+                },
+                {
+                    key: 'payment-repositories',
+                    label: 'Payment Repositories',
+                    icon: <IconRepositories />,
+                    active: activeResource === 'payment-repositories',
+                    path: '/admin/payment-repositories',
+                },
+                {
+                    key: 'payment-methods',
+                    label: 'Payment Methods',
+                    icon: <IconMethods />,
+                    active: activeResource === 'payment-methods',
+                    path: '/admin/payment-methods',
+                },
+                {
+                    key: 'payment-categories',
+                    label: 'Payment Categories',
+                    icon: <IconCategories />,
+                    active: activeResource === 'payment-categories',
+                    path: '/admin/payment-categories',
+                },
+            ],
+        },
+        {
+            title: 'SYSTEM',
+            items: [
+                {
+                    key: 'settings',
+                    label: 'Settings',
+                    icon: <IconSettings />,
+                    active: activeResource === 'settings',
+                    path: '/admin/settings',
+                },
+                {
+                    key: 'logs',
+                    label: 'System Logs',
+                    icon: <IconLogs />,
+                    active: route.page === 'logs',
+                    path: '/admin/logs',
+                },
+            ],
+        },
+    ];
+
+    const getPageTitle = () => {
+        if (route.page === 'dashboard') return 'Dashboard';
+        if (route.page === 'logs') return 'System Logs';
+        if (activeResource) {
+            return activeResource.split('-').map((s) => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
+        }
+        return 'Overview';
+    };
+
     return (
-        <div className="shell">
-            <header className="topbar">
-                <div className="topbar-inner">
+        <div className="app-layout">
+            {/* Mobile Backdrop */}
+            {sidebarOpen && (
+                <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />
+            )}
+
+            {/* Left Sidebar */}
+            <aside className={`app-sidebar ${sidebarOpen ? 'open' : ''}`}>
+                <div className="sidebar-header">
                     <button className="brand link-button" onClick={() => navigate('/dashboard')}>
-                        <span className="brand-mark">MP</span>
-                        <span className="brand-copy">
-                            <span className="brand-title">Middleware Payment</span>
-                            {/* <span className="brand-subtitle">Unified Backoffice Console</span> */}
-                        </span>
+                        <span className="brand-title">Middleware Payment</span>
                     </button>
-                    <div className="userbar">
-                        {/* Theme Toggle Button */}
+                    <button
+                        type="button"
+                        className="mobile-sidebar-close"
+                        onClick={() => setSidebarOpen(false)}
+                    >
+                        <IconX />
+                    </button>
+                </div>
+
+                <nav className="sidebar-nav">
+                    {navSections.map((section) => (
+                        <div className="nav-section" key={section.title}>
+                            <div className="nav-section-title">{section.title}</div>
+                            <div className="nav-section-items">
+                                {section.items.map((item) => (
+                                    <button
+                                        key={item.key}
+                                        type="button"
+                                        className={`sidebar-nav-item ${item.active ? 'active' : ''}`}
+                                        onClick={() => {
+                                            navigate(item.path);
+                                            setSidebarOpen(false);
+                                        }}
+                                    >
+                                        <span className="nav-icon">{item.icon}</span>
+                                        <span className="nav-label">{item.label}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    ))}
+                </nav>
+
+                <div className="sidebar-footer">
+                    <div className="user-profile-row">
+                        <span className="avatar">{String(user?.name || 'A').slice(0, 1).toUpperCase()}</span>
+                        <div className="user-info">
+                            <span className="user-name">{user?.name || 'Administrator'}</span>
+                            <span className="user-role">{user?.role || 'Admin'}</span>
+                        </div>
+                    </div>
+
+                    <div className="sidebar-footer-actions">
                         <button
                             type="button"
-                            className="button"
+                            className="button footer-btn"
                             onClick={onToggleTheme}
                             title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
                         >
@@ -48,50 +190,50 @@ export function Shell({ user, route, children, theme, onToggleTheme, onLogout }:
                             <span>{theme === 'dark' ? 'Light' : 'Dark'}</span>
                         </button>
 
-                        <span className="user-chip">
-                            <span className="avatar">{String(user?.name || 'A').slice(0, 1).toUpperCase()}</span>
-                            <span>{user?.name || 'Administrator'}</span>
-                        </span>
-                        <button className="button" onClick={handleLogout}>
-                            Logout
+                        <button
+                            type="button"
+                            className="button footer-btn danger"
+                            onClick={handleLogout}
+                            title="Logout"
+                        >
+                            <IconLogout />
+                            <span>Logout</span>
                         </button>
                     </div>
                 </div>
+            </aside>
 
-                {/* Modern Navigation Tabs */}
-                <nav className="tabs-nav" aria-label="Backoffice navigation">
-                    <div className="tabs-container">
+            {/* Main Area */}
+            <div className="app-main">
+                <header className="app-topbar">
+                    <div className="topbar-left">
                         <button
-                            className={`tab ${route.page === 'dashboard' ? 'active' : ''}`}
-                            onClick={() => navigate('/dashboard')}
+                            type="button"
+                            className="mobile-sidebar-toggle"
+                            onClick={() => setSidebarOpen(!sidebarOpen)}
+                            title="Open navigation menu"
                         >
-                            <IconDashboard />
-                            <span>Dashboard</span>
+                            <IconMenu />
                         </button>
-                        <button
-                            className={`tab ${route.page === 'logs' ? 'active' : ''}`}
-                            onClick={() => navigate('/admin/logs')}
-                        >
-                            <IconLogs />
-                            <span>Logs</span>
-                        </button>
-                        {resourceList.map((item) => (
-                            <button
-                                className={`tab ${activeResource === item.key ? 'active' : ''}`}
-                                key={item.key}
-                                onClick={() => navigate(`/admin/${item.key}`)}
-                            >
-                                {getResourceIcon(item.key)}
-                                <span>{item.label}</span>
-                            </button>
-                        ))}
+                        <div className="breadcrumb-nav">
+                            <span className="breadcrumb-root">Backoffice</span>
+                            <span className="breadcrumb-separator">/</span>
+                            <span className="breadcrumb-current">{getPageTitle()}</span>
+                        </div>
                     </div>
-                </nav>
-            </header>
 
-            <main className="content">
-                {children}
-            </main>
+                    <div className="topbar-right">
+                        <div className="user-chip">
+                            <span className="avatar">{String(user?.name || 'A').slice(0, 1).toUpperCase()}</span>
+                            <span>{user?.name || 'Admin'}</span>
+                        </div>
+                    </div>
+                </header>
+
+                <main className="content">
+                    {children}
+                </main>
+            </div>
         </div>
     );
 }
