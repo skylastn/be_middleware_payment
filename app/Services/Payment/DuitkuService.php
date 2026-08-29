@@ -292,7 +292,7 @@ class DuitkuService
             throw new Exception('Payment not found : ' . $request->paymentCode);
         }
 
-        $order->setPaymentMethod($paymentMethod->value);
+        $order->setPaymentMethod($paymentMethod->key);
         $order->save();
 
         $this->orderHistoryService->log(
@@ -355,7 +355,6 @@ class DuitkuService
             if ($check) {
                 $temps[] = PaymentMethod::create([
                     'key' => $duitku->paymentMethod,
-                    'value' => $duitku->paymentMethod,
                     'name' => $duitku->paymentName,
                     'type' => '',
                     'from' => 'duitku',
