@@ -265,16 +265,22 @@ class PaprikaService {
             'response_order_paprika'
         );
 
+        $qrContent = $responseData['qrContent'] ?? null;
+        $qrUrl = $responseData['qrUrl'] ?? null;
         $order->setResponse(json_encode($responseData));
+        $order->setUrl($qrUrl ?? $qrContent);
+        $order->setValue($qrContent);
         $order->setPaymentRepositoryId($paymentRepo->id);
         $order->save();
-
-        $qrCode = $responseData['qrContent'] ?? $responseData['qrUrl'] ?? null;
         $msg = 'Success Create Order Paprika';
-        $result['link'] = $qrCode;
+        $result['link'] = $qrContent ?? $qrUrl;
         if (FormatHelper::isNotEmpty($request->version) && $request->version == '2') {
             $token = $this->redisService->generatePaymentToken($project->id, $project->value, $order->getReference());
-            $result['link'] = env('PAYMENT_URL') . '/detailpayment?token=' . $token . '&reference=' . $order->getReference();
+            if (FormatHelper::isNotEmpty($request->paymentMethod)) {
+                $result['link'] = env('PAYMENT_URL') . '/detailpayment?token=' . $token . '&reference=' . $order->getReference();
+            } else {
+                $result['link'] = env('PAYMENT_URL') . '/home?token=' . $token . '&reference=' . $order->getReference();
+            }
         }
         $result['result'] = $responseData;
         $result['message'] = $msg;
@@ -340,7 +346,7 @@ class PaprikaService {
         $payerIssuer = $request->input('additionalInfo.payerIssuer', '');
         $paymentMethod = PaymentMethod::where('key', $payerIssuer)->where('from', 'paprika')->first();
         if (FormatHelper::isNotEmpty($paymentMethod)) {
-            $order->setPaymentMethod($paymentMethod->value);
+            $order->setPaymentMethod($paymentMethod->key);
         }
 
         $order->save();

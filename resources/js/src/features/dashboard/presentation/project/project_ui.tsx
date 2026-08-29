@@ -2,7 +2,7 @@ import React from 'react';
 import { PageTitle } from '@/shared/component/ui/page_title';
 import { DataTable } from '@/shared/component/ui/data_table';
 import { CopyButton } from '@/shared/component/ui/copy_button';
-import { IconArrowLeft, IconPlus, IconRefresh, IconSearch, IconX } from '@/shared/component/ui/icons';
+import { IconArrowLeft, IconLogs, IconPlus, IconRefresh, IconSearch, IconX } from '@/shared/component/ui/icons';
 import { formatDate, navigate } from '@/shared/utils/format_utils';
 import { SkeletonFormFields, SkeletonTableRows } from '@/shared/component/ui/skeleton';
 import { useProjectLogic } from './project_logic';
@@ -134,6 +134,9 @@ export function ProjectPage({ mode, id }: ProjectPageProps): React.JSX.Element {
                     <div className="toolbar">
                         <button type="button" className="button" onClick={() => navigate('/admin/projects')}>
                             <IconArrowLeft /> Back to Projects
+                        </button>
+                        <button type="button" className="button" onClick={() => navigate(`/admin/projects/${id}/logs`)}>
+                            <IconLogs /> View Logs
                         </button>
                         <button type="button" className="button primary" onClick={() => navigate(`/admin/projects/${id}/edit`)}>
                             Edit Project
@@ -312,6 +315,14 @@ export function ProjectPage({ mode, id }: ProjectPageProps): React.JSX.Element {
                                     <td>{formatDate(row.created_at)}</td>
                                     <td>
                                         <div className="actions">
+                                            <button
+                                                className="button"
+                                                style={{ color: 'var(--primary)', fontWeight: 600 }}
+                                                onClick={() => navigate(`/admin/projects/${primaryKey}/logs`)}
+                                                title="View dedicated project logs"
+                                            >
+                                                <IconLogs /> Logs
+                                            </button>
                                             <button
                                                 className="button"
                                                 onClick={() => navigate(`/admin/projects/${primaryKey}`)}

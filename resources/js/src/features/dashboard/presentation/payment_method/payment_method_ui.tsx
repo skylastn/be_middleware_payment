@@ -33,18 +33,22 @@ export function PaymentMethodPage({ mode, id }: PaymentMethodPageProps): React.J
         currentPage,
         handleSearchSubmit,
         handleClearSearch,
+        handleImageUpload,
+        handleClearImage,
         handleFormSubmit,
         handleDelete,
         loadList,
     } = usePaymentMethodLogic({ mode, id });
 
     if (mode === 'resource-create' || mode === 'resource-edit') {
+        const formPreviewUrl = form.image_url || (form.image && (form.image.startsWith('http') || form.image.startsWith('data:')) ? form.image : (form.image ? `/storage/${form.image.replace(/^storage\//, '')}` : ''));
+
         return (
             <>
                 <PageTitle
                     eyebrow="Channel Definition"
                     title={isEdit ? `Edit Method #${id}` : 'Create Payment Method'}
-                    subtitle="Configure payment channel keys, provider drivers, and bank routing identifiers."
+                    subtitle="Configure payment channel keys, provider drivers, image logos, and bank routing identifiers."
                 >
                     <div className="toolbar">
                         <button type="button" className="button" onClick={() => navigate('/admin/payment-methods')}>
@@ -126,7 +130,7 @@ export function PaymentMethodPage({ mode, id }: PaymentMethodPageProps): React.J
                             </select>
                         </label>
 
-                        <label className="field">
+                        <label className="field full">
                             <span className="label">Bank Code / Sub-code</span>
                             <input
                                 className="input mono"
@@ -137,16 +141,65 @@ export function PaymentMethodPage({ mode, id }: PaymentMethodPageProps): React.J
                             />
                         </label>
 
-                        <label className="field">
-                            <span className="label">Gateway Internal Value (Code)</span>
-                            <input
-                                className="input mono"
-                                type="text"
-                                placeholder="e.g. BC, M2, VA_BCA"
-                                value={form.value}
-                                onChange={(e) => setForm({ ...form, value: e.target.value })}
-                            />
-                        </label>
+                        <div className="field full">
+                            <span className="label">Channel Logo / Image (Optional)</span>
+                            <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
+                                <div style={{
+                                    width: '72px',
+                                    height: '72px',
+                                    borderRadius: '8px',
+                                    border: '1px solid var(--border)',
+                                    background: '#ffffff',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    overflow: 'hidden',
+                                    flexShrink: 0,
+                                }}>
+                                    {formPreviewUrl ? (
+                                        <img
+                                            src={formPreviewUrl}
+                                            alt="Preview"
+                                            style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '4px' }}
+                                        />
+                                    ) : (
+                                        <span className="muted" style={{ fontSize: '11px', textAlign: 'center' }}>No Image</span>
+                                    )}
+                                </div>
+                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                        <label className="button" style={{ cursor: 'pointer', margin: 0 }}>
+                                            <span>{form.image ? 'Change Image' : 'Upload Image'}</span>
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                style={{ display: 'none' }}
+                                                onChange={(e) => {
+                                                    const file = e.target.files?.[0];
+                                                    if (file) handleImageUpload(file);
+                                                }}
+                                            />
+                                        </label>
+                                        {form.image && (
+                                            <button
+                                                type="button"
+                                                className="button danger"
+                                                onClick={handleClearImage}
+                                            >
+                                                Remove Image
+                                            </button>
+                                        )}
+                                    </div>
+                                    <input
+                                        className="input mono"
+                                        type="text"
+                                        placeholder="Or enter path / image URL (e.g. payment-methods/logo.png or https://...)"
+                                        value={form.image || ''}
+                                        onChange={(e) => setForm({ ...form, image: e.target.value, image_url: e.target.value })}
+                                    />
+                                </div>
+                            </div>
+                        </div>
 
                         <div className="field full" style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
                             <button className="button primary" type="submit" disabled={saving}>
@@ -160,6 +213,8 @@ export function PaymentMethodPage({ mode, id }: PaymentMethodPageProps): React.J
     }
 
     if (mode === 'resource-show') {
+        const showLogoUrl = record?.image_url || (record?.image ? (record.image.startsWith('http') ? record.image : `/storage/${record.image.replace(/^storage\//, '')}`) : '');
+
         return (
             <>
                 <PageTitle
@@ -180,7 +235,7 @@ export function PaymentMethodPage({ mode, id }: PaymentMethodPageProps): React.J
                 {error && <div className="panel alert danger" style={{ marginBottom: '16px' }}>{error}</div>}
 
                 {loading ? (
-                    <SkeletonFormFields count={6} />
+                    <SkeletonFormFields count={5} />
                 ) : record ? (
                     <div className="panel form-grid">
                         <div className="field">
@@ -221,8 +276,29 @@ export function PaymentMethodPage({ mode, id }: PaymentMethodPageProps): React.J
                         </div>
 
                         <div className="field full">
-                            <span className="label">Gateway Internal Value</span>
-                            <div className="input mono">{record.value || '-'}</div>
+                            <span className="label">Channel Logo</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                {showLogoUrl ? (
+                                    <>
+                                        <div style={{
+                                            width: '56px',
+                                            height: '56px',
+                                            borderRadius: '6px',
+                                            border: '1px solid var(--border)',
+                                            background: '#ffffff',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            overflow: 'hidden',
+                                        }}>
+                                            <img src={showLogoUrl} alt={record.name} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '4px' }} />
+                                        </div>
+                                        <CopyButton text={showLogoUrl} />
+                                    </>
+                                ) : (
+                                    <span className="muted">No logo provided</span>
+                                )}
+                            </div>
                         </div>
                     </div>
                 ) : (
@@ -237,7 +313,7 @@ export function PaymentMethodPage({ mode, id }: PaymentMethodPageProps): React.J
             <PageTitle
                 eyebrow="Payment Channels"
                 title="Payment Methods"
-                subtitle="Configure supported payment channels, gateway routing values, and bank codes."
+                subtitle="Configure supported payment channels, gateway routing keys, image logos, and bank codes."
             >
                 <div className="toolbar">
                     <button
@@ -292,12 +368,14 @@ export function PaymentMethodPage({ mode, id }: PaymentMethodPageProps): React.J
                     </div>
                 </div>
 
-                <DataTable columns={['Key', 'Name', 'Category', 'From', 'Bank Code', 'Value', 'Actions']}>
+                <DataTable columns={['Key', 'Name', 'Category', 'From', 'Bank Code', 'Actions']}>
                     {loading ? (
-                        <SkeletonTableRows rows={perPage > 15 ? 10 : 6} columns={7} />
+                        <SkeletonTableRows rows={perPage > 15 ? 10 : 6} columns={6} />
                     ) : records.length > 0 ? (
                         records.map((row: any) => {
                             const primaryKey = row.id || row.key;
+                            const tableLogoUrl = row.image_url || (row.image ? (row.image.startsWith('http') ? row.image : `/storage/${row.image.replace(/^storage\//, '')}`) : '');
+
                             return (
                                 <tr key={primaryKey}>
                                     <td className="mono">
@@ -307,7 +385,27 @@ export function PaymentMethodPage({ mode, id }: PaymentMethodPageProps): React.J
                                             <CopyButton text={String(row.id)} />
                                         </div>
                                     </td>
-                                    <td><strong>{row.name}</strong></td>
+                                    <td>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                            {tableLogoUrl && (
+                                                <img
+                                                    src={tableLogoUrl}
+                                                    alt={row.name}
+                                                    style={{
+                                                        width: '32px',
+                                                        height: '32px',
+                                                        objectFit: 'contain',
+                                                        borderRadius: '4px',
+                                                        background: '#ffffff',
+                                                        border: '1px solid var(--border)',
+                                                        padding: '2px',
+                                                        flexShrink: 0,
+                                                    }}
+                                                />
+                                            )}
+                                            <strong>{row.name}</strong>
+                                        </div>
+                                    </td>
                                     <td>
                                         <span className="badge">
                                             {row.category?.title ? `${row.category.title} (${row.category.key})` : (row.type || '-')}
@@ -315,7 +413,6 @@ export function PaymentMethodPage({ mode, id }: PaymentMethodPageProps): React.J
                                     </td>
                                     <td><span className="badge success">{row.from || '-'}</span></td>
                                     <td>{row.bankCode || '-'}</td>
-                                    <td className="mono">{row.value || '-'}</td>
                                     <td>
                                         <div className="actions">
                                             <button
@@ -343,7 +440,7 @@ export function PaymentMethodPage({ mode, id }: PaymentMethodPageProps): React.J
                         })
                     ) : (
                         <tr>
-                            <td colSpan={7} className="empty" style={{ padding: '36px', textAlign: 'center' }}>
+                            <td colSpan={6} className="empty" style={{ padding: '36px', textAlign: 'center' }}>
                                 No payment methods found.
                             </td>
                         </tr>

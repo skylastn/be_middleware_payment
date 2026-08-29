@@ -8,7 +8,8 @@ export interface PaymentMethodItem {
     type?: string;
     from?: string;
     bankCode?: string;
-    value?: string;
+    image?: string | null;
+    image_url?: string | null;
     category?: PaymentCategoryItem | null;
     created_at?: string;
     updated_at?: string;

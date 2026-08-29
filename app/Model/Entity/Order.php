@@ -30,6 +30,7 @@ class Order extends Model
         'type',
         'reference',
         'payment_method',
+        'value',
         'status',
         'request',
         'response',
@@ -50,7 +51,7 @@ class Order extends Model
 
     public function payment_methods(): HasOne
     {
-        return $this->hasOne(PaymentMethod::class, 'value', 'payment_method');
+        return $this->hasOne(PaymentMethod::class, 'key', 'payment_method');
     }
 
     public function project(): HasOne
@@ -154,6 +155,16 @@ class Order extends Model
     public function setPaymentMethod(?string $paymentMethod): void
     {
         $this->payment_method = $paymentMethod;
+    }
+
+    public function getValue(): ?string
+    {
+        return $this->value;
+    }
+
+    public function setValue(?string $value): void
+    {
+        $this->value = $value;
     }
 
     public function getStatus(): ?OrderStatus

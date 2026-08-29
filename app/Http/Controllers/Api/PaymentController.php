@@ -11,6 +11,7 @@ use App\Model\Request\Payment\PaymentGateway\CreatePaymentGatewayRequest;
 use App\Model\Request\Payment\PaymentMethod\CreatePaymentMethodRequest;
 use App\Model\Request\Payment\PaymentRepository\CreatePaymentRepositoryRequest;
 use App\Model\Request\Payment\Setting\CreateSettingRequest;
+use App\Model\Response\Payment\PaymentMethod\PaymentMethodResource;
 use App\Services\Payment\PaymentService;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -47,11 +48,11 @@ class PaymentController extends Controller
 
     public function getDetailPaymentMethod(Request $request): JsonResponse
     {
-        $value = $request->value;
-        $from = $request->from;
-        $result = $this->paymentService->getDetailPaymentMethod($value, $from);
+        $key = $request->query('key', $request->query('value'));
+        $from = $request->query('from');
+        $result = $this->paymentService->getDetailPaymentMethod($key, $from);
 
-        return ResponseHelper::successResponse($result);
+        return ResponseHelper::successResponse($result ? new PaymentMethodResource($result) : null);
     }
 
     public function createPayment(CreatePaymentRequest $request): JsonResponse
@@ -157,7 +158,7 @@ class PaymentController extends Controller
             return ResponseHelper::failedResponse('Payment Method Not Found', 'Not Found', 404);
         }
 
-        return ResponseHelper::successResponse($method);
+        return ResponseHelper::successResponse(new PaymentMethodResource($method));
     }
 
     public function createPaymentMethod(CreatePaymentMethodRequest $request): JsonResponse
@@ -167,7 +168,7 @@ class PaymentController extends Controller
             $method = $this->paymentService->createPaymentMethod($request->validated());
             DB::commit();
 
-            return ResponseHelper::successResponse($method, 'Success Create Payment Method', 201);
+            return ResponseHelper::successResponse(new PaymentMethodResource($method), 'Success Create Payment Method', 201);
         } catch (Exception $ex) {
             if (DB::transactionLevel() > 0) {
                 DB::rollback();
@@ -185,7 +186,7 @@ class PaymentController extends Controller
             $method = $this->paymentService->updatePaymentMethod($id, $request->validated());
             DB::commit();
 
-            return ResponseHelper::successResponse($method);
+            return ResponseHelper::successResponse(new PaymentMethodResource($method));
         } catch (Exception $ex) {
             if (DB::transactionLevel() > 0) {
                 DB::rollback();

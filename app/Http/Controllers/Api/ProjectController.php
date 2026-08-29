@@ -92,6 +92,45 @@ class ProjectController extends Controller
         }
     }
 
+    public function logs(Request $request, int|string $id): JsonResponse
+    {
+        try {
+            $logs = $this->projectService->getProjectLogs($id, $request);
+
+            return ResponseHelper::formatPagination($logs);
+        } catch (Exception $ex) {
+            LogHelper::sendErrorLog($ex);
+
+            return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400, $ex->getLine());
+        }
+    }
+
+    public function logKeys(int|string $id): JsonResponse
+    {
+        try {
+            $keys = $this->projectService->getProjectLogKeys($id);
+
+            return ResponseHelper::successResponse($keys, 'Success Get Project Log Keys');
+        } catch (Exception $ex) {
+            LogHelper::sendErrorLog($ex);
+
+            return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400, $ex->getLine());
+        }
+    }
+
+    public function clearLogs(int|string $id): JsonResponse
+    {
+        try {
+            $this->projectService->clearProjectLogs($id);
+
+            return ResponseHelper::successResponse(null, 'Success Clear Project Logs');
+        } catch (Exception $ex) {
+            LogHelper::sendErrorLog($ex);
+
+            return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400, $ex->getLine());
+        }
+    }
+
     public function syncMissingLog(): JsonResponse
     {
         try {

@@ -131,6 +131,9 @@ Route::middleware('throttle:api')->group(function () {
         Route::prefix('projects')->controller(ProjectController::class)->group(function () {
             Route::get('/', 'index');
             Route::get('/{id}', 'show');
+            Route::get('/{id}/logs', 'logs');
+            Route::get('/{id}/log-keys', 'logKeys');
+            Route::delete('/{id}/logs', 'clearLogs');
             Route::post('/create', 'store');
             Route::put('/{id}', 'update');
             Route::delete('/{id}', 'delete');

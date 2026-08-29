@@ -41,7 +41,7 @@ export interface ResourceDefinition {
 export type Theme = 'dark' | 'light';
 
 export interface RouteInfo {
-    page: 'dashboard' | 'logs' | 'gateway-history' | 'resource-index' | 'resource-create' | 'resource-edit' | 'resource-show';
+    page: 'dashboard' | 'logs' | 'gateway-history' | 'project-logs' | 'resource-index' | 'resource-create' | 'resource-edit' | 'resource-show';
     resource?: ResourceKey;
     id?: string | number;
 }

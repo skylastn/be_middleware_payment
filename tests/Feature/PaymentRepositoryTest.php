@@ -56,10 +56,14 @@ class PaymentRepositoryTest extends TestCase
                 'private_key' => $this->privateKeyPem,
             ],
         ]);
+
+        \App\Model\Entity\Order::where('reference', 'like', 'TEST-%')->forceDelete();
     }
 
     protected function tearDown(): void
     {
+        \App\Model\Entity\Order::where('reference', 'like', 'TEST-%')->forceDelete();
+
         if ($this->repo && $this->repo->exists) {
             $this->repo->forceDelete();
         }
@@ -114,6 +118,6 @@ class PaymentRepositoryTest extends TestCase
         $response->assertJsonPath('status', true);
         $response->assertJsonPath('data.success', true);
         $response->assertJsonPath('data.version', '2');
-        $this->assertStringContainsString('/detailpayment?token=', $response->json('data.checkout_url'));
+        $this->assertStringContainsString('/home?token=', $response->json('data.checkout_url'));
     }
 }

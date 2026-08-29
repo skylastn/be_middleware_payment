@@ -1489,7 +1489,7 @@
               }
             ],
             "url": {
-              "raw": "{{url_payment}}payment/getDetailPaymentMethod?value=BCA_VA&from=spnpay",
+              "raw": "{{url_payment}}payment/getDetailPaymentMethod?key=BC&from=duitku",
               "host": [
                 "{{url_payment}}payment"
               ],
@@ -1498,12 +1498,12 @@
               ],
               "query": [
                 {
-                  "key": "value",
-                  "value": "BCA_VA"
+                  "key": "key",
+                  "value": "BC"
                 },
                 {
                   "key": "from",
-                  "value": "spnpay"
+                  "value": "duitku"
                 }
               ]
             }

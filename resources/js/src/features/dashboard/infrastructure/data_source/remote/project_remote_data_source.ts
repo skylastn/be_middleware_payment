@@ -1,6 +1,7 @@
 import { apiClient } from '@/shared/network/api_client';
 import { ProjectFilterRequest } from '@/features/dashboard/domain/model/request/project/project_filter_request';
 import { ProjectItem, ProjectListResponse } from '@/features/dashboard/domain/model/response/project/project_response';
+import { ProjectLogListResponse } from '@/features/dashboard/domain/model/response/project/project_log_response';
 
 export class ProjectRemoteDataSource {
     async getProjects(params?: ProjectFilterRequest): Promise<ProjectListResponse> {
@@ -17,6 +18,28 @@ export class ProjectRemoteDataSource {
     async getProjectById(id: string | number): Promise<ProjectItem> {
         const res = await apiClient<any>(`/api/admin/projects/${id}`);
         return res?.data || res;
+    }
+
+    async getProjectLogs(id: string | number, params?: Record<string, any>): Promise<ProjectLogListResponse> {
+        const query = new URLSearchParams();
+        if (params?.page && params.page > 1) query.set('page', String(params.page));
+        if (params?.per_page && params.per_page !== 20) query.set('per_page', String(params.per_page));
+        if (params?.search?.trim()) query.set('search', params.search.trim());
+        if (params?.key && params.key !== 'all') query.set('key', params.key);
+        if (params?.date_from) query.set('date_from', params.date_from);
+        if (params?.date_to) query.set('date_to', params.date_to);
+
+        const qs = query.toString();
+        return apiClient<ProjectLogListResponse>(`/api/admin/projects/${id}/logs${qs ? `?${qs}` : ''}`);
+    }
+
+    async getProjectLogKeys(id: string | number): Promise<string[]> {
+        const res = await apiClient<any>(`/api/admin/projects/${id}/log-keys`);
+        return res?.data || [];
+    }
+
+    async clearProjectLogs(id: string | number): Promise<any> {
+        return apiClient(`/api/admin/projects/${id}/logs`, { method: 'DELETE' });
     }
 
     async createProject(data: Record<string, any>): Promise<ProjectItem> {

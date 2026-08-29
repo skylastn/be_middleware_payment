@@ -89,9 +89,21 @@ class MidtransService
         if ($createInvoice['statusCode'] != 201) {
             throw new Exception($createInvoice['response']->error_messages[0], $createInvoice['statusCode']);
         }
+        $resData = is_array($createInvoice['response']) ? (object) $createInvoice['response'] : $createInvoice['response'];
+        $globalValue = $resData->qr_string
+            ?? (isset($resData->va_numbers[0]->va_number) ? $resData->va_numbers[0]->va_number : null)
+            ?? (isset($resData->va_numbers[0]['va_number']) ? $resData->va_numbers[0]['va_number'] : null)
+            ?? ($resData->permata_va_number ?? null)
+            ?? ($resData->bca_va_number ?? null)
+            ?? ($resData->bri_va_number ?? null)
+            ?? ($resData->bni_va_number ?? null)
+            ?? ($resData->bill_key ?? null)
+            ?? null;
+
         $order->setResponse($result);
         $order->setPaymentRepositoryId($paymentRepo->id);
-        $order->setUrl($createInvoice['response']->redirect_url);
+        $order->setUrl($resData->redirect_url ?? null);
+        $order->setValue($globalValue);
         $order->save();
 
         $response['link'] = $createInvoice['response']->redirect_url;
@@ -187,7 +199,7 @@ class MidtransService
             throw new Exception('Payment Method not found');
         }
 
-        $order->setPaymentMethod($paymentMethod->value);
+        $order->setPaymentMethod($paymentMethod->key);
         $order->save();
 
         $this->orderHistoryService->log(
