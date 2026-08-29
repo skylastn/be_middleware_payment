@@ -89,7 +89,8 @@ class PaymentController extends Controller
     {
         try {
             DB::beginTransaction();
-            $result = $this->paymentService->createPayment($request);
+            $project = $request->attributes->get('project');
+            $result = $this->paymentService->createPayment($request, $project);
             DB::commit();
 
             return ResponseHelper::successResponse($result);

@@ -102,13 +102,21 @@ Routes -> Controllers (Api) -> Services (Strategy Router) -> Repositories -> Elo
 
 ### Main API Endpoints
 
-- **Order Management:**
+- **Client Payment (Frontend Flow - Protected by Expirable Redis Token):**
+  - `GET /api/client/order/detail` — Retrieve order details by reference using temporary Redis token.
+  - `GET /api/client/order/checkOrderStatus` — Inquire payment status for client checkout.
+  - `POST /api/client/order/createPayment` — Create/process payment method transaction for client checkout.
+  - `GET /api/client/payment/getPaymentCategory` — Retrieve payment categories for client UI.
+  - `GET /api/client/payment/getPaymentMethod` — Retrieve payment methods for client UI.
+  - `GET /api/client/payment/getDetailPaymentMethod` — Get details for a specific payment method.
+- **Order Management (Server-to-Server - Protected by Merchant Project Token):**
   - `POST /api/order/create` — Create a new payment order (auto-routed to the configured gateway).
   - `GET /api/order` — Fetch list of payment orders.
   - `GET /api/order/detail` — Retrieve order details by reference.
   - `GET /api/order/checkOrderStatus` — Real-time status inquiry directly against the payment gateway engine.
   - `POST /api/order/stripe/confirm` — Confirm PaymentIntent for Stripe direct card flow.
-- **Payment Discovery:**
+- **Payment Discovery (Server-to-Server / Public):**
+  - `POST /api/payment/createPayment` — Create payment transaction (Protected by Merchant Project Token).
   - `GET /api/payment/getPaymentCategory` — Retrieve active payment categories.
   - `GET /api/payment/getPaymentMethod` — Retrieve active payment methods.
   - `GET /api/payment/getDetailPaymentMethod` — Get details for a specific payment method.

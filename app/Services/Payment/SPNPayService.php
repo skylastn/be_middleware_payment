@@ -14,6 +14,7 @@ use App\Model\Entity\PaymentMethod;
 use App\Model\Entity\PaymentRepository;
 use App\Model\Entity\Project;
 use App\Repository\Payment\SPNPayRepository;
+use App\Services\System\RedisService;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
@@ -21,10 +22,12 @@ use Illuminate\Support\Facades\Http;
 class SPNPayService
 {
     private PaymentRepositoryService $paymentRepositoryService;
+    private RedisService $redisService;
 
     public function __construct()
     {
         $this->paymentRepositoryService = new PaymentRepositoryService;
+        $this->redisService = new RedisService;
     }
 
     public function getPaymentRepo(string|PaymentModeType|null $mode, int|string|null $id): ?PaymentRepository
@@ -47,7 +50,8 @@ class SPNPayService
         $mode = PaymentModeType::fromName($request->mode) ?? PaymentModeType::sandbox;
         $req['mode'] = $mode->value;
         $req['payment_method'] = $request->paymentMethod ?? '';
-        $paymentUrl = env('PAYMENT_URL').'/#/home'.'?reference='.$req['reference'];
+        $token = $this->redisService->generatePaymentToken($project->id, $project->value, $req['reference']);
+        $paymentUrl = env('PAYMENT_URL').'/home'.'?token='.$token.'&reference='.$req['reference'];
         $req['url'] = $paymentUrl;
         $req['notes'] = $request->productDetails;
         $req['address'] = $request->address;

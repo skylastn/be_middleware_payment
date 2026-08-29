@@ -4,7 +4,9 @@ namespace App\Services\Payment;
 
 use App\Enums\ProjectSlug;
 use App\Http\Helper\FormatHelper;
+use App\Model\Entity\Order;
 use App\Model\Entity\PaymentMethod;
+use App\Model\Entity\Project;
 use App\Repository\Payment\OrderRepository;
 use App\Repository\Payment\PaymentCategoryRepository;
 use App\Repository\Payment\PaymentMethodRepository;
@@ -19,6 +21,12 @@ class PaymentService
 
     private StripeService $stripeService;
 
+    private XenditService $xenditService;
+
+    private MidtransService $midtransService;
+
+    private DuitkuService $duitkuService;
+
     private OrderRepository $orders;
 
     private PaymentCategoryRepository $paymentCategories;
@@ -31,6 +39,9 @@ class PaymentService
     {
         $this->spnPayService = new SPNPayService;
         $this->stripeService = new StripeService;
+        $this->xenditService = new XenditService;
+        $this->midtransService = new MidtransService;
+        $this->duitkuService = new DuitkuService;
         $this->orders = new OrderRepository;
         $this->paymentCategories = new PaymentCategoryRepository;
         $this->paymentMethods = new PaymentMethodRepository;
@@ -52,36 +63,33 @@ class PaymentService
         return $this->paymentMethods->detail($value, $from);
     }
 
-    public function createPayment(Request $request): ?array
+    public function createPayment(Request $request, Project $project): ?array
     {
-        $result = null;
-        if (env('PAYMENT_APP_KEY') != request()->header('Key')) {
-            throw new Exception('Unauthorized', 403);
-        }
-        $order = $this->orders->latestByReference($request->reference);
+        $order = $this->orders->latestByReference($request->reference, $project->type);
         if (! FormatHelper::isNotEmpty($order)) {
-            throw new Exception('Order Not Found', 403);
-        }
-        $project = $this->projects->findByType($order->type);
-        if (! FormatHelper::isNotEmpty($project)) {
-            throw new Exception('Project Not Found', 403);
-        }
-        // if ($project->slug == "xendit") {
-        //     return $this->orderXendit($request, $project);
-        // }
-        // if ($project->slug == "midtrans") {
-        //     return $this->orderMidtrans($request, $project);
-        // }
-        // if ($project->slug == "duitku") {
-        //     return DuitkuService::orderDuitku($request, $project);
-        // }
-        if ($project->getSlug() === ProjectSlug::SPNPAY) {
-            $result = $this->spnPayService->createOrderPaymentSPNPay($request, $project, $order);
-        }
-        if ($project->getSlug() === ProjectSlug::STRIPE) {
-            $result = $this->stripeService->order($request, $project);
+            throw new Exception('Order Not Found', 404);
         }
 
-        return $result;
+        return $this->processOrderPayment($request, $project, $order);
+    }
+
+    public function processOrderPayment(Request $request, Project $project, Order $order): ?array
+    {
+        $slug = $project->getSlug();
+
+        switch ($slug) {
+            // case ProjectSlug::XENDIT:
+            //     return $this->xenditService->order($request, $project);
+            // case ProjectSlug::MIDTRANS:
+            //     return $this->midtransService->orderMidtrans($request, $project);
+            // case ProjectSlug::DUITKU:
+            //     return $this->duitkuService->orderDuitku($request, $project);
+            case ProjectSlug::SPNPAY:
+                return $this->spnPayService->createOrderPaymentSPNPay($request, $project, $order);
+            case ProjectSlug::STRIPE:
+                return $this->stripeService->order($request, $project);
+            default:
+                throw new Exception('Undefined Project');
+        }
     }
 }

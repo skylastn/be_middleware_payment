@@ -17,6 +17,8 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'admin' => \App\Http\Middleware\EnsureAdminRole::class,
+            'project.auth' => \App\Http\Middleware\AuthenticateProjectToken::class,
+            'client.token.auth' => \App\Http\Middleware\AuthenticateClientPaymentToken::class,
             'throttle' => \Illuminate\Routing\Middleware\ThrottleRequests::class,
             'log-viewer.auth' => \App\Http\Middleware\LogViewerTokenAuth::class,
         ]);

@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AdminAuthController;
 use App\Http\Controllers\Api\AdminDashboardController;
 use App\Http\Controllers\Api\CallbackController;
+use App\Http\Controllers\Api\ClientPaymentController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\OtherController;
 use App\Http\Controllers\Api\PaymentController;
@@ -28,19 +29,36 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware('throttle:api')->group(function () {
 
+    // client (frontend payment page)
+    Route::prefix('client')->middleware('client.token.auth')->group(function () {
+        Route::prefix('order')->group(function () {
+            Route::get('/detail', [ClientPaymentController::class, 'detail']);
+            Route::get('/checkOrderStatus', [ClientPaymentController::class, 'checkOrderStatus']);
+            Route::post('/createPayment', [ClientPaymentController::class, 'createPayment']);
+        });
+
+        Route::prefix('payment')->group(function () {
+            Route::get('/getPaymentCategory', [ClientPaymentController::class, 'getPaymentCategory']);
+            Route::get('/getPaymentMethod', [ClientPaymentController::class, 'getPaymentMethod']);
+            Route::get('/getDetailPaymentMethod', [ClientPaymentController::class, 'getDetailPaymentMethod']);
+        });
+    });
+
     // order
     Route::prefix('order')->group(function () {
-        Route::get('/', [OrderController::class, 'index']);
-        Route::get('/detail', [OrderController::class, 'detail']);
-        Route::get('/checkOrderStatus', [OrderController::class, 'checkOrderStatus']);
-        Route::post('/create', [OrderController::class, 'store']);
-        Route::post('/stripe/confirm', [OrderController::class, 'confirmStripe']);
+        Route::middleware('project.auth')->group(function () {
+            Route::get('/', [OrderController::class, 'index']);
+            Route::get('/detail', [OrderController::class, 'detail']);
+            Route::get('/checkOrderStatus', [OrderController::class, 'checkOrderStatus']);
+            Route::post('/create', [OrderController::class, 'store']);
+            Route::post('/stripe/confirm', [OrderController::class, 'confirmStripe']);
+        });
         Route::get('/{id}', [OrderController::class, 'show'])->middleware(['auth:sanctum', 'admin']);
         Route::post('/{id}/resend-callback', [OrderController::class, 'resendCallback'])->middleware(['auth:sanctum', 'admin']);
     });
 
     Route::prefix('payment')->group(function () {
-        Route::post('/createPayment', [PaymentController::class, 'createPayment']);
+        Route::post('/createPayment', [PaymentController::class, 'createPayment'])->middleware('project.auth');
         Route::get('/getPaymentCategory', [PaymentController::class, 'getPaymentCategory']);
         Route::get('/getPaymentMethod', [PaymentController::class, 'getPaymentMethod']);
         Route::get('/getDetailPaymentMethod', [PaymentController::class, 'getDetailPaymentMethod']);

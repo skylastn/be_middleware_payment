@@ -22,7 +22,12 @@ class ProjectService
 
     public function checkKey(): Project
     {
-        $project = $this->projects->findByToken(request()->header('Token'));
+        $token = request()->header('Token');
+        if (!$token) {
+            throw new Exception('Unauthorized');
+        }
+
+        $project = $this->projects->findByToken($token);
         if (!isset($project)) {
             throw new Exception('Unauthorized');
         }
