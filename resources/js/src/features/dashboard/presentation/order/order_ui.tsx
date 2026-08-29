@@ -6,6 +6,7 @@ import { renderBadge } from '@/shared/component/ui/badge';
 import { IconRefresh, IconSearch, IconX, IconArrowLeft, IconCalendar, IconRepositories } from '@/shared/component/ui/icons';
 import { navigate, displayValue, formatDate, getMonthRange, getLastDaysRange, getTodayDateString } from '@/shared/utils/format_utils';
 import { Skeleton, SkeletonTableRows } from '@/shared/component/ui/skeleton';
+import { ModalDialog } from '@/shared/component/ui/modal_dialog';
 import { useOrderLogic } from './order_logic';
 
 export interface OrderPageProps {
@@ -21,6 +22,10 @@ export function OrderPage({ mode, id }: OrderPageProps): React.JSX.Element {
         error,
         notice,
         resending,
+        updatingStatus,
+        confirmSuccessOrder,
+        setConfirmSuccessOrder,
+        confirmSetSuccessAction,
         searchTerm,
         setSearchTerm,
         page,
@@ -43,6 +48,7 @@ export function OrderPage({ mode, id }: OrderPageProps): React.JSX.Element {
         handleSearchSubmit,
         handleClearSearch,
         handleResendCallback,
+        handleSetSuccess,
     } = useOrderLogic({ mode, id });
 
     if (mode === 'resource-show') {
@@ -57,10 +63,20 @@ export function OrderPage({ mode, id }: OrderPageProps): React.JSX.Element {
                         <button type="button" className="button" onClick={() => navigate('/admin/orders')}>
                             <IconArrowLeft /> Back to Orders
                         </button>
+                        {record?.status !== 'SUCCESS' && (
+                            <button
+                                type="button"
+                                className="button primary"
+                                disabled={updatingStatus}
+                                onClick={() => id && handleSetSuccess(id, record?.reference)}
+                            >
+                                {updatingStatus ? 'Updating...' : 'Set Success & Send Callback'}
+                            </button>
+                        )}
                         <button
                             type="button"
-                            className="button primary"
-                            disabled={resending}
+                            className="button"
+                            disabled={resending || record?.status !== 'SUCCESS'}
                             onClick={() => id && handleResendCallback(id)}
                         >
                             {resending ? 'Resending...' : 'Resend Callback'}
@@ -385,13 +401,25 @@ export function OrderPage({ mode, id }: OrderPageProps): React.JSX.Element {
                                             >
                                                 View
                                             </button>
-                                            <button
-                                                className="button"
-                                                disabled={resending}
-                                                onClick={() => handleResendCallback(primaryKey)}
-                                            >
-                                                Resend
-                                            </button>
+                                            {row.status !== 'SUCCESS' ? (
+                                                <button
+                                                    className="button primary"
+                                                    disabled={updatingStatus}
+                                                    onClick={() => handleSetSuccess(primaryKey, row.reference)}
+                                                    title="Mark status as SUCCESS and send callback webhook"
+                                                >
+                                                    Set Success
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    className="button"
+                                                    disabled={resending}
+                                                    onClick={() => handleResendCallback(primaryKey)}
+                                                    title="Resend callback webhook"
+                                                >
+                                                    Resend
+                                                </button>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>
@@ -431,6 +459,31 @@ export function OrderPage({ mode, id }: OrderPageProps): React.JSX.Element {
                     </div>
                 </div>
             )}
+
+            {/* Confirm Set Success Dialog */}
+            <ModalDialog
+                isOpen={Boolean(confirmSuccessOrder)}
+                title="Mark Order as SUCCESS?"
+                description="This action will immediately update the transaction status to SUCCESS and dispatch a webhook callback to the merchant backend."
+                confirmText="Yes, Set Success & Send Callback"
+                cancelText="Cancel"
+                confirmTone="primary"
+                loading={updatingStatus}
+                onConfirm={confirmSetSuccessAction}
+                onClose={() => setConfirmSuccessOrder(null)}
+            >
+                {confirmSuccessOrder && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <div>
+                            <span className="muted">Order Reference: </span>
+                            <strong className="mono">{confirmSuccessOrder.reference || confirmSuccessOrder.id}</strong>
+                        </div>
+                        <div className="alert warning" style={{ fontSize: '12px', margin: '8px 0 0' }}>
+                            Make sure payment has been verified before triggering merchant fulfillment.
+                        </div>
+                    </div>
+                )}
+            </ModalDialog>
         </>
     );
 }

@@ -16,6 +16,8 @@ export function useOrderLogic({ mode, id }: UseOrderLogicProps) {
     const [error, setError] = useState<string>('');
     const [notice, setNotice] = useState<string>('');
     const [resending, setResending] = useState<boolean>(false);
+    const [updatingStatus, setUpdatingStatus] = useState<boolean>(false);
+    const [confirmSuccessOrder, setConfirmSuccessOrder] = useState<{ id: string | number; reference?: string } | null>(null);
 
     // Filters
     const [searchTerm, setSearchTerm] = useState<string>('');
@@ -125,6 +127,32 @@ export function useOrderLogic({ mode, id }: UseOrderLogicProps) {
         }
     };
 
+    const handleSetSuccess = (orderId: string | number, reference?: string) => {
+        setConfirmSuccessOrder({ id: orderId, reference });
+    };
+
+    const confirmSetSuccessAction = async () => {
+        if (!confirmSuccessOrder || !definition.endpoints.setSuccess) return;
+        const orderId = confirmSuccessOrder.id;
+        setUpdatingStatus(true);
+        setNotice('');
+        setError('');
+        try {
+            await ResourceService.setSuccess(definition.endpoints.setSuccess(orderId));
+            setNotice(`Order #${orderId} marked as SUCCESS and callback sent.`);
+            setConfirmSuccessOrder(null);
+            if (mode === 'resource-show') {
+                loadItem();
+            } else {
+                loadList(page);
+            }
+        } catch (err: any) {
+            setError(err?.message || 'Failed to update order status.');
+        } finally {
+            setUpdatingStatus(false);
+        }
+    };
+
     const records = dataItems(payload);
     const total = Number(payload?.total ?? records.length);
     const currentPage = Number(payload?.currentPage ?? page);
@@ -139,6 +167,10 @@ export function useOrderLogic({ mode, id }: UseOrderLogicProps) {
         error,
         notice,
         resending,
+        updatingStatus,
+        confirmSuccessOrder,
+        setConfirmSuccessOrder,
+        confirmSetSuccessAction,
         searchTerm,
         setSearchTerm,
         page,
@@ -163,5 +195,6 @@ export function useOrderLogic({ mode, id }: UseOrderLogicProps) {
         handleSearchSubmit,
         handleClearSearch,
         handleResendCallback,
+        handleSetSuccess,
     };
 }

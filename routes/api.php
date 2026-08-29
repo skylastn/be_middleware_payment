@@ -51,6 +51,7 @@ Route::middleware('throttle:api')->group(function () {
         Route::get('/detail', [OrderController::class, 'detail']);
         Route::get('/checkOrderStatus', [OrderController::class, 'checkOrderStatus']);
         Route::post('/create', [OrderController::class, 'store']);
+        Route::post('/set-success', [OrderController::class, 'setSuccessMerchant']);
         Route::post('/stripe/confirm', [OrderController::class, 'confirmStripe']);
     });
 
@@ -120,6 +121,7 @@ Route::middleware('throttle:api')->group(function () {
                 Route::get('/', [OrderController::class, 'index']);
                 Route::get('/{id}', [OrderController::class, 'show']);
                 Route::post('/{id}/resend-callback', [OrderController::class, 'resendCallback']);
+                Route::post('/{id}/set-success', [OrderController::class, 'setSuccessAdmin']);
             });
 
             // Admin Projects Management

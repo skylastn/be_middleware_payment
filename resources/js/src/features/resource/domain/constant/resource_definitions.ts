@@ -11,6 +11,7 @@ export const resourceDefinitions: Record<ResourceKey, ResourceDefinition> = {
             list: '/api/admin/orders',
             show: (id: string | number) => `/api/admin/orders/${id}`,
             resend: (id: string | number) => `/api/admin/orders/${id}/resend-callback`,
+            setSuccess: (id: string | number) => `/api/admin/orders/${id}/set-success`,
         },
     },
     projects: {

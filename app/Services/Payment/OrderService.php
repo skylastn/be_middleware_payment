@@ -2,9 +2,13 @@
 
 namespace App\Services\Payment;
 
+use App\Enums\OrderStatus;
 use App\Enums\ProjectSlug;
 use App\Http\Helper\FormatHelper;
+use App\Jobs\SendMerchantCallback;
+use App\Jobs\SendNotificationJob;
 use App\Model\Entity\Order;
+use App\Model\Entity\Project;
 use App\Repository\Payment\OrderRepository;
 use App\Services\System\ProjectService;
 use Exception;
@@ -123,5 +127,77 @@ class OrderService
             return $this->stripeService->confirmCardPayment($request, $project);
         }
         throw new Exception('Stripe confirm only supported for Stripe projects');
+    }
+
+    public function getOrderById(int|string $id): ?Order
+    {
+        return $this->orders->findById($id);
+    }
+
+    public function resendCallbackById(int|string $id): Order
+    {
+        $order = $this->orders->findById($id);
+        if (! $order) {
+            throw new Exception('Order Not Found', 404);
+        }
+
+        $status = $order->getStatus();
+        if (! $status?->isSuccess()) {
+            throw new Exception('Only successful orders can resend callback.');
+        }
+
+        $project = $order->project ?: Project::where('type', $order->type)->first();
+        if (! $project || ! $project->value || ! $project->callback) {
+            throw new Exception('Project callback configuration is incomplete.');
+        }
+
+        SendMerchantCallback::dispatch(
+            $project->value,
+            [
+                'merchantOrderId' => $order->getMerchantOrderId(),
+                'paymentCode' => $order->payment_method,
+                'resultCode' => '00',
+            ],
+            $project->callback,
+        )->afterCommit();
+
+        return $order;
+    }
+
+    public function setSuccessById(int|string $id): Order
+    {
+        $order = $this->orders->findById($id);
+        if (! $order) {
+            throw new Exception('Order Not Found', 404);
+        }
+
+        return $this->markAsSuccessAndSendCallback($order);
+    }
+
+    public function markAsSuccessAndSendCallback(Order $order, ?Project $project = null): Order
+    {
+        $order->setStatus(OrderStatus::SUCCESS);
+        $order->save();
+
+        $project ??= $order->project ?: Project::where('type', $order->type)->first();
+        if ($project && $project->value && $project->callback) {
+            SendMerchantCallback::dispatch(
+                $project->value,
+                [
+                    'merchantOrderId' => $order->getMerchantOrderId(),
+                    'paymentCode' => $order->payment_method ?: 'MANUAL',
+                    'resultCode' => '00',
+                ],
+                $project->callback,
+            )->afterCommit();
+        }
+
+        if (FormatHelper::isNotEmpty($order->reference)) {
+            SendNotificationJob::dispatch($order->reference);
+        }
+
+        $order->refresh();
+
+        return $order;
     }
 }

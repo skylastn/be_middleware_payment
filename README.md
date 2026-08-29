@@ -108,6 +108,7 @@ Routes -> Controllers (Api) -> Services (Strategy Router) -> Repositories -> Elo
   - `GET /api/admin/orders` — Paginated orders list with date range & repository filters.
   - `GET /api/admin/orders/{id}` — Order details with raw payload inspection.
   - `POST /api/admin/orders/{id}/resend-callback` — Manually retry merchant webhook delivery.
+  - `POST /api/admin/orders/{id}/set-success` — Mark order as SUCCESS and dispatch merchant callback webhook.
   - `GET /api/admin/projects` — Manage merchant project configurations.
   - `GET /api/admin/payment-gateways` — Manage gateway adapters.
   - `GET /api/admin/payment-repositories` — Manage credentials sets per environment mode.
@@ -126,6 +127,7 @@ Routes -> Controllers (Api) -> Services (Strategy Router) -> Repositories -> Elo
   - `GET /api/order` — Fetch list of payment orders.
   - `GET /api/order/detail` — Retrieve order details by reference.
   - `GET /api/order/checkOrderStatus` — Real-time status inquiry directly against the payment gateway engine.
+  - `POST /api/order/set-success` — Mark order as SUCCESS and trigger webhook callback for project.
   - `POST /api/order/stripe/confirm` — Confirm PaymentIntent for Stripe direct card flow.
 - **Payment Discovery (Server-to-Server / Public):**
   - `POST /api/payment/createPayment` — Create payment transaction (Protected by Merchant Project Token).

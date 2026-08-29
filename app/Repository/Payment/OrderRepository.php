@@ -49,6 +49,11 @@ class OrderRepository extends BaseRepository
             ->first();
     }
 
+    public function findById(int|string $id): ?Order
+    {
+        return $this->find($id);
+    }
+
     protected function modelClass(): string
     {
         return Order::class;

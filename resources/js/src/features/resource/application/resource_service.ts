@@ -34,4 +34,10 @@ export class ResourceService {
             method: 'POST',
         });
     }
+
+    static async setSuccess(endpoint: string): Promise<any> {
+        return apiClient(endpoint, {
+            method: 'POST',
+        });
+    }
 }

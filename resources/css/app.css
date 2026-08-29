@@ -1197,8 +1197,91 @@ tbody tr:hover td:last-child {
 
 .copy-btn:hover {
     color: var(--primary);
-    background: var(--primary-light);
-    border-color: var(--primary);
+    background: var(--surface-hover);
+    border-color: var(--border);
+}
+
+/* Modal Dialog */
+.modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 20px;
+    animation: fadeIn 0.15s ease-out;
+}
+
+.modal-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    width: 100%;
+    max-width: 480px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: scaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes scaleIn {
+    from { transform: scale(0.95); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+.modal-header {
+    padding: 20px 24px 16px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    border-bottom: 1px solid var(--border);
+}
+
+.modal-title-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.modal-title {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 750;
+    color: var(--text);
+    line-height: 1.3;
+}
+
+.modal-description {
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-muted);
+}
+
+.modal-body {
+    padding: 20px 24px;
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.5;
+}
+
+.modal-footer {
+    padding: 16px 24px;
+    background: var(--surface-subtle);
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
 }
 
 /* Actions in Table */

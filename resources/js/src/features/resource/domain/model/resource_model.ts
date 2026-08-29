@@ -24,6 +24,7 @@ export interface ResourceEndpoints {
     update?: (id: string | number) => string;
     delete?: (id: string | number) => string;
     resend?: (id: string | number) => string;
+    setSuccess?: (id: string | number) => string;
 }
 
 export interface ResourceDefinition {
