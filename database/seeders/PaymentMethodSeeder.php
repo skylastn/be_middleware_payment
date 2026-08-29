@@ -23,7 +23,6 @@ class PaymentMethodSeeder extends Seeder
                 'category_key' => 'qris',
                 'from' => 'duitku',
                 'bankCode' => '',
-                'value' => '',
             ],
             [
                 'key' => 'NQ',
@@ -31,7 +30,6 @@ class PaymentMethodSeeder extends Seeder
                 'category_key' => 'qris',
                 'from' => 'duitku',
                 'bankCode' => '',
-                'value' => '',
             ],
             [
                 'key' => 'DQ',
@@ -39,7 +37,6 @@ class PaymentMethodSeeder extends Seeder
                 'category_key' => 'qris',
                 'from' => 'duitku',
                 'bankCode' => '',
-                'value' => '',
             ],
             [
                 'key' => 'PAPRIKA_QRIS',
@@ -47,7 +44,6 @@ class PaymentMethodSeeder extends Seeder
                 'category_key' => 'qris',
                 'from' => 'paprika',
                 'bankCode' => '',
-                'value' => '',
             ],
 
             // Virtual Account Channels (category: va)
@@ -57,7 +53,6 @@ class PaymentMethodSeeder extends Seeder
                 'category_key' => 'va',
                 'from' => 'duitku',
                 'bankCode' => 'bca',
-                'value' => '',
             ],
             [
                 'key' => 'BR',
@@ -65,7 +60,6 @@ class PaymentMethodSeeder extends Seeder
                 'category_key' => 'va',
                 'from' => 'duitku',
                 'bankCode' => 'bri',
-                'value' => '',
             ],
             [
                 'key' => 'M2',
@@ -73,7 +67,6 @@ class PaymentMethodSeeder extends Seeder
                 'category_key' => 'va',
                 'from' => 'duitku',
                 'bankCode' => 'mandiri',
-                'value' => '',
             ],
             [
                 'key' => 'BN',
@@ -81,7 +74,6 @@ class PaymentMethodSeeder extends Seeder
                 'category_key' => 'va',
                 'from' => 'duitku',
                 'bankCode' => 'bni',
-                'value' => '',
             ],
             [
                 'key' => 'BT',
@@ -89,7 +81,6 @@ class PaymentMethodSeeder extends Seeder
                 'category_key' => 'va',
                 'from' => 'duitku',
                 'bankCode' => 'permata',
-                'value' => '',
             ],
             [
                 'key' => 'B1',
@@ -97,7 +88,6 @@ class PaymentMethodSeeder extends Seeder
                 'category_key' => 'va',
                 'from' => 'duitku',
                 'bankCode' => 'cimb',
-                'value' => '',
             ],
 
             // Credit Card Channels (category: cc)
@@ -107,7 +97,6 @@ class PaymentMethodSeeder extends Seeder
                 'category_key' => 'cc',
                 'from' => 'duitku',
                 'bankCode' => '',
-                'value' => '',
             ],
             [
                 'key' => 'CARD_STRIPE',
@@ -115,7 +104,6 @@ class PaymentMethodSeeder extends Seeder
                 'category_key' => 'cc',
                 'from' => 'stripe',
                 'bankCode' => '',
-                'value' => '',
             ],
         ];
 
@@ -131,7 +119,6 @@ class PaymentMethodSeeder extends Seeder
                     'name' => $method['name'],
                     'category_id' => $categoryId,
                     'bankCode' => $method['bankCode'],
-                    'value' => $method['value'],
                 ]
             );
         }

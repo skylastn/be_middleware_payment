@@ -755,12 +755,12 @@ const updatedCollection = {
                         method: 'GET',
                         header: [{ key: 'Accept', value: 'application/json', type: 'text' }],
                         url: {
-                            raw: '{{url_payment}}payment/getDetailPaymentMethod?value=BCA_VA&from=spnpay',
+                            raw: '{{url_payment}}payment/getDetailPaymentMethod?key=BC&from=duitku',
                             host: ['{{url_payment}}payment'],
                             path: ['getDetailPaymentMethod'],
                             query: [
-                                { key: 'value', value: 'BCA_VA' },
-                                { key: 'from', value: 'spnpay' },
+                                { key: 'key', value: 'BC' },
+                                { key: 'from', value: 'duitku' },
                             ],
                         },
                     },

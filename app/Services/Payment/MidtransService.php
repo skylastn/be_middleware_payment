@@ -199,7 +199,7 @@ class MidtransService
             throw new Exception('Payment Method not found');
         }
 
-        $order->setPaymentMethod($paymentMethod->value);
+        $order->setPaymentMethod($paymentMethod->key);
         $order->save();
 
         $this->orderHistoryService->log(

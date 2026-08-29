@@ -94,7 +94,7 @@ class SPNPayService
     public function createOrderPaymentSPNPay(Request $request, Project $project, Order $order): array
     {
         $paymentRepo = $this->getPaymentRepo($order->getMode(), $request->paymentGatewayId);
-        $paymemtMethod = PaymentMethod::where('value', $request->paymentMethod)->where('from', 'spnpay')->first();
+        $paymemtMethod = PaymentMethod::where('key', $request->paymentMethod)->where('from', 'spnpay')->first();
         if (! FormatHelper::isNotEmpty($paymemtMethod)) {
             throw new Exception('Sorry Payment Method Unavailable');
         }
@@ -275,7 +275,7 @@ class SPNPayService
             $previousStatus
         );
 
-        $paymentMethod = PaymentMethod::where('value', $order->payment_method)->first();
+        $paymentMethod = PaymentMethod::where('key', $order->payment_method)->first();
 
         if (! FormatHelper::isNotEmpty($paymentMethod)) {
             throw new Exception('Payment not found');

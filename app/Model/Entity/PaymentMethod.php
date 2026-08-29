@@ -16,7 +16,7 @@ class PaymentMethod extends Model
         'category_id',
         'from',
         'bankCode',
-        'value',
+        'image',
     ];
 
     // Keep the original eager-loaded relationships.
@@ -90,13 +90,13 @@ class PaymentMethod extends Model
         $this->bankCode = $bankCode;
     }
 
-    public function getValue(): ?string
+    public function getImage(): ?string
     {
-        return $this->value;
+        return $this->image;
     }
 
-    public function setValue(?string $value): void
+    public function setImage(?string $image): void
     {
-        $this->value = $value;
+        $this->image = $image;
     }
 }

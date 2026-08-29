@@ -51,7 +51,7 @@ class Order extends Model
 
     public function payment_methods(): HasOne
     {
-        return $this->hasOne(PaymentMethod::class, 'value', 'payment_method');
+        return $this->hasOne(PaymentMethod::class, 'key', 'payment_method');
     }
 
     public function project(): HasOne

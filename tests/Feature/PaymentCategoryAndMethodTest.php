@@ -107,7 +107,6 @@ class PaymentCategoryAndMethodTest extends TestCase
             'category_id' => $vaCategory->id,
             'from' => 'duitku',
             'bankCode' => 'test',
-            'value' => 'TEST_VAL',
         ]);
 
         $response->assertStatus(200);
@@ -117,19 +116,68 @@ class PaymentCategoryAndMethodTest extends TestCase
         PaymentMethod::where('key', 'TEST_VA')->forceDelete();
     }
 
-    public function test_public_api_get_payment_method_filtered(): void
+    public function test_admin_can_create_and_update_payment_method_with_image(): void
+    {
+        $this->seed(PaymentCategorySeeder::class);
+        $qrisCategory = PaymentCategory::where('key', 'qris')->firstOrFail();
+
+        Sanctum::actingAs($this->admin);
+
+        // 1. Create with direct image URL
+        $createResponse = $this->postJson('/api/admin/payment-methods/create', [
+            'key' => 'TEST_IMG_METHOD',
+            'name' => 'Test Image Method',
+            'category_id' => $qrisCategory->id,
+            'from' => 'duitku',
+            'bankCode' => '',
+            'image' => 'https://example.com/images/qris-logo.png',
+        ]);
+
+        $createResponse->assertStatus(200);
+        $this->assertEquals('https://example.com/images/qris-logo.png', $createResponse->json('data.image'));
+        $createdId = $createResponse->json('data.id');
+
+        // 2. Update with new image URL
+        $updateResponse = $this->putJson("/api/admin/payment-methods/{$createdId}", [
+            'key' => 'TEST_IMG_METHOD',
+            'name' => 'Test Image Method Updated',
+            'category_id' => $qrisCategory->id,
+            'from' => 'duitku',
+            'bankCode' => '',
+            'image' => 'https://example.com/images/qris-new-logo.png',
+        ]);
+
+        $updateResponse->assertStatus(200);
+        $this->assertEquals('https://example.com/images/qris-new-logo.png', $updateResponse->json('data.image'));
+
+        // 3. Update with base64 data URL
+        $dummyPngBase64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+        $base64Response = $this->putJson("/api/admin/payment-methods/{$createdId}", [
+            'key' => 'TEST_IMG_METHOD',
+            'name' => 'Test Image Method Updated Base64',
+            'category_id' => $qrisCategory->id,
+            'from' => 'duitku',
+            'bankCode' => '',
+            'image' => $dummyPngBase64,
+        ]);
+
+        $base64Response->assertStatus(200);
+        $storedImagePath = $base64Response->json('data.image');
+        $storedImageUrl = $base64Response->json('data.image_url');
+        $this->assertStringStartsWith('payment-methods/pm_', $storedImagePath);
+        $this->assertStringContainsString('/storage/payment-methods/pm_', $storedImageUrl);
+
+        PaymentMethod::where('key', 'TEST_IMG_METHOD')->forceDelete();
+    }
+
+    public function test_public_api_get_detail_payment_method_by_key(): void
     {
         $this->seed(PaymentCategorySeeder::class);
         $this->seed(PaymentMethodSeeder::class);
 
-        $response = $this->getJson('/api/payment/getPaymentMethod?categoriesKey=qris');
+        $response = $this->getJson('/api/payment/getDetailPaymentMethod?key=BC&from=duitku');
         $response->assertStatus(200);
-
-        $data = $response->json('data');
-        $this->assertNotEmpty($data);
-
-        foreach ($data as $method) {
-            $this->assertEquals('qris', $method['category']['key']);
-        }
+        $response->assertJsonPath('data.key', 'BC');
+        $response->assertJsonPath('data.name', 'BCA VA');
     }
 }

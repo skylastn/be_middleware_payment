@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Helper\FormatHelper;
 use App\Http\Helper\LogHelper;
 use App\Http\Helper\ResponseHelper;
+use App\Model\Response\Payment\PaymentMethod\PaymentMethodResource;
 use App\Services\Payment\OrderService;
 use App\Services\Payment\PaymentService;
 use Exception;
@@ -87,13 +88,15 @@ class ClientPaymentController extends Controller
     {
         $result = $this->paymentService->getListPaymentMethod($request);
 
-        return ResponseHelper::successResponse($result);
+        return ResponseHelper::successResponse(PaymentMethodResource::collection($result));
     }
 
     public function getDetailPaymentMethod(Request $request): JsonResponse
     {
-        $result = $this->paymentService->getDetailPaymentMethod($request->value, $request->from);
+        $key = $request->query('key', $request->query('value'));
+        $from = $request->query('from');
+        $result = $this->paymentService->getDetailPaymentMethod($key, $from);
 
-        return ResponseHelper::successResponse($result);
+        return ResponseHelper::successResponse($result ? new PaymentMethodResource($result) : null);
     }
 }

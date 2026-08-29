@@ -37,15 +37,15 @@ class ProductionMigrationCompatibilityTest extends TestCase
         // DB 1 payment methods sample
         DB::table('payment_methods')->truncate();
         DB::table('payment_methods')->insert([
-            ['id' => 1, 'key' => 'credit_card', 'value' => 'VC', 'type' => '', 'name' => '', 'from' => 'duitku', 'created_at' => now(), 'updated_at' => now()],
-            ['id' => 2, 'key' => 'gopay', 'value' => 'GO', 'type' => '', 'name' => '', 'from' => 'duitku', 'created_at' => now(), 'updated_at' => now()],
-            ['id' => 3, 'key' => 'qris', 'value' => 'LQ', 'type' => '', 'name' => '', 'from' => 'duitku', 'created_at' => now(), 'updated_at' => now()],
-            ['id' => 5, 'key' => 'bank_transfer', 'value' => 'BT', 'type' => 'permata', 'name' => '', 'from' => 'duitku', 'created_at' => now(), 'updated_at' => now()],
-            ['id' => 18, 'key' => 'VA', 'value' => 'VA', 'type' => '', 'name' => 'MAYBANK VA', 'from' => 'duitku', 'created_at' => now(), 'updated_at' => now()],
-            ['id' => 20, 'key' => 'VC', 'value' => 'VC', 'type' => '', 'name' => 'CREDIT CARD', 'from' => 'duitku', 'created_at' => now(), 'updated_at' => now()],
-            ['id' => 29, 'key' => 'SP', 'value' => 'SP', 'type' => '', 'name' => 'SHOPEEPAY QRIS', 'from' => 'duitku', 'created_at' => now(), 'updated_at' => now()],
-            ['id' => 35, 'key' => 'BC', 'value' => 'BC', 'type' => '', 'name' => 'BCA VA', 'from' => 'duitku', 'created_at' => now(), 'updated_at' => now()],
-            ['id' => 36, 'key' => 'IR', 'value' => 'IR', 'type' => '', 'name' => 'INDOMARET', 'from' => 'duitku', 'created_at' => now(), 'updated_at' => now()],
+            ['id' => 1, 'key' => 'credit_card', 'type' => '', 'name' => '', 'from' => 'duitku', 'created_at' => now(), 'updated_at' => now()],
+            ['id' => 2, 'key' => 'gopay', 'type' => '', 'name' => '', 'from' => 'duitku', 'created_at' => now(), 'updated_at' => now()],
+            ['id' => 3, 'key' => 'qris', 'type' => '', 'name' => '', 'from' => 'duitku', 'created_at' => now(), 'updated_at' => now()],
+            ['id' => 5, 'key' => 'bank_transfer', 'type' => 'permata', 'name' => '', 'from' => 'duitku', 'created_at' => now(), 'updated_at' => now()],
+            ['id' => 18, 'key' => 'VA', 'type' => '', 'name' => 'MAYBANK VA', 'from' => 'duitku', 'created_at' => now(), 'updated_at' => now()],
+            ['id' => 20, 'key' => 'VC', 'type' => '', 'name' => 'CREDIT CARD', 'from' => 'duitku', 'created_at' => now(), 'updated_at' => now()],
+            ['id' => 29, 'key' => 'SP', 'type' => '', 'name' => 'SHOPEEPAY QRIS', 'from' => 'duitku', 'created_at' => now(), 'updated_at' => now()],
+            ['id' => 35, 'key' => 'BC', 'type' => '', 'name' => 'BCA VA', 'from' => 'duitku', 'created_at' => now(), 'updated_at' => now()],
+            ['id' => 36, 'key' => 'IR', 'type' => '', 'name' => 'INDOMARET', 'from' => 'duitku', 'created_at' => now(), 'updated_at' => now()],
         ]);
 
         // Run the migration
@@ -101,12 +101,12 @@ class ProductionMigrationCompatibilityTest extends TestCase
         // DB 2 payment methods
         DB::table('payment_methods')->truncate();
         DB::table('payment_methods')->insert([
-            ['id' => 1, 'key' => 'SP', 'value' => 'SP', 'type' => 'qris', 'from' => 'duitku', 'name' => 'ShopeePay QRIS', 'created_at' => now(), 'updated_at' => now()],
-            ['id' => 2, 'key' => 'NQ', 'value' => 'NQ', 'type' => 'qris', 'from' => 'duitku', 'name' => 'Nobu QRIS', 'created_at' => now(), 'updated_at' => now()],
-            ['id' => 3, 'key' => 'DQ', 'value' => 'DQ', 'type' => 'qris', 'from' => 'duitku', 'name' => 'Dana QRIS', 'created_at' => now(), 'updated_at' => now()],
-            ['id' => 4, 'key' => 'BR', 'value' => 'BR', 'type' => 'virtual_account', 'from' => 'duitku', 'name' => 'BRIVA', 'created_at' => now(), 'updated_at' => now()],
-            ['id' => 5, 'key' => 'BC', 'value' => 'BC', 'type' => 'virtual_account', 'from' => 'duitku', 'name' => 'BCA VA', 'created_at' => now(), 'updated_at' => now()],
-            ['id' => 6, 'key' => 'SQ', 'value' => 'SQ', 'type' => 'qris', 'from' => 'duitku', 'name' => 'Nusapay QRIS', 'created_at' => now(), 'updated_at' => now()],
+            ['id' => 1, 'key' => 'SP', 'type' => 'qris', 'from' => 'duitku', 'name' => 'ShopeePay QRIS', 'created_at' => now(), 'updated_at' => now()],
+            ['id' => 2, 'key' => 'NQ', 'type' => 'qris', 'from' => 'duitku', 'name' => 'Nobu QRIS', 'created_at' => now(), 'updated_at' => now()],
+            ['id' => 3, 'key' => 'DQ', 'type' => 'qris', 'from' => 'duitku', 'name' => 'Dana QRIS', 'created_at' => now(), 'updated_at' => now()],
+            ['id' => 4, 'key' => 'BR', 'type' => 'virtual_account', 'from' => 'duitku', 'name' => 'BRIVA', 'created_at' => now(), 'updated_at' => now()],
+            ['id' => 5, 'key' => 'BC', 'type' => 'virtual_account', 'from' => 'duitku', 'name' => 'BCA VA', 'created_at' => now(), 'updated_at' => now()],
+            ['id' => 6, 'key' => 'SQ', 'type' => 'qris', 'from' => 'duitku', 'name' => 'Nusapay QRIS', 'created_at' => now(), 'updated_at' => now()],
         ]);
 
         // Run the migration

@@ -25,7 +25,8 @@ export function usePaymentMethodLogic({ mode, id }: UsePaymentMethodLogicProps) 
         category_id: '',
         from: 'duitku',
         bankCode: '',
-        value: '',
+        image: '',
+        image_url: '',
     });
     const [loading, setLoading] = useState<boolean>(true);
     const [saving, setSaving] = useState<boolean>(false);
@@ -86,7 +87,8 @@ export function usePaymentMethodLogic({ mode, id }: UsePaymentMethodLogicProps) 
                     category_id: itemData.category_id || itemData.category?.id || '',
                     from: itemData.from || 'duitku',
                     bankCode: itemData.bankCode || '',
-                    value: itemData.value || '',
+                    image: itemData.image || '',
+                    image_url: itemData.image_url || '',
                 });
             }
         } catch (err: any) {
@@ -120,13 +122,39 @@ export function usePaymentMethodLogic({ mode, id }: UsePaymentMethodLogicProps) 
         setTimeout(() => loadList(1), 0);
     };
 
+    const handleImageUpload = (file: File) => {
+        if (!file.type.startsWith('image/')) {
+            setError('Please select a valid image file (PNG, JPG, SVG, WebP).');
+            return;
+        }
+        if (file.size > 2 * 1024 * 1024) {
+            setError('Image file size must be less than 2MB.');
+            return;
+        }
+        setError('');
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const base64 = e.target?.result as string;
+            setForm((prev) => ({ ...prev, image: base64, image_url: base64 }));
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const handleClearImage = () => {
+        setForm((prev) => ({ ...prev, image: '', image_url: '' }));
+    };
+
     const handleFormSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setSaving(true);
         setError('');
         try {
             const submitData = {
-                ...form,
+                key: form.key,
+                name: form.name,
+                from: form.from,
+                bankCode: form.bankCode || '',
+                image: form.image || null,
                 category_id: form.category_id ? Number(form.category_id) : null,
             };
             if (isEdit && id) {
@@ -180,6 +208,8 @@ export function usePaymentMethodLogic({ mode, id }: UsePaymentMethodLogicProps) 
         loadList,
         handleSearchSubmit,
         handleClearSearch,
+        handleImageUpload,
+        handleClearImage,
         handleFormSubmit,
         handleDelete,
     };

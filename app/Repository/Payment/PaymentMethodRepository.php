@@ -29,10 +29,10 @@ class PaymentMethodRepository extends BaseRepository
             ->get();
     }
 
-    public function detail(?string $value, ?string $from): ?PaymentMethod
+    public function detail(?string $key, ?string $from = null): ?PaymentMethod
     {
         return PaymentMethod::with('category')
-            ->when($value, fn ($query) => $query->where('value', $value))
+            ->when($key, fn ($query) => $query->where('key', $key))
             ->when($from, fn ($query) => $query->where('from', $from))
             ->first();
     }
@@ -52,7 +52,6 @@ class PaymentMethodRepository extends BaseRepository
                         ->orWhere('name', 'like', "%{$search}%")
                         ->orWhere('from', 'like', "%{$search}%")
                         ->orWhere('bankCode', 'like', "%{$search}%")
-                        ->orWhere('value', 'like', "%{$search}%")
                         ->orWhereHas('category', function ($catQuery) use ($search) {
                             $catQuery->where('key', 'like', "%{$search}%")
                                 ->orWhere('title', 'like', "%{$search}%");

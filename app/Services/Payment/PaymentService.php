@@ -22,6 +22,7 @@ use Exception;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Storage;
 
 class PaymentService
 {
@@ -126,9 +127,9 @@ class PaymentService
         return $this->paymentMethods->latestPaginated($perPage, $search, $from, $categoriesKey);
     }
 
-    public function getDetailPaymentMethod(?string $value, ?string $from): ?PaymentMethod
+    public function getDetailPaymentMethod(?string $key, ?string $from = null): ?PaymentMethod
     {
-        return $this->paymentMethods->detail($value, $from);
+        return $this->paymentMethods->detail($key, $from);
     }
 
     public function getPaymentMethodById(int|string $id): ?PaymentMethod
@@ -136,8 +137,35 @@ class PaymentService
         return $this->paymentMethods->find($id);
     }
 
+    public function processPaymentMethodImage(array $data): array
+    {
+        if (! empty($data['image']) && is_string($data['image'])) {
+            if (str_starts_with($data['image'], 'data:image/')) {
+                $imageParts = explode(';base64,', $data['image']);
+                if (count($imageParts) === 2) {
+                    $imageTypeAux = explode('image/', $imageParts[0]);
+                    $imageType = $imageTypeAux[1] ?? 'png';
+                    if (str_contains($imageType, 'svg')) {
+                        $imageType = 'svg';
+                    }
+                    $imageBase64 = base64_decode($imageParts[1]);
+                    $fileName = 'payment-methods/' . uniqid('pm_') . '.' . $imageType;
+                    Storage::disk('public')->put($fileName, $imageBase64);
+                    $data['image'] = $fileName;
+                }
+            } elseif (str_contains($data['image'], '/storage/')) {
+                $parts = explode('/storage/', $data['image']);
+                $data['image'] = end($parts);
+            }
+        }
+
+        return $data;
+    }
+
     public function createPaymentMethod(array $data): PaymentMethod
     {
+        $data = $this->processPaymentMethodImage($data);
+        $data['bankCode'] = $data['bankCode'] ?? '';
         return $this->paymentMethods->create($data)->load('category');
     }
 
@@ -146,6 +174,11 @@ class PaymentService
         $method = $this->paymentMethods->find($id);
         if (! $method) {
             throw new Exception('Payment Method Not Found', 404);
+        }
+
+        $data = $this->processPaymentMethodImage($data);
+        if (array_key_exists('bankCode', $data) && $data['bankCode'] === null) {
+            $data['bankCode'] = '';
         }
 
         return $this->paymentMethods->update($method, $data)->load('category');

@@ -10,6 +10,16 @@ class PaymentMethodResource extends ResponseResource
 {
     public function toArray(Request $request): array
     {
+        $imageUrl = null;
+        if (! empty($this->image)) {
+            if (str_starts_with($this->image, 'http://') || str_starts_with($this->image, 'https://')) {
+                $imageUrl = $this->image;
+            } else {
+                $relativePath = ltrim(preg_replace('#^storage/#', '', $this->image), '/');
+                $imageUrl = url('/storage/' . $relativePath);
+            }
+        }
+
         return [
             'id' => $this->id,
             'key' => $this->key,
@@ -18,7 +28,8 @@ class PaymentMethodResource extends ResponseResource
             'type' => $this->category?->key ?? null,
             'from' => $this->from,
             'bankCode' => $this->bankCode,
-            'value' => $this->value,
+            'image' => $this->image,
+            'image_url' => $imageUrl,
             'category' => $this->category ? new PaymentCategoryResource($this->category) : null,
             'created_at' => $this->formatDate($this->created_at),
             'updated_at' => $this->formatDate($this->updated_at),
