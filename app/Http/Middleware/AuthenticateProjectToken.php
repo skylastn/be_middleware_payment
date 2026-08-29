@@ -16,12 +16,12 @@ class AuthenticateProjectToken
     {
         $token = $request->header('Token');
         if (! $token) {
-            return ResponseHelper::failedResponse('Unauthorized: Missing Token header', 'Unauthorized', 401);
+            return ResponseHelper::unauthorizedResponse('Unauthorized: Missing Token header', 'Unauthorized', 401);
         }
 
         $project = $this->projects->findByToken($token);
         if (! $project) {
-            return ResponseHelper::failedResponse('Unauthorized: Invalid Token', 'Unauthorized', 401);
+            return ResponseHelper::unauthorizedResponse('Unauthorized: Invalid Token', 'Unauthorized', 401);
         }
 
         $request->attributes->set('project', $project);

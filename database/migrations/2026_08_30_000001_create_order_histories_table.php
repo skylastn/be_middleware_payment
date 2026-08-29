@@ -11,17 +11,19 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('order_histories', function (Blueprint $table) {
-            $table->uuid('id')->primary();
-            $table->string('order_id', 36)->index();
-            $table->string('reference')->index();
-            $table->string('from_status', 20)->nullable();
-            $table->string('to_status', 20);
-            $table->string('source', 50)->default('SYSTEM');
-            $table->text('description')->nullable();
-            $table->json('payload')->nullable();
-            $table->timestamp('created_at')->useCurrent();
-        });
+        if (! Schema::hasTable('order_histories')) {
+            Schema::create('order_histories', function (Blueprint $table) {
+                $table->uuid('id')->primary();
+                $table->string('order_id', 36)->index();
+                $table->string('reference')->index();
+                $table->string('from_status', 20)->nullable();
+                $table->string('to_status', 20);
+                $table->string('source', 50)->default('SYSTEM');
+                $table->text('description')->nullable();
+                $table->json('payload')->nullable();
+                $table->timestamp('created_at')->useCurrent();
+            });
+        }
     }
 
     /**

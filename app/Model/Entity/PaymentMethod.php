@@ -4,7 +4,7 @@ namespace App\Model\Entity;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class PaymentMethod extends Model
 {
@@ -13,7 +13,7 @@ class PaymentMethod extends Model
     protected $fillable = [
         'key',
         'name',
-        'type',
+        'category_id',
         'from',
         'bankCode',
         'value',
@@ -26,9 +26,9 @@ class PaymentMethod extends Model
     // Relationships
     // ------------------------------------------------------------
 
-    public function category(): HasOne
+    public function category(): BelongsTo
     {
-        return $this->hasOne(PaymentCategory::class, 'key', 'key');
+        return $this->belongsTo(PaymentCategory::class, 'category_id', 'id');
     }
 
     // ------------------------------------------------------------
@@ -37,7 +37,7 @@ class PaymentMethod extends Model
 
     public function getKeyAttribute(): string
     {
-        return $this->attributes['key'];
+        return $this->attributes['key'] ?? '';
     }
 
     public function setKeyAttribute(string $key): void
@@ -55,14 +55,19 @@ class PaymentMethod extends Model
         $this->name = $name;
     }
 
-    public function getType(): ?string
+    public function getCategoryId(): ?int
     {
-        return $this->type;
+        return $this->category_id !== null ? (int) $this->category_id : null;
     }
 
-    public function setType(?string $type): void
+    public function setCategoryId(?int $categoryId): void
     {
-        $this->type = $type;
+        $this->category_id = $categoryId;
+    }
+
+    public function getType(): ?string
+    {
+        return $this->category?->key;
     }
 
     public function getFrom(): ?string

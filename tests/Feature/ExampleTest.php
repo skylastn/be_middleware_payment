@@ -193,7 +193,7 @@ class ExampleTest extends TestCase
         try {
             Sanctum::actingAs($admin);
 
-            $this->postJson('/api/project/create', [
+            $this->postJson('/api/admin/projects/create', [
                     'name' => 'Generated Credential Test',
                     'type' => $type,
                     'slug' => 'duitku',
@@ -241,7 +241,7 @@ class ExampleTest extends TestCase
 
             Sanctum::actingAs($admin);
 
-            $response = $this->postJson('/api/project/sync-missing-log')
+            $response = $this->postJson('/api/admin/projects/sync-missing-log')
                 ->assertStatus(200)
                 ->assertJsonPath('status', true);
 
@@ -281,13 +281,13 @@ class ExampleTest extends TestCase
 
             Sanctum::actingAs($admin);
 
-            $this->getJson('/api/project/'.$projectId)
+            $this->getJson('/api/admin/projects/'.$projectId)
                 ->assertStatus(200)
                 ->assertSee('originalkey')
                 ->assertSee('originalsecurevalue')
                 ->assertSee('originaltokenvalue');
 
-            $this->putJson('/api/project/'.$projectId, [
+            $this->putJson('/api/admin/projects/'.$projectId, [
                     'name' => 'Credential Lock Test Updated',
                     'type' => $project->type,
                     'slug' => 'xendit',
@@ -334,7 +334,7 @@ class ExampleTest extends TestCase
 
         Sanctum::actingAs($admin);
 
-        $this->putJson('/api/order/'.$orderId, [])
+        $this->putJson('/api/admin/orders/'.$orderId, [])
             ->assertStatus(405);
     }
 
@@ -362,7 +362,7 @@ class ExampleTest extends TestCase
 
         Sanctum::actingAs($admin);
 
-        $this->postJson('/api/order/'.$order->getAttribute($order->getKeyName()).'/resend-callback')
+        $this->postJson('/api/admin/orders/'.$order->getAttribute($order->getKeyName()).'/resend-callback')
             ->assertStatus(200);
 
         Http::assertSentCount(1);
@@ -370,19 +370,19 @@ class ExampleTest extends TestCase
 
     public function test_unauthenticated_cannot_access_payment_repositories(): void
     {
-        $this->getJson('/api/payment/getPaymentRepository')
+        $this->getJson('/api/admin/payment-repositories')
             ->assertStatus(401);
     }
 
     public function test_unauthenticated_cannot_list_all_projects(): void
     {
-        $this->getJson('/api/project')
+        $this->getJson('/api/admin/projects')
             ->assertStatus(401);
     }
 
-    public function test_unauthenticated_cannot_access_test_queue(): void
+    public function test_unauthenticated_cannot_access_admin_orders(): void
     {
-        $this->getJson('/api/test/queue')
+        $this->getJson('/api/admin/orders')
             ->assertStatus(401);
     }
 }

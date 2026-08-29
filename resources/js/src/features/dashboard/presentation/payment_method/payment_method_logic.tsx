@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { paymentMethodService } from '../../application/payment_method_service';
+import { paymentCategoryService } from '../../application/payment_category_service';
 import { PaymentMethodItem } from '../../domain/model/response/payment/payment_method_response';
+import { PaymentCategoryItem } from '../../domain/model/response/payment/payment_category_response';
 import { navigate } from '@/shared/utils/format_utils';
 
 export interface UsePaymentMethodLogicProps {
@@ -13,10 +15,11 @@ export function usePaymentMethodLogic({ mode, id }: UsePaymentMethodLogicProps) 
 
     const [payload, setPayload] = useState<any>(null);
     const [record, setRecord] = useState<PaymentMethodItem | null>(null);
+    const [categories, setCategories] = useState<PaymentCategoryItem[]>([]);
     const [form, setForm] = useState<Record<string, any>>({
         key: '',
         name: '',
-        type: 'bank_transfer',
+        category_id: '',
         from: 'duitku',
         bankCode: '',
         value: '',
@@ -29,6 +32,15 @@ export function usePaymentMethodLogic({ mode, id }: UsePaymentMethodLogicProps) 
     const [searchTerm, setSearchTerm] = useState<string>('');
     const [page, setPage] = useState<number>(1);
     const [perPage, setPerPage] = useState<number>(10);
+
+    const loadCategories = async () => {
+        try {
+            const res = await paymentCategoryService.getPaymentCategories({ per_page: 100 });
+            setCategories(res?.data || []);
+        } catch {
+            // Ignore failure to load categories
+        }
+    };
 
     const loadList = async (pageNum = page) => {
         setLoading(true);
@@ -59,7 +71,7 @@ export function usePaymentMethodLogic({ mode, id }: UsePaymentMethodLogicProps) 
                 setForm({
                     key: itemData.key || '',
                     name: itemData.name || '',
-                    type: itemData.type || 'bank_transfer',
+                    category_id: itemData.category_id || itemData.category?.id || '',
                     from: itemData.from || 'duitku',
                     bankCode: itemData.bankCode || '',
                     value: itemData.value || '',
@@ -76,8 +88,10 @@ export function usePaymentMethodLogic({ mode, id }: UsePaymentMethodLogicProps) 
         if (mode === 'resource-index') {
             loadList(1);
         } else if (mode === 'resource-edit' || mode === 'resource-show') {
+            loadCategories();
             loadItem();
         } else if (mode === 'resource-create') {
+            loadCategories();
             setLoading(false);
         }
     }, [mode, id, perPage]);
@@ -97,10 +111,14 @@ export function usePaymentMethodLogic({ mode, id }: UsePaymentMethodLogicProps) 
         setSaving(true);
         setError('');
         try {
+            const submitData = {
+                ...form,
+                category_id: form.category_id ? Number(form.category_id) : null,
+            };
             if (isEdit && id) {
-                await paymentMethodService.updatePaymentMethod(id, form);
+                await paymentMethodService.updatePaymentMethod(id, submitData);
             } else {
-                await paymentMethodService.createPaymentMethod(form);
+                await paymentMethodService.createPaymentMethod(submitData);
             }
             navigate('/admin/payment-methods');
         } catch (err: any) {
@@ -130,6 +148,7 @@ export function usePaymentMethodLogic({ mode, id }: UsePaymentMethodLogicProps) 
         payload,
         records,
         record,
+        categories,
         form,
         setForm,
         loading,
