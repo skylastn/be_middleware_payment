@@ -29,12 +29,14 @@ class DuitkuService
     private PaymentRepositoryService $paymentRepositoryService;
     private RedisService $redisService;
     private OrderHistoryService $orderHistoryService;
+    private DuitkuRepository $duitkuRepository;
 
     public function __construct()
     {
         $this->paymentRepositoryService = new PaymentRepositoryService;
         $this->redisService = new RedisService;
         $this->orderHistoryService = new OrderHistoryService;
+        $this->duitkuRepository = new DuitkuRepository;
     }
 
     public function getPaymentRepo(string|PaymentModeType|null $mode, int|string|null $id): ?PaymentRepository
@@ -185,7 +187,7 @@ class DuitkuService
         );
 
         if (FormatHelper::isNotEmpty($request->paymentMethod)) {
-            $createInvoice = (new DuitkuRepository($duitkuConfig))
+            $createInvoice = $this->duitkuRepository
                 ->createInvoice($params, $duitkuConfig);
         } else {
             $createInvoice = Pop::createInvoice($params, $duitkuConfig);
@@ -219,6 +221,59 @@ class DuitkuService
         }
         $result['result'] = $response;
         $result['message'] = $msg;
+
+        return $result;
+    }
+
+    public function createOrderPaymentDuitku(Request $request, Project $project, Order $order): array
+    {
+        $mode = $order->getMode() ?? PaymentModeType::sandbox;
+        $paymentRepo = $this->getPaymentRepo($mode, $order->getPaymentRepositoryId());
+        if (! FormatHelper::isNotEmpty($paymentRepo)) {
+            $paymentRepo = $this->getPaymentRepo($mode, null);
+        }
+        $duitkuConfig = $this->setEnv($mode, $paymentRepo);
+
+        $params = json_decode($order->request, true) ?: [];
+        $paymentMethod = $request->paymentMethod ?? $request->input('payment_method');
+        $params['paymentMethod'] = $paymentMethod;
+
+        $signature = md5($duitkuConfig->getMerchantCode() . $params['merchantOrderId'] . $params['paymentAmount'] . $duitkuConfig->getApiKey());
+        $params['signature'] = $signature;
+
+        $order->setRequest(json_encode($params));
+        $order->setPaymentMethod($paymentMethod);
+
+        LogHelper::sendLog(
+            'Request Order Payment Duitku',
+            $params,
+            $project->id,
+            'request_order_payment_duitku'
+        );
+
+        $createInvoice = $this->duitkuRepository
+            ->createInvoice($params, $duitkuConfig);
+
+        $response = json_decode($createInvoice);
+
+        LogHelper::sendLog(
+            'Response Order Payment Duitku',
+            $response,
+            $project->id,
+            'response_order_payment_duitku'
+        );
+
+        $globalValue = $response->vaNumber ?? $response->qrString ?? null;
+        $order->setResponse(json_encode($response));
+        $order->setUrl($response->paymentUrl ?? null);
+        $order->setValue($globalValue);
+        $order->setPaymentRepositoryId($paymentRepo->id);
+        $order->save();
+
+        $result['result'] = $response;
+        $result['link'] = $response->paymentUrl ?? null;
+        $result['value'] = $globalValue;
+        $result['message'] = 'Success Create Order Payment Duitku';
 
         return $result;
     }
