@@ -138,7 +138,7 @@ class PaymentService
 
     public function createPaymentMethod(array $data): PaymentMethod
     {
-        return $this->paymentMethods->create($data);
+        return $this->paymentMethods->create($data)->load('category');
     }
 
     public function updatePaymentMethod(int|string $id, array $data): PaymentMethod
@@ -148,7 +148,7 @@ class PaymentService
             throw new Exception('Payment Method Not Found', 404);
         }
 
-        return $this->paymentMethods->update($method, $data);
+        return $this->paymentMethods->update($method, $data)->load('category');
     }
 
     public function deletePaymentMethod(int|string $id): bool

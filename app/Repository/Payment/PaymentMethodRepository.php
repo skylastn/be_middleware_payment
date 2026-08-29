@@ -5,6 +5,7 @@ namespace App\Repository\Payment;
 use App\Model\Entity\PaymentMethod;
 use App\Repository\BaseRepository;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 class PaymentMethodRepository extends BaseRepository
 {
@@ -12,20 +13,27 @@ class PaymentMethodRepository extends BaseRepository
     {
         return PaymentMethod::class;
     }
-    
+
     public function filtered(array|string|null $categoriesKey = null, ?string $from = null): Collection
     {
         $categoriesKey = is_string($categoriesKey) ? [$categoriesKey] : $categoriesKey;
 
-        return PaymentMethod::when($categoriesKey, fn($query) => $query->whereIn('key', $categoriesKey))
-            ->when($from, fn($query) => $query->where('from', $from))
+        return PaymentMethod::with('category')
+            ->when($categoriesKey, function ($query) use ($categoriesKey) {
+                $query->where(function ($q) use ($categoriesKey) {
+                    $q->whereIn('key', $categoriesKey)
+                        ->orWhereHas('category', fn ($catQuery) => $catQuery->whereIn('key', $categoriesKey));
+                });
+            })
+            ->when($from, fn ($query) => $query->where('from', $from))
             ->get();
     }
 
     public function detail(?string $value, ?string $from): ?PaymentMethod
     {
-        return PaymentMethod::when($value, fn($query) => $query->where('value', $value))
-            ->when($from, fn($query) => $query->where('from', $from))
+        return PaymentMethod::with('category')
+            ->when($value, fn ($query) => $query->where('value', $value))
+            ->when($from, fn ($query) => $query->where('from', $from))
             ->first();
     }
 
@@ -34,22 +42,30 @@ class PaymentMethodRepository extends BaseRepository
         ?string $search = null,
         ?string $from = null,
         array|string|null $categoriesKey = null
-    ): \Illuminate\Pagination\LengthAwarePaginator {
+    ): LengthAwarePaginator {
         $categoriesKey = is_string($categoriesKey) ? [$categoriesKey] : $categoriesKey;
 
-        return PaymentMethod::query()
+        return PaymentMethod::with('category')
             ->when($search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('key', 'like', "%{$search}%")
                         ->orWhere('name', 'like', "%{$search}%")
-                        ->orWhere('type', 'like', "%{$search}%")
                         ->orWhere('from', 'like', "%{$search}%")
                         ->orWhere('bankCode', 'like', "%{$search}%")
-                        ->orWhere('value', 'like', "%{$search}%");
+                        ->orWhere('value', 'like', "%{$search}%")
+                        ->orWhereHas('category', function ($catQuery) use ($search) {
+                            $catQuery->where('key', 'like', "%{$search}%")
+                                ->orWhere('title', 'like', "%{$search}%");
+                        });
                 });
             })
-            ->when($from, fn($query) => $query->where('from', $from))
-            ->when($categoriesKey, fn($query) => $query->whereIn('key', $categoriesKey))
+            ->when($from, fn ($query) => $query->where('from', $from))
+            ->when($categoriesKey, function ($query) use ($categoriesKey) {
+                $query->where(function ($q) use ($categoriesKey) {
+                    $q->whereIn('key', $categoriesKey)
+                        ->orWhereHas('category', fn ($catQuery) => $catQuery->whereIn('key', $categoriesKey));
+                });
+            })
             ->latest()
             ->paginate($perPage);
     }

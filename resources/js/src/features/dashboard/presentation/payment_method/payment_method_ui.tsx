@@ -17,6 +17,7 @@ export function PaymentMethodPage({ mode, id }: PaymentMethodPageProps): React.J
         isEdit,
         records,
         record,
+        categories,
         form,
         setForm,
         loading,
@@ -56,12 +57,12 @@ export function PaymentMethodPage({ mode, id }: PaymentMethodPageProps): React.J
                 <div className="panel">
                     <form className="form-grid" onSubmit={handleFormSubmit}>
                         <label className="field">
-                            <span className="label">Category Key *</span>
+                            <span className="label">Method Key / Code *</span>
                             <input
                                 className="input"
                                 type="text"
                                 required
-                                placeholder="e.g. va, ewallet, cstore, card"
+                                placeholder="e.g. DQ, SP, BC, BR, VC"
                                 value={form.key}
                                 onChange={(e) => setForm({ ...form, key: e.target.value })}
                             />
@@ -73,22 +74,27 @@ export function PaymentMethodPage({ mode, id }: PaymentMethodPageProps): React.J
                                 className="input"
                                 type="text"
                                 required
-                                placeholder="e.g. BCA Virtual Account"
+                                placeholder="e.g. Dana QRIS, BCA Virtual Account"
                                 value={form.name}
                                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                             />
                         </label>
 
                         <label className="field">
-                            <span className="label">Type *</span>
-                            <input
+                            <span className="label">Payment Category *</span>
+                            <select
                                 className="input"
-                                type="text"
                                 required
-                                placeholder="e.g. bank_transfer, ewallet, direct"
-                                value={form.type}
-                                onChange={(e) => setForm({ ...form, type: e.target.value })}
-                            />
+                                value={form.category_id || ''}
+                                onChange={(e) => setForm({ ...form, category_id: e.target.value ? Number(e.target.value) : '' })}
+                            >
+                                <option value="">-- Select Category --</option>
+                                {categories.map((cat) => (
+                                    <option key={cat.id} value={cat.id}>
+                                        {cat.title} ({cat.key})
+                                    </option>
+                                ))}
+                            </select>
                         </label>
 
                         <label className="field">
@@ -169,18 +175,22 @@ export function PaymentMethodPage({ mode, id }: PaymentMethodPageProps): React.J
                         </div>
 
                         <div className="field">
-                            <span className="label">Category Key</span>
+                            <span className="label">Method Key / Code</span>
                             <div><span className="badge blue">{record.key}</span></div>
+                        </div>
+
+                        <div className="field">
+                            <span className="label">Category</span>
+                            <div>
+                                <span className="badge">
+                                    {record.category?.title ? `${record.category.title} (${record.category.key})` : (record.type || '-')}
+                                </span>
+                            </div>
                         </div>
 
                         <div className="field">
                             <span className="label">Display Name</span>
                             <div className="input">{record.name}</div>
-                        </div>
-
-                        <div className="field">
-                            <span className="label">Type</span>
-                            <div className="input mono">{record.type || '-'}</div>
                         </div>
 
                         <div className="field">
@@ -265,7 +275,7 @@ export function PaymentMethodPage({ mode, id }: PaymentMethodPageProps): React.J
                     </div>
                 </div>
 
-                <DataTable columns={['Key', 'Name', 'Type', 'From', 'Bank Code', 'Value', 'Actions']}>
+                <DataTable columns={['Key', 'Name', 'Category', 'From', 'Bank Code', 'Value', 'Actions']}>
                     {loading ? (
                         <SkeletonTableRows rows={perPage > 15 ? 10 : 6} columns={7} />
                     ) : records.length > 0 ? (
@@ -281,7 +291,11 @@ export function PaymentMethodPage({ mode, id }: PaymentMethodPageProps): React.J
                                         </div>
                                     </td>
                                     <td><strong>{row.name}</strong></td>
-                                    <td><span className="badge">{row.type || '-'}</span></td>
+                                    <td>
+                                        <span className="badge">
+                                            {row.category?.title ? `${row.category.title} (${row.category.key})` : (row.type || '-')}
+                                        </span>
+                                    </td>
                                     <td><span className="badge success">{row.from || '-'}</span></td>
                                     <td>{row.bankCode || '-'}</td>
                                     <td className="mono">{row.value || '-'}</td>

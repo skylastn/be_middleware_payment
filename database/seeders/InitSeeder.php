@@ -14,6 +14,7 @@ class InitSeeder extends Seeder
         $this->call([
             AdminSeeder::class,
             SettingsTableSeeder::class,
+            PaymentCategorySeeder::class,
             PaymentMethodSeeder::class,
             PaymentRepoSeeder::class,
         ]);

@@ -11,7 +11,7 @@ class CreatePaymentMethodRequest extends BaseRequest
         return [
             'key' => ['required', 'string', 'max:50'],
             'name' => ['required', 'string', 'max:255'],
-            'type' => ['nullable', 'string', 'max:50'],
+            'category_id' => ['nullable', 'integer', 'exists:payment_categories,id'],
             'from' => ['nullable', 'string', 'max:50'],
             'bankCode' => ['nullable', 'string', 'max:50'],
             'value' => ['nullable', 'string', 'max:100'],
