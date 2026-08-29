@@ -22,157 +22,165 @@ use Illuminate\Support\Facades\Route;
 | API Routes
 |--------------------------------------------------------------------------
 |
-| Here is where you can register API routes for your application. These
-| routes are loaded by the RouteServiceProvider within a group which
-| is assigned the "api" middleware group. Enjoy building your API!
+| Unified API routes for Client Payment, Merchant Server-to-Server,
+| Payment Webhooks, and Admin Backoffice Management.
 |
 */
 
 Route::middleware('throttle:api')->group(function () {
 
-    // client (frontend payment page - protected by expirable Redis token)
-    Route::prefix('client')->middleware('client.token.auth')->group(function () {
+    // ---------------------------------------------------------------------
+    // 1. Client Payment Checkout Flow (Protected by Expirable Redis Token)
+    // ---------------------------------------------------------------------
+    Route::prefix('client')->middleware('client.token.auth')->controller(ClientPaymentController::class)->group(function () {
         Route::prefix('order')->group(function () {
-            Route::get('/detail', [ClientPaymentController::class, 'detail']);
-            Route::get('/checkOrderStatus', [ClientPaymentController::class, 'checkOrderStatus']);
-            Route::post('/createPayment', [ClientPaymentController::class, 'createPayment']);
+            Route::get('/detail', 'detail');
+            Route::get('/checkOrderStatus', 'checkOrderStatus');
+            Route::post('/createPayment', 'createPayment');
         });
 
         Route::prefix('payment')->group(function () {
-            Route::get('/getPaymentCategory', [ClientPaymentController::class, 'getPaymentCategory']);
-            Route::get('/getPaymentMethod', [ClientPaymentController::class, 'getPaymentMethod']);
-            Route::get('/getDetailPaymentMethod', [ClientPaymentController::class, 'getDetailPaymentMethod']);
+            Route::get('/getPaymentCategory', 'getPaymentCategory');
+            Route::get('/getPaymentMethod', 'getPaymentMethod');
+            Route::get('/getDetailPaymentMethod', 'getDetailPaymentMethod');
         });
     });
 
-    // merchant server-to-server order API (protected by static project Token)
-    Route::prefix('order')->middleware('project.auth')->group(function () {
-        Route::get('/', [OrderController::class, 'index']);
-        Route::get('/detail', [OrderController::class, 'detail']);
-        Route::get('/checkOrderStatus', [OrderController::class, 'checkOrderStatus']);
-        Route::post('/create', [OrderController::class, 'store']);
-        Route::post('/set-success', [OrderController::class, 'setSuccessMerchant']);
-        Route::post('/stripe/confirm', [OrderController::class, 'confirmStripe']);
+    // ---------------------------------------------------------------------
+    // 2. Merchant Server-to-Server API (Protected by Project Token)
+    // ---------------------------------------------------------------------
+    Route::prefix('order')->middleware('project.auth')->controller(OrderController::class)->group(function () {
+        Route::get('/', 'index');
+        Route::get('/detail', 'detail');
+        Route::get('/checkOrderStatus', 'checkOrderStatus');
+        Route::post('/create', 'store');
+        Route::post('/set-success', 'setSuccessMerchant');
+        Route::post('/stripe/confirm', 'confirmStripe');
     });
 
-    // merchant payment & public discovery API
-    Route::prefix('payment')->group(function () {
-        Route::post('/createPayment', [PaymentController::class, 'createPayment'])->middleware('project.auth');
-        Route::get('/getPaymentCategory', [PaymentController::class, 'getPaymentCategory']);
-        Route::get('/getPaymentMethod', [PaymentController::class, 'getPaymentMethod']);
-        Route::get('/getDetailPaymentMethod', [PaymentController::class, 'getDetailPaymentMethod']);
-        Route::get('/category/{id}', [PaymentController::class, 'showPaymentCategory']);
-        Route::get('/method/{id}', [PaymentController::class, 'showPaymentMethod']);
+    Route::prefix('payment')->controller(PaymentController::class)->group(function () {
+        Route::post('/createPayment', 'createPayment')->middleware('project.auth');
+        Route::get('/getPaymentCategory', 'getPaymentCategory');
+        Route::get('/getPaymentMethod', 'getPaymentMethod');
+        Route::get('/getDetailPaymentMethod', 'getDetailPaymentMethod');
+        Route::get('/category/{id}', 'showPaymentCategory');
+        Route::get('/method/{id}', 'showPaymentMethod');
     });
 
-    Route::prefix('callback')->group(function () {
-        Route::post('/duitku', [CallbackController::class, 'callbackDuitku']);
-        Route::post('/midtrans', [CallbackController::class, 'callbackMidtrans']);
-        Route::post('/xendit', [CallbackController::class, 'callbackXendit']);
-        Route::post('/spnpay', [CallbackController::class, 'callbackSPNPay']);
-        Route::post('/stripe', [CallbackController::class, 'callbackStripe']);
-        Route::post('/paprika', [CallbackController::class, 'callbackPaprika']);
-
-        Route::prefix('payout')->group(function () {
-            Route::post('/stripe', [CallbackController::class, 'callbackPayoutStripe']);
-        });
+    Route::prefix('payout')->controller(PayoutController::class)->group(function () {
+        Route::post('/create', 'create')->middleware('project.auth');
     });
 
-    Route::prefix('payout')->group(function () {
-        Route::post('/create', [PayoutController::class, 'create'])->middleware('project.auth');
+    // ---------------------------------------------------------------------
+    // 3. Webhooks & Callbacks
+    // ---------------------------------------------------------------------
+    Route::prefix('callback')->controller(CallbackController::class)->group(function () {
+        Route::post('/duitku', 'callbackDuitku');
+        Route::post('/midtrans', 'callbackMidtrans');
+        Route::post('/xendit', 'callbackXendit');
+        Route::post('/spnpay', 'callbackSPNPay');
+        Route::post('/stripe', 'callbackStripe');
+        Route::post('/paprika', 'callbackPaprika');
+        Route::post('/payout/stripe', 'callbackPayoutStripe');
     });
 
-    Route::prefix('webhook')->group(function () {
-        Route::post('/paprika', [WebhookController::class, 'webhookPaprika']);
+    Route::prefix('webhook')->controller(WebhookController::class)->group(function () {
+        Route::post('/paprika', 'webhookPaprika');
     });
 
-    // Other
-    Route::prefix('other')->group(function () {
-        Route::post('/duitkuEncrpyt', [OtherController::class, 'duitkuEncrpyt']);
-        Route::get('/duitkuPaymentSync', [OtherController::class, 'duitkuPaymentSync']);
+    // ---------------------------------------------------------------------
+    // 4. Utility & Test Endpoints (Restricted to Admin)
+    // ---------------------------------------------------------------------
+    Route::prefix('other')->middleware(['auth:sanctum', 'admin'])->controller(OtherController::class)->group(function () {
+        Route::post('/duitkuEncrpyt', 'duitkuEncrpyt');
+        Route::get('/duitkuPaymentSync', 'duitkuPaymentSync');
     });
 
-    // Test endpoints (dev / queue verification only - restricted to admin)
-    Route::prefix('test')->middleware(['auth:sanctum', 'admin'])->group(function () {
-        Route::get('/queue', [TestController::class, 'testQueue']);
-        Route::post('/queue', [TestController::class, 'testQueue']);
+    Route::prefix('test')->middleware(['auth:sanctum', 'admin'])->controller(TestController::class)->group(function () {
+        Route::get('/queue', 'testQueue');
+        Route::post('/queue', 'testQueue');
     });
 
-    Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
-        return $request->user();
-    });
+    Route::middleware('auth:sanctum')->get('/user', fn (Request $request) => $request->user());
 
-    // Admin login API - must be at /api/login only with strict rate-limiting (10 attempts / min)
+    // Admin login API (Rate-limited to 10 attempts / min)
     Route::middleware([EncryptCookies::class, AddQueuedCookiesToResponse::class, 'throttle:10,1'])
         ->post('/login', [AdminAuthController::class, 'login']);
 
-    // Admin Backoffice API routes (strictly protected by Sanctum token + Admin role)
+    // ---------------------------------------------------------------------
+    // 5. Admin Backoffice API (Protected by Sanctum Token + Admin Role)
+    // ---------------------------------------------------------------------
     Route::middleware(['auth:sanctum', 'admin'])
         ->prefix('admin')
         ->name('admin.api.')
         ->group(function (): void {
-            Route::get('/me', [AdminAuthController::class, 'me'])->name('me');
-            Route::post('/logout', [AdminAuthController::class, 'logout'])->name('logout');
+            Route::controller(AdminAuthController::class)->group(function () {
+                Route::get('/me', 'me')->name('me');
+                Route::post('/logout', 'logout')->name('logout');
+            });
+
             Route::get('/dashboard', AdminDashboardController::class)->name('dashboard');
             Route::get('/gateway-history', AdminGatewayHistoryController::class)->name('gateway-history');
 
             // Admin Order Management
-            Route::prefix('orders')->group(function () {
-                Route::get('/', [OrderController::class, 'index']);
-                Route::get('/{id}', [OrderController::class, 'show']);
-                Route::post('/{id}/resend-callback', [OrderController::class, 'resendCallback']);
-                Route::post('/{id}/set-success', [OrderController::class, 'setSuccessAdmin']);
+            Route::prefix('orders')->controller(OrderController::class)->group(function () {
+                Route::get('/', 'index');
+                Route::get('/{id}', 'show');
+                Route::post('/{id}/resend-callback', 'resendCallback');
+                Route::post('/{id}/set-success', 'setSuccessAdmin');
             });
 
             // Admin Projects Management
-            Route::prefix('projects')->group(function () {
-                Route::get('/', [ProjectController::class, 'index']);
-                Route::get('/{id}', [ProjectController::class, 'show']);
-                Route::post('/create', [ProjectController::class, 'store']);
-                Route::put('/{id}', [ProjectController::class, 'update']);
-                Route::delete('/{id}', [ProjectController::class, 'delete']);
-                Route::post('/sync-missing-log', [ProjectController::class, 'syncMissingLog']);
+            Route::prefix('projects')->controller(ProjectController::class)->group(function () {
+                Route::get('/', 'index');
+                Route::get('/{id}', 'show');
+                Route::post('/create', 'store');
+                Route::put('/{id}', 'update');
+                Route::delete('/{id}', 'delete');
+                Route::post('/sync-missing-log', 'syncMissingLog');
             });
 
             // Admin Payment Resources
-            Route::prefix('payment-gateways')->group(function () {
-                Route::get('/', [PaymentController::class, 'getPaymentGateway']);
-                Route::get('/{id}', [PaymentController::class, 'showPaymentGateway']);
-                Route::post('/create', [PaymentController::class, 'createPaymentGateway']);
-                Route::put('/{id}', [PaymentController::class, 'updatePaymentGateway']);
-                Route::delete('/{id}', [PaymentController::class, 'deletePaymentGateway']);
-            });
+            Route::controller(PaymentController::class)->group(function () {
+                Route::prefix('payment-gateways')->group(function () {
+                    Route::get('/', 'getPaymentGateway');
+                    Route::get('/{id}', 'showPaymentGateway');
+                    Route::post('/create', 'createPaymentGateway');
+                    Route::put('/{id}', 'updatePaymentGateway');
+                    Route::delete('/{id}', 'deletePaymentGateway');
+                });
 
-            Route::prefix('payment-repositories')->group(function () {
-                Route::get('/', [PaymentController::class, 'getPaymentRepository']);
-                Route::get('/{id}', [PaymentController::class, 'showPaymentRepository']);
-                Route::post('/create', [PaymentController::class, 'createPaymentRepository']);
-                Route::put('/{id}', [PaymentController::class, 'updatePaymentRepository']);
-                Route::delete('/{id}', [PaymentController::class, 'deletePaymentRepository']);
-            });
+                Route::prefix('payment-repositories')->group(function () {
+                    Route::get('/', 'getPaymentRepository');
+                    Route::get('/{id}', 'showPaymentRepository');
+                    Route::post('/create', 'createPaymentRepository');
+                    Route::put('/{id}', 'updatePaymentRepository');
+                    Route::delete('/{id}', 'deletePaymentRepository');
+                });
 
-            Route::prefix('payment-methods')->group(function () {
-                Route::get('/', [PaymentController::class, 'getPaymentMethod']);
-                Route::get('/{id}', [PaymentController::class, 'showPaymentMethod']);
-                Route::post('/create', [PaymentController::class, 'createPaymentMethod']);
-                Route::put('/{id}', [PaymentController::class, 'updatePaymentMethod']);
-                Route::delete('/{id}', [PaymentController::class, 'deletePaymentMethod']);
-            });
+                Route::prefix('payment-methods')->group(function () {
+                    Route::get('/', 'getPaymentMethod');
+                    Route::get('/{id}', 'showPaymentMethod');
+                    Route::post('/create', 'createPaymentMethod');
+                    Route::put('/{id}', 'updatePaymentMethod');
+                    Route::delete('/{id}', 'deletePaymentMethod');
+                });
 
-            Route::prefix('payment-categories')->group(function () {
-                Route::get('/', [PaymentController::class, 'getPaymentCategory']);
-                Route::get('/{id}', [PaymentController::class, 'showPaymentCategory']);
-                Route::post('/create', [PaymentController::class, 'createPaymentCategory']);
-                Route::put('/{id}', [PaymentController::class, 'updatePaymentCategory']);
-                Route::delete('/{id}', [PaymentController::class, 'deletePaymentCategory']);
-            });
+                Route::prefix('payment-categories')->group(function () {
+                    Route::get('/', 'getPaymentCategory');
+                    Route::get('/{id}', 'showPaymentCategory');
+                    Route::post('/create', 'createPaymentCategory');
+                    Route::put('/{id}', 'updatePaymentCategory');
+                    Route::delete('/{id}', 'deletePaymentCategory');
+                });
 
-            Route::prefix('settings')->group(function () {
-                Route::get('/', [PaymentController::class, 'getSetting']);
-                Route::get('/{id}', [PaymentController::class, 'showSetting']);
-                Route::post('/create', [PaymentController::class, 'createSetting']);
-                Route::put('/{id}', [PaymentController::class, 'updateSetting']);
-                Route::delete('/{id}', [PaymentController::class, 'deleteSetting']);
+                Route::prefix('settings')->group(function () {
+                    Route::get('/', 'getSetting');
+                    Route::get('/{id}', 'showSetting');
+                    Route::post('/create', 'createSetting');
+                    Route::put('/{id}', 'updateSetting');
+                    Route::delete('/{id}', 'deleteSetting');
+                });
             });
         });
 });

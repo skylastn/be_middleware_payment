@@ -250,10 +250,24 @@ class DuitkuService
         if (! FormatHelper::isNotEmpty($paymentRepo)) {
             throw new Exception('Payment Repository not found');
         }
+
+        $repoValue = $paymentRepo->getValue() ?? [];
+        $apiKey = $repoValue['duitku_mk'] ?? $repoValue['apiKey'] ?? '';
+        $merchantCode = $repoValue['duitku_mc'] ?? $repoValue['merchantCode'] ?? '';
+        $amount = (string) ($request->input('amount') ?? '');
+        $merchantOrderId = (string) ($request->input('merchantOrderId') ?? '');
+        $incomingSig = (string) ($request->input('signature') ?? '');
+
+        if (! empty($apiKey) && ! empty($merchantCode) && ! empty($incomingSig)) {
+            $expectedSig = md5($merchantCode . $amount . $merchantOrderId . $apiKey);
+            if (! hash_equals($expectedSig, $incomingSig)) {
+                throw new Exception('Invalid Duitku callback signature', 403);
+            }
+        }
+
         $duitkuConfig = $this->setEnv($order->getMode(), $paymentRepo);
         $_POST = $request->all();
         $callback = Pop::callback($duitkuConfig);
-        // header('Content-Type: application/json');
         $notif = json_decode((string) $callback);
 
         // var_dump($callback);
