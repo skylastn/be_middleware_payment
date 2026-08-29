@@ -29,7 +29,7 @@ export function usePaymentMethodLogic({ mode, id }: UsePaymentMethodLogicProps) 
     // Filter states
     const [searchTerm, setSearchTerm] = useState<string>('');
     const [page, setPage] = useState<number>(1);
-    const [perPage, setPerPage] = useState<number>(15);
+    const [perPage, setPerPage] = useState<number>(10);
 
     const loadList = async (pageNum = page) => {
         setLoading(true);
@@ -37,7 +37,7 @@ export function usePaymentMethodLogic({ mode, id }: UsePaymentMethodLogicProps) 
         try {
             const query = new URLSearchParams();
             if (pageNum > 1) query.set('page', String(pageNum));
-            if (perPage !== 15) query.set('per_page', String(perPage));
+            if (perPage !== 10) query.set('per_page', String(perPage));
             if (searchTerm.trim()) query.set('search', searchTerm.trim());
 
             const queryString = query.toString();

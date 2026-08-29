@@ -41,7 +41,7 @@ class PaymentController extends Controller
             return ResponseHelper::successResponse($this->paymentService->getListPaymentCategory());
         }
 
-        $perPage = (int) ($request->query('per_page', $request->query('perPage', 15)));
+        $perPage = (int) ($request->query('per_page', $request->query('perPage', 10)));
         return ResponseHelper::formatPagination($query->latest()->paginate($perPage));
     }
 
@@ -71,7 +71,7 @@ class PaymentController extends Controller
             return ResponseHelper::successResponse($result);
         }
 
-        $perPage = (int) ($request->query('per_page', $request->query('perPage', 15)));
+        $perPage = (int) ($request->query('per_page', $request->query('perPage', 10)));
         return ResponseHelper::formatPagination($query->latest()->paginate($perPage));
     }
 
@@ -111,7 +111,7 @@ class PaymentController extends Controller
                     ->orWhere('description', 'like', "%{$search}%");
             });
         }
-        $perPage = (int) ($request->query('per_page', $request->query('perPage', 15)));
+        $perPage = (int) ($request->query('per_page', $request->query('perPage', 10)));
         return ResponseHelper::formatPagination($query->latest()->paginate($perPage));
     }
 
@@ -130,7 +130,7 @@ class PaymentController extends Controller
                 $query->where('mode', $mode);
             }
         }
-        $perPage = (int) ($request->query('per_page', $request->query('perPage', 15)));
+        $perPage = (int) ($request->query('per_page', $request->query('perPage', 10)));
         return ResponseHelper::formatPagination($query->latest()->paginate($perPage));
     }
 
@@ -143,7 +143,7 @@ class PaymentController extends Controller
                     ->orWhere('value', 'like', "%{$search}%");
             });
         }
-        $perPage = (int) ($request->query('per_page', $request->query('perPage', 15)));
+        $perPage = (int) ($request->query('per_page', $request->query('perPage', 10)));
         return ResponseHelper::formatPagination($query->latest()->paginate($perPage));
     }
 

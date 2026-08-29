@@ -14,7 +14,7 @@ abstract class BaseRepository
         return $this->query()->with($with)->get();
     }
 
-    public function paginate(int $perPage = 15, array $with = []): LengthAwarePaginator
+    public function paginate(int $perPage = 10, array $with = []): LengthAwarePaginator
     {
         return $this->query()->with($with)->paginate($perPage);
     }

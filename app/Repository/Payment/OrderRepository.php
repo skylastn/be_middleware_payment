@@ -10,7 +10,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 class OrderRepository extends BaseRepository
 {
     public function latestPaginated(
-        int $perPage = 15,
+        int $perPage = 10,
         ?string $search = null,
         ?string $mode = null,
         ?string $status = null,

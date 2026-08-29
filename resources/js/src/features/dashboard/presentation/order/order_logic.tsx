@@ -20,7 +20,7 @@ export function useOrderLogic({ mode, id }: UseOrderLogicProps) {
     // Filters
     const [searchTerm, setSearchTerm] = useState<string>('');
     const [page, setPage] = useState<number>(1);
-    const [perPage, setPerPage] = useState<number>(15);
+    const [perPage, setPerPage] = useState<number>(10);
     const [selectedMode, setSelectedMode] = useState<string>('all');
     const [selectedStatus, setSelectedStatus] = useState<string>('all');
     const [startDate, setStartDate] = useState<string>('');
@@ -50,7 +50,7 @@ export function useOrderLogic({ mode, id }: UseOrderLogicProps) {
         try {
             const query = new URLSearchParams();
             if (pageNum > 1) query.set('page', String(pageNum));
-            if (perPage !== 15) query.set('per_page', String(perPage));
+            if (perPage !== 10) query.set('per_page', String(perPage));
             if (searchTerm.trim()) query.set('search', searchTerm.trim());
             if (selectedMode !== 'all') query.set('mode', selectedMode);
             if (selectedStatus !== 'all') query.set('status', selectedStatus);

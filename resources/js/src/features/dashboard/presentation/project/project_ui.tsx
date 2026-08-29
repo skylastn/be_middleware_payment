@@ -307,7 +307,7 @@ export function ProjectPage({ mode, id }: ProjectPageProps): React.JSX.Element {
                             value={perPage}
                             onChange={(e) => setPerPage(Number(e.target.value))}
                         >
-                            <option value="15">15 / page</option>
+                            <option value="10">10 / page</option>
                             <option value="25">25 / page</option>
                             <option value="50">50 / page</option>
                         </select>

@@ -19,7 +19,7 @@ export function useResourceIndexLogic({ resource }: UseResourceIndexLogicProps) 
     const [selectedMode, setSelectedMode] = useState<string>('all');
     const [selectedStatus, setSelectedStatus] = useState<string>('all');
     const [page, setPage] = useState<number>(1);
-    const [perPage, setPerPage] = useState<number>(15);
+    const [perPage, setPerPage] = useState<number>(10);
 
     const fetchRecords = async (
         targetPage = page,
@@ -33,7 +33,7 @@ export function useResourceIndexLogic({ resource }: UseResourceIndexLogicProps) 
         try {
             const query = new URLSearchParams();
             if (targetPage > 1) query.set('page', String(targetPage));
-            if (itemsPerPage !== 15) query.set('per_page', String(itemsPerPage));
+            if (itemsPerPage !== 10) query.set('per_page', String(itemsPerPage));
             if (querySearch.trim()) query.set('search', querySearch.trim());
             if (mode !== 'all') query.set('mode', mode);
             if (status !== 'all') query.set('status', status);

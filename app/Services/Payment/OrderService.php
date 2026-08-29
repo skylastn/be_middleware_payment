@@ -44,7 +44,7 @@ class OrderService
         $search = $request->query('search');
         $mode = $request->query('mode');
         $status = $request->query('status');
-        $perPage = (int) ($request->query('per_page', $request->query('perPage', 15)));
+        $perPage = (int) ($request->query('per_page', $request->query('perPage', 10)));
         $startDate = $request->query('start_date') ?: $request->query('startDate');
         $endDate = $request->query('end_date') ?: $request->query('endDate');
         $paymentRepositoryId = $request->query('payment_repository_id') ?: $request->query('paymentRepositoryId');

@@ -30,7 +30,7 @@ export function usePaymentRepositoryLogic({ mode, id }: UsePaymentRepositoryLogi
     const [searchTerm, setSearchTerm] = useState<string>('');
     const [selectedMode, setSelectedMode] = useState<string>('all');
     const [page, setPage] = useState<number>(1);
-    const [perPage, setPerPage] = useState<number>(15);
+    const [perPage, setPerPage] = useState<number>(10);
 
     useEffect(() => {
         ResourceService.list('/api/admin/payment-gateways?per_page=100')
@@ -47,7 +47,7 @@ export function usePaymentRepositoryLogic({ mode, id }: UsePaymentRepositoryLogi
         try {
             const query = new URLSearchParams();
             if (pageNum > 1) query.set('page', String(pageNum));
-            if (perPage !== 15) query.set('per_page', String(perPage));
+            if (perPage !== 10) query.set('per_page', String(perPage));
             if (searchTerm.trim()) query.set('search', searchTerm.trim());
             if (selectedMode !== 'all') query.set('mode', selectedMode);
 

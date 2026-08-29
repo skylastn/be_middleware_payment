@@ -38,7 +38,7 @@ class ProjectService
     {
         $search = $request->query('search');
         $slug = $request->query('slug');
-        $perPage = (int) ($request->query('per_page', $request->query('perPage', 15)));
+        $perPage = (int) ($request->query('per_page', $request->query('perPage', 10)));
 
         return $this->projects->latestPaginated($perPage, $search, $slug);
     }
