@@ -30,6 +30,7 @@ export function PaymentRepositoryPage({ mode, id }: PaymentRepositoryPageProps):
         testModalRepo,
         testingOrder,
         testOrderResult,
+        testError,
         testForm,
         setTestForm,
         openTestModal,
@@ -50,6 +51,178 @@ export function PaymentRepositoryPage({ mode, id }: PaymentRepositoryPageProps):
         handleDelete,
         loadList,
     } = usePaymentRepositoryLogic({ mode, id });
+
+    const renderTestOrderModal = () => (
+        <ModalDialog
+            isOpen={Boolean(testModalRepo)}
+            title={`🧪 Test Create Order: ${testModalRepo?.payment_gateway?.name || testModalRepo?.key || 'Gateway'}`}
+            description={`Simulate real API order creation on ${testModalRepo?.mode?.toUpperCase() || 'SANDBOX'} mode.`}
+            confirmText={testOrderResult ? 'Re-run Test Order' : 'Create Test Order'}
+            cancelText="Close"
+            confirmTone="primary"
+            loading={testingOrder}
+            onConfirm={handleExecuteTestOrder as any}
+            onClose={closeTestModal}
+        >
+            {testModalRepo && (
+                <form onSubmit={handleExecuteTestOrder} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    {testModalRepo.mode === 'prod' && (
+                        <div className="alert warning" style={{ fontSize: '12px', margin: 0 }}>
+                            ⚠️ <strong>Caution:</strong> This repository is configured for <strong>PRODUCTION / LIVE</strong> mode. Creating a test order will generate a real transaction on the live payment gateway engine.
+                        </div>
+                    )}
+
+                    {testError && (
+                        <div className="panel alert danger" style={{ fontSize: '12px', margin: 0, padding: '10px 14px' }}>
+                            <strong>Error:</strong> {testError}
+                        </div>
+                    )}
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                        <label className="field" style={{ margin: 0 }}>
+                            <span className="label">Amount *</span>
+                            <input
+                                className="input"
+                                type="number"
+                                required
+                                min="1"
+                                value={testForm.amount}
+                                onChange={(e) => setTestForm({ ...testForm, amount: Number(e.target.value) })}
+                            />
+                        </label>
+
+                        <label className="field" style={{ margin: 0 }}>
+                            <span className="label">Currency *</span>
+                            <input
+                                className="input mono"
+                                type="text"
+                                required
+                                placeholder="IDR, MYR, USD..."
+                                value={testForm.currency}
+                                onChange={(e) => setTestForm({ ...testForm, currency: e.target.value.toUpperCase() })}
+                            />
+                        </label>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                        <label className="field" style={{ margin: 0 }}>
+                            <span className="label">Buyer Email *</span>
+                            <input
+                                className="input"
+                                type="email"
+                                required
+                                value={testForm.email}
+                                onChange={(e) => setTestForm({ ...testForm, email: e.target.value })}
+                            />
+                        </label>
+
+                        <label className="field" style={{ margin: 0 }}>
+                            <span className="label">Buyer Name</span>
+                            <input
+                                className="input"
+                                type="text"
+                                value={testForm.name}
+                                onChange={(e) => setTestForm({ ...testForm, name: e.target.value })}
+                            />
+                        </label>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                        <label className="field" style={{ margin: 0 }}>
+                            <span className="label">API Version (Versi)</span>
+                            <select
+                                className="input"
+                                value={testForm.version}
+                                onChange={(e) => setTestForm({ ...testForm, version: e.target.value })}
+                            >
+                                <option value="1">Version 1 (Default / Direct Gateway URL)</option>
+                                <option value="2">Version 2 (Hosted Detail Payment Page)</option>
+                            </select>
+                        </label>
+
+                        <label className="field" style={{ margin: 0 }}>
+                            <span className="label">Payment Method <span className="muted" style={{ fontSize: '11px', fontWeight: 'normal' }}>(Optional)</span></span>
+                            <input
+                                className="input mono"
+                                type="text"
+                                placeholder="e.g. VA, QRIS, BCA_VA..."
+                                value={testForm.paymentMethod}
+                                onChange={(e) => setTestForm({ ...testForm, paymentMethod: e.target.value })}
+                            />
+                        </label>
+                    </div>
+
+                    {/* Test Results Section */}
+                    {testOrderResult && (
+                        <div style={{ marginTop: '12px', borderTop: '1px solid var(--border)', paddingTop: '14px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                <strong style={{ color: 'var(--success)', fontSize: '13px' }}>
+                                    ✅ Test Order Successfully Created!
+                                </strong>
+                                <div style={{ display: 'flex', gap: '6px' }}>
+                                    <span className="badge blue mono" style={{ fontSize: '11px' }}>
+                                        {testOrderResult.order_reference || 'Ref OK'}
+                                    </span>
+                                    <span className="badge green" style={{ fontSize: '11px' }}>
+                                        v{testOrderResult.version || testForm.version}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {testOrderResult.checkout_url && (
+                                <div style={{ marginBottom: '12px', background: 'var(--bg-page)', padding: '10px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
+                                    <span className="label" style={{ fontSize: '11px', marginBottom: '6px', display: 'block' }}>Payment / Checkout URL:</span>
+                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                        <a
+                                            href={testOrderResult.checkout_url}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="button primary"
+                                            style={{ fontSize: '12px', padding: '0 12px', minHeight: '32px' }}
+                                        >
+                                            👉 Open Payment Checkout Page
+                                        </a>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden', flex: 1, minWidth: '150px' }}>
+                                            <input
+                                                type="text"
+                                                readOnly
+                                                className="input mono"
+                                                value={testOrderResult.checkout_url}
+                                                style={{ fontSize: '11px', height: '32px', padding: '0 8px' }}
+                                            />
+                                            <CopyButton text={testOrderResult.checkout_url} />
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                    <span className="label" style={{ fontSize: '11px' }}>Gateway Response Data:</span>
+                                    <CopyButton text={displayValue(testOrderResult.raw_result || testOrderResult)} />
+                                </div>
+                                <pre
+                                    className="mono"
+                                    style={{
+                                        margin: 0,
+                                        padding: '10px',
+                                        background: 'var(--bg-page)',
+                                        border: '1px solid var(--border)',
+                                        borderRadius: 'var(--radius-sm)',
+                                        maxHeight: '180px',
+                                        overflowY: 'auto',
+                                        fontSize: '11px',
+                                    }}
+                                >
+                                    {displayValue(testOrderResult.raw_result || testOrderResult)}
+                                </pre>
+                            </div>
+                        </div>
+                    )}
+                </form>
+            )}
+        </ModalDialog>
+    );
 
     if (mode === 'resource-create' || mode === 'resource-edit') {
         return (
@@ -239,6 +412,7 @@ export function PaymentRepositoryPage({ mode, id }: PaymentRepositoryPageProps):
                 ) : (
                     <div className="panel empty">Payment repository not found.</div>
                 )}
+                {renderTestOrderModal()}
             </>
         );
     }
@@ -407,123 +581,7 @@ export function PaymentRepositoryPage({ mode, id }: PaymentRepositoryPageProps):
                 </div>
             )}
 
-            {/* Test Create Order Simulation Modal */}
-            <ModalDialog
-                isOpen={Boolean(testModalRepo)}
-                title={`🧪 Test Create Order: ${testModalRepo?.payment_gateway?.name || testModalRepo?.key || 'Gateway'}`}
-                description={`Simulate real API order creation on ${testModalRepo?.mode?.toUpperCase() || 'SANDBOX'} mode.`}
-                confirmText={testOrderResult ? 'Re-run Test Order' : 'Create Test Order'}
-                cancelText="Close"
-                confirmTone="primary"
-                loading={testingOrder}
-                onConfirm={handleExecuteTestOrder as any}
-                onClose={closeTestModal}
-            >
-                {testModalRepo && (
-                    <form onSubmit={handleExecuteTestOrder} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                        {testModalRepo.mode === 'prod' && (
-                            <div className="alert warning" style={{ fontSize: '12px', margin: 0 }}>
-                                ⚠️ <strong>Caution:</strong> This repository is configured for <strong>PRODUCTION / LIVE</strong> mode. Creating a test order will generate a real transaction on the live payment gateway engine.
-                            </div>
-                        )}
-
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                            <label className="field" style={{ margin: 0 }}>
-                                <span className="label">Amount</span>
-                                <input
-                                    className="input"
-                                    type="number"
-                                    required
-                                    value={testForm.amount}
-                                    onChange={(e) => setTestForm({ ...testForm, amount: Number(e.target.value) })}
-                                />
-                            </label>
-
-                            <label className="field" style={{ margin: 0 }}>
-                                <span className="label">Currency</span>
-                                <input
-                                    className="input mono"
-                                    type="text"
-                                    required
-                                    value={testForm.currency}
-                                    onChange={(e) => setTestForm({ ...testForm, currency: e.target.value.toUpperCase() })}
-                                />
-                            </label>
-                        </div>
-
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                            <label className="field" style={{ margin: 0 }}>
-                                <span className="label">Buyer Email</span>
-                                <input
-                                    className="input"
-                                    type="email"
-                                    required
-                                    value={testForm.email}
-                                    onChange={(e) => setTestForm({ ...testForm, email: e.target.value })}
-                                />
-                            </label>
-
-                            <label className="field" style={{ margin: 0 }}>
-                                <span className="label">Buyer Name</span>
-                                <input
-                                    className="input"
-                                    type="text"
-                                    value={testForm.name}
-                                    onChange={(e) => setTestForm({ ...testForm, name: e.target.value })}
-                                />
-                            </label>
-                        </div>
-
-                        {/* Test Results Section */}
-                        {testOrderResult && (
-                            <div style={{ marginTop: '12px', borderTop: '1px solid var(--border)', paddingTop: '14px' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                                    <strong style={{ color: 'var(--success)', fontSize: '13px' }}>
-                                        ✅ Test Order Successfully Created!
-                                    </strong>
-                                </div>
-
-                                {testOrderResult.checkout_url && (
-                                    <div style={{ marginBottom: '10px' }}>
-                                        <span className="label" style={{ fontSize: '11px' }}>Payment / Checkout URL:</span>
-                                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                            <a
-                                                href={testOrderResult.checkout_url}
-                                                target="_blank"
-                                                rel="noreferrer"
-                                                className="button primary"
-                                                style={{ fontSize: '12px', padding: '0 12px', minHeight: '32px' }}
-                                            >
-                                                👉 Open Payment Checkout Page
-                                            </a>
-                                            <CopyButton text={testOrderResult.checkout_url} />
-                                        </div>
-                                    </div>
-                                )}
-
-                                <div>
-                                    <span className="label" style={{ fontSize: '11px' }}>Gateway Response:</span>
-                                    <pre
-                                        className="mono"
-                                        style={{
-                                            margin: 0,
-                                            padding: '10px',
-                                            background: 'var(--bg-page)',
-                                            border: '1px solid var(--border)',
-                                            borderRadius: 'var(--radius-sm)',
-                                            maxHeight: '180px',
-                                            overflowY: 'auto',
-                                            fontSize: '11px',
-                                        }}
-                                    >
-                                        {displayValue(testOrderResult.raw_result || testOrderResult)}
-                                    </pre>
-                                </div>
-                            </div>
-                        )}
-                    </form>
-                )}
-            </ModalDialog>
+            {renderTestOrderModal()}
         </>
     );
 }
