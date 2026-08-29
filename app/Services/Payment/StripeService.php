@@ -176,6 +176,15 @@ class StripeService
             $order->setPaymentRepositoryId($paymentRepo->id);
             $order->save();
 
+            $this->orderHistoryService->log(
+                $order,
+                OrderStatus::PENDING,
+                'ORDER_CREATE_STRIPE',
+                'Order created with status PENDING (Direct Card Flow)',
+                $params,
+                null
+            );
+
             if ($cardProvidedAtCreate && $paymentIntent->status === 'succeeded') {
                 $order->setStatus(OrderStatus::SUCCESS);
                 $order->setPaymentMethod('card');
@@ -353,6 +362,15 @@ class StripeService
         $order->setValue(null);
         $order->setPaymentRepositoryId($paymentRepo->id);
         $order->save();
+
+        $this->orderHistoryService->log(
+            $order,
+            OrderStatus::PENDING,
+            'ORDER_CREATE_STRIPE',
+            'Order created with status PENDING (Hosted Checkout Flow)',
+            $params,
+            null
+        );
 
         $response['message'] = 'Success Create Order';
         $response['reference'] = $req['reference'];

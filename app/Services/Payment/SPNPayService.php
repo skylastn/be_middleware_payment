@@ -85,6 +85,15 @@ class SPNPayService
         $order->setStatus(OrderStatus::PENDING);
         $order->save();
 
+        $this->orderHistoryService->log(
+            $order,
+            OrderStatus::PENDING,
+            'ORDER_CREATE_SPNPAY',
+            'Order created with status PENDING',
+            $params,
+            null
+        );
+
         $result['link'] = $paymentUrl;
         $result['result'] = $order;
 

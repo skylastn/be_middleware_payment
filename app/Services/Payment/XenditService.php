@@ -164,6 +164,15 @@ class XenditService
         $order->setPaymentRepositoryId($paymentRepo->id);
         $order->save();
 
+        $this->orderHistoryService->log(
+            $order,
+            OrderStatus::PENDING,
+            'ORDER_CREATE_XENDIT',
+            'Order created with status PENDING',
+            $params,
+            null
+        );
+
         $response['message'] = 'Success Create Order';
         $response['link'] = $createInvoice['invoice_url'];
         $response['data'] = $createInvoice;

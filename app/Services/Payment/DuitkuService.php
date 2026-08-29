@@ -209,6 +209,15 @@ class DuitkuService
         $order->setPaymentRepositoryId($paymentRepo->id);
         $order->save();
 
+        $this->orderHistoryService->log(
+            $order,
+            OrderStatus::PENDING,
+            'ORDER_CREATE_DUITKU',
+            'Order created with status PENDING',
+            $params,
+            null
+        );
+
         $msg = 'Success Create Order Duitku';
         $result['link'] = $response->paymentUrl;
         if (FormatHelper::isNotEmpty($request->version) && $request->version == '2') {

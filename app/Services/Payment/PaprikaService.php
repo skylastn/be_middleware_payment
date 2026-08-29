@@ -272,6 +272,16 @@ class PaprikaService {
         $order->setValue($qrContent);
         $order->setPaymentRepositoryId($paymentRepo->id);
         $order->save();
+
+        $this->orderHistoryService->log(
+            $order,
+            OrderStatus::PENDING,
+            'ORDER_CREATE_PAPRIKA',
+            'Order created with status PENDING',
+            $body,
+            null
+        );
+
         $msg = 'Success Create Order Paprika';
         $result['link'] = $qrContent ?? $qrUrl;
         if (FormatHelper::isNotEmpty($request->version) && $request->version == '2') {

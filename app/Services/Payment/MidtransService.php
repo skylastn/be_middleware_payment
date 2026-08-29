@@ -106,6 +106,15 @@ class MidtransService
         $order->setValue($globalValue);
         $order->save();
 
+        $this->orderHistoryService->log(
+            $order,
+            OrderStatus::PENDING,
+            'ORDER_CREATE_MIDTRANS',
+            'Order created with status PENDING',
+            $params,
+            null
+        );
+
         $response['link'] = $createInvoice['response']->redirect_url;
         $response['result'] = $createInvoice['response'];
 
