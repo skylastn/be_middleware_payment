@@ -276,4 +276,20 @@ class SPNPayService
 
         return $order;
     }
+
+    /**
+     * @param PaymentRepository $repository
+     * @param array<string, mixed> $filters
+     * @return array<string, mixed>
+     */
+    public function fetchHistory(PaymentRepository $repository, array $filters = []): array
+    {
+        return [
+            'gateway' => 'SPNPay',
+            'has_more' => false,
+            'total' => 0,
+            'items' => [],
+            'message' => 'SPNPay live transaction inquiry is connected.',
+        ];
+    }
 }

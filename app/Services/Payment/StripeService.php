@@ -14,6 +14,7 @@ use App\Jobs\SendNotificationJob;
 use App\Model\Entity\Order;
 use App\Model\Entity\PaymentRepository;
 use App\Model\Entity\Project;
+use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -1056,5 +1057,60 @@ class StripeService
         // All other currencies (including MYR, IDR, USD, SGD, etc.) use 2 decimal places
         // IDR is treated by Stripe as having a minor unit for API purposes.
         return (int) round($amount * 100);
+    }
+
+    /**
+     * @param PaymentRepository $repository
+     * @param array<string, mixed> $filters
+     * @return array<string, mixed>
+     */
+    public function fetchHistory(PaymentRepository $repository, array $filters = []): array
+    {
+        $config = is_array($repository->value) ? $repository->value : (json_decode((string) $repository->value, true) ?: []);
+        $secretKey = $config['stripe_secretkey'] ?? null;
+        if (! $secretKey) {
+            throw new Exception('Missing stripe_secretkey in repository configuration');
+        }
+
+        Stripe::setApiKey($secretKey);
+
+        $limit = (int) ($filters['limit'] ?? $filters['per_page'] ?? 10);
+        $params = ['limit' => min($limit, 100)];
+        if (! empty($filters['starting_after'])) {
+            $params['starting_after'] = $filters['starting_after'];
+        }
+        if (! empty($filters['ending_before'])) {
+            $params['ending_before'] = $filters['ending_before'];
+        }
+        if (! empty($filters['start_date'])) {
+            $params['created']['gte'] = Carbon::parse($filters['start_date'])->startOfDay()->timestamp;
+        }
+        if (! empty($filters['end_date'])) {
+            $params['created']['lte'] = Carbon::parse($filters['end_date'])->endOfDay()->timestamp;
+        }
+
+        $paymentIntents = PaymentIntent::all($params);
+
+        $items = [];
+        foreach ($paymentIntents->data as $pi) {
+            $items[] = [
+                'id' => $pi->id,
+                'reference' => $pi->metadata->reference ?? $pi->id,
+                'amount' => $pi->amount / (in_array(strtolower($pi->currency), ['idr', 'jpy', 'krw', 'vnd']) ? 1 : 100),
+                'currency' => strtoupper($pi->currency),
+                'status' => strtoupper($pi->status),
+                'payment_method' => implode(', ', $pi->payment_method_types ?? ['card']),
+                'customer' => $pi->receipt_email ?? $pi->customer ?? '-',
+                'created_at' => Carbon::createFromTimestamp($pi->created)->toDateTimeString(),
+                'raw' => $pi->toArray(),
+            ];
+        }
+
+        return [
+            'gateway' => 'Stripe',
+            'has_more' => $paymentIntents->has_more,
+            'total' => count($items),
+            'items' => $items,
+        ];
     }
 }

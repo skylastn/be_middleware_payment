@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AdminAuthController;
 use App\Http\Controllers\Api\AdminDashboardController;
+use App\Http\Controllers\Api\AdminGatewayHistoryController;
 use App\Http\Controllers\Api\CallbackController;
 use App\Http\Controllers\Api\ClientPaymentController;
 use App\Http\Controllers\Api\OrderController;
@@ -112,6 +113,7 @@ Route::middleware('throttle:api')->group(function () {
             Route::get('/me', [AdminAuthController::class, 'me'])->name('me');
             Route::post('/logout', [AdminAuthController::class, 'logout'])->name('logout');
             Route::get('/dashboard', AdminDashboardController::class)->name('dashboard');
+            Route::get('/gateway-history', AdminGatewayHistoryController::class)->name('gateway-history');
 
             // Admin Order Management
             Route::prefix('orders')->group(function () {

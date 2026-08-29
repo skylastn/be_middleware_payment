@@ -36,7 +36,7 @@ export function useOrderLogic({ mode, id }: UseOrderLogicProps) {
                     setRepositories(
                         items.map((repo: any) => ({
                             id: repo.id,
-                            label: `${repo.key || repo.payment_gateway?.name || 'Repository'} (${repo.mode || 'sandbox'}) - #${repo.id}`,
+                            label: `${repo.payment_gateway?.name || repo.key || 'Repository'} (${repo.mode || 'sandbox'}) - #${repo.id}`,
                         }))
                     );
                 })

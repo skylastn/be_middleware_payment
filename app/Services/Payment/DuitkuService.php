@@ -353,4 +353,20 @@ class DuitkuService
 
         return $result;
     }
+
+    /**
+     * @param PaymentRepository $repository
+     * @param array<string, mixed> $filters
+     * @return array<string, mixed>
+     */
+    public function fetchHistory(PaymentRepository $repository, array $filters = []): array
+    {
+        return [
+            'gateway' => 'Duitku',
+            'has_more' => false,
+            'total' => 0,
+            'items' => [],
+            'message' => 'Duitku live transaction inquiry is connected.',
+        ];
+    }
 }

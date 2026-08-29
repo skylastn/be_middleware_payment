@@ -104,6 +104,7 @@ Routes -> Controllers (Api) -> Services (Strategy Router) -> Repositories -> Elo
 
 - **Admin Backoffice (Protected by Sanctum Token + Admin Role):**
   - `GET /api/admin/dashboard` — Live operations dashboard & metric aggregations.
+  - `GET /api/admin/gateway-history` — Live transaction history direct inquiry against third-party gateway APIs.
   - `GET /api/admin/orders` — Paginated orders list with date range & repository filters.
   - `GET /api/admin/orders/{id}` — Order details with raw payload inspection.
   - `POST /api/admin/orders/{id}/resend-callback` — Manually retry merchant webhook delivery.

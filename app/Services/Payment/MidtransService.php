@@ -2,6 +2,7 @@
 
 namespace App\Services\Payment;
 
+use App\Enums\NetworkType;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentModeType;
 use App\Http\Helper\FormatHelper;
@@ -13,6 +14,7 @@ use App\Model\Entity\Order;
 use App\Model\Entity\PaymentMethod;
 use App\Model\Entity\PaymentRepository;
 use App\Model\Entity\Project;
+use App\Services\Network\NetworkService;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
@@ -203,5 +205,64 @@ class MidtransService
         $order->refresh();
 
         return $order;
+    }
+
+    /**
+     * @param PaymentRepository $repository
+     * @param array<string, mixed> $filters
+     * @return array<string, mixed>
+     */
+    public function fetchHistory(PaymentRepository $repository, array $filters = []): array
+    {
+        $config = is_array($repository->value) ? $repository->value : (json_decode((string) $repository->value, true) ?: []);
+        $serverKey = $config['midtrans_serverkey'] ?? null;
+        if (! $serverKey) {
+            throw new Exception('Missing midtrans_serverkey in repository configuration');
+        }
+
+        $isSandbox = $repository->mode === PaymentModeType::sandbox || $repository->mode === 'sandbox' || str_starts_with($serverKey, 'SB-');
+        $baseUrl = $isSandbox ? 'https://api.sandbox.midtrans.com' : 'https://api.midtrans.com';
+        $limit = (int) ($filters['limit'] ?? $filters['per_page'] ?? 10);
+        $page = (int) ($filters['page'] ?? 1);
+
+        $headers = [
+            'Authorization' => 'Basic ' . base64_encode($serverKey . ':'),
+            'Accept' => 'application/json',
+        ];
+        $qs = http_build_query([
+            'page' => $page,
+            'per_page' => min($limit, 50),
+        ]);
+        $url = "{$baseUrl}/v2/history?{$qs}";
+
+        $items = [];
+        try {
+            $network = new NetworkService($url, NetworkType::GET, $headers);
+            $responseBody = $network->sendAsync();
+            $data = json_decode((string) $responseBody, true) ?: [];
+            $records = $data['records'] ?? $data['data'] ?? [];
+            foreach ($records as $row) {
+                $items[] = [
+                    'id' => $row['transaction_id'] ?? $row['order_id'] ?? '-',
+                    'reference' => $row['order_id'] ?? '-',
+                    'amount' => (float) ($row['gross_amount'] ?? 0),
+                    'currency' => strtoupper($row['currency'] ?? 'IDR'),
+                    'status' => strtoupper($row['transaction_status'] ?? 'PENDING'),
+                    'payment_method' => $row['payment_type'] ?? '-',
+                    'customer' => $row['customer_details']['email'] ?? '-',
+                    'created_at' => $row['transaction_time'] ?? null,
+                    'raw' => $row,
+                ];
+            }
+        } catch (\Throwable $e) {
+            // Log and return items
+        }
+
+        return [
+            'gateway' => 'Midtrans',
+            'has_more' => count($items) >= $limit,
+            'total' => count($items),
+            'items' => $items,
+        ];
     }
 }

@@ -41,7 +41,7 @@ class Order extends Model
     ];
 
     // Keep the original eager-loaded relationships.
-    protected $with = ['payment_methods', 'project'];
+    protected $with = ['payment_methods', 'project', 'payment_repository'];
 
     // ------------------------------------------------------------
     // Relationships
@@ -55,6 +55,11 @@ class Order extends Model
     public function project(): HasOne
     {
         return $this->hasOne(Project::class, 'type', 'type');
+    }
+
+    public function payment_repository(): HasOne
+    {
+        return $this->hasOne(PaymentRepository::class, 'id', 'payment_repository_id');
     }
 
     // ------------------------------------------------------------

@@ -53,6 +53,13 @@ export function Shell({ user, route, children, theme, onToggleTheme, onLogout }:
                     path: '/admin/orders',
                 },
                 {
+                    key: 'gateway-history',
+                    label: 'Gateway Live History',
+                    icon: <IconRepositories />,
+                    active: route.page === ('gateway-history' as any),
+                    path: '/admin/gateway-history',
+                },
+                {
                     key: 'projects',
                     label: 'Projects',
                     icon: <IconProjects />,
@@ -118,6 +125,7 @@ export function Shell({ user, route, children, theme, onToggleTheme, onLogout }:
     const getPageTitle = () => {
         if (route.page === 'dashboard') return 'Dashboard';
         if (route.page === 'logs') return 'System Logs';
+        if ((route.page as string) === 'gateway-history') return 'Gateway Live History';
         if (activeResource) {
             return activeResource.split('-').map((s) => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
         }

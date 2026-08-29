@@ -14,6 +14,7 @@ import { PaymentRepositoryPage } from '@/features/dashboard/presentation/payment
 import { PaymentMethodPage } from '@/features/dashboard/presentation/payment_method/payment_method_ui';
 import { PaymentCategoryPage } from '@/features/dashboard/presentation/payment_category/payment_category_ui';
 import { SettingPage } from '@/features/dashboard/presentation/setting/setting_ui';
+import { GatewayHistoryPage } from '@/features/dashboard/presentation/gateway_history/gateway_history_ui';
 import { LogsPage } from '@/features/logs/presentation/logs/logs_ui';
 import { Shell } from '@/shared/component/layout/shell_ui';
 import { useTheme } from '@/shared/hooks/use_theme';
@@ -26,6 +27,10 @@ function parseRoute(pathname: string): RouteInfo {
 
     if (pathname === '/admin/logs' || pathname === '/logs') {
         return { page: 'logs' };
+    }
+
+    if (pathname === '/admin/gateway-history' || pathname === '/gateway-history') {
+        return { page: 'gateway-history' as any };
     }
 
     const match = pathname.match(/^\/admin\/([^/]+)(?:\/([^/]+))?(?:\/(edit))?$/);
@@ -108,6 +113,9 @@ export function App(): React.JSX.Element {
         }
         if (route.page === 'logs') {
             return <LogsPage />;
+        }
+        if ((route.page as string) === 'gateway-history') {
+            return <GatewayHistoryPage />;
         }
         if (
             route.page === 'resource-index' ||
