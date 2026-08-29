@@ -211,7 +211,11 @@ class DuitkuService
         $result['link'] = $response->paymentUrl;
         if (FormatHelper::isNotEmpty($request->version) && $request->version == '2') {
             $token = $this->redisService->generatePaymentToken($project->id, $project->value, $order->reference);
-            $result['link'] = env('PAYMENT_URL') . '/detailpayment?token=' . $token . '&reference=' . $order->reference;
+            if (FormatHelper::isNotEmpty($request->paymentMethod)) {
+                $result['link'] = env('PAYMENT_URL') . '/detailpayment?token=' . $token . '&reference=' . $order->reference;
+            } else {
+                $result['link'] = env('PAYMENT_URL') . '/home?token=' . $token . '&reference=' . $order->reference;
+            }
         }
         $result['result'] = $response;
         $result['message'] = $msg;

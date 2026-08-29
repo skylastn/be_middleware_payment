@@ -276,7 +276,11 @@ class PaprikaService {
         $result['link'] = $qrContent ?? $qrUrl;
         if (FormatHelper::isNotEmpty($request->version) && $request->version == '2') {
             $token = $this->redisService->generatePaymentToken($project->id, $project->value, $order->getReference());
-            $result['link'] = env('PAYMENT_URL') . '/detailpayment?token=' . $token . '&reference=' . $order->getReference();
+            if (FormatHelper::isNotEmpty($request->paymentMethod)) {
+                $result['link'] = env('PAYMENT_URL') . '/detailpayment?token=' . $token . '&reference=' . $order->getReference();
+            } else {
+                $result['link'] = env('PAYMENT_URL') . '/home?token=' . $token . '&reference=' . $order->getReference();
+            }
         }
         $result['result'] = $responseData;
         $result['message'] = $msg;
