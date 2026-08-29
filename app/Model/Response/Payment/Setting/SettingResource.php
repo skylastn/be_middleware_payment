@@ -1,0 +1,20 @@
+<?php
+
+namespace App\Model\Response\Payment\Setting;
+
+use App\Model\Response\ResponseResource;
+use Illuminate\Http\Request;
+
+class SettingResource extends ResponseResource
+{
+    public function toArray(Request $request): array
+    {
+        return [
+            'id' => $this->id,
+            'key' => $this->key,
+            'value' => $this->value,
+            'created_at' => $this->formatDate($this->created_at),
+            'updated_at' => $this->formatDate($this->updated_at),
+        ];
+    }
+}

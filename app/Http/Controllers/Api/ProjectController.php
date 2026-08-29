@@ -3,14 +3,15 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-
 use App\Http\Helper\LogHelper;
 use App\Http\Helper\ResponseHelper;
+use App\Model\Request\Project\CreateProjectRequest;
+use App\Model\Request\Project\UpdateProjectRequest;
 use App\Services\System\ProjectService;
+use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Exception;
 
 class ProjectController extends Controller
 {
@@ -50,7 +51,7 @@ class ProjectController extends Controller
         }
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(CreateProjectRequest $request): JsonResponse
     {
         try {
             $insert = $this->projectService->createWithLog($request);
@@ -62,7 +63,7 @@ class ProjectController extends Controller
         }
     }
 
-    public function update(Request $request, int|string $id): JsonResponse
+    public function update(UpdateProjectRequest $request, int|string $id): JsonResponse
     {
         try {
 
