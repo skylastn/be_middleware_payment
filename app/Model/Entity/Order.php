@@ -7,6 +7,7 @@ use App\Enums\PaymentModeType;
 use App\Traits\BaseModelTrait;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Order extends Model
@@ -41,7 +42,7 @@ class Order extends Model
     ];
 
     // Keep the original eager-loaded relationships.
-    protected $with = ['payment_methods', 'project'];
+    protected $with = ['payment_methods', 'project', 'payment_repository'];
 
     // ------------------------------------------------------------
     // Relationships
@@ -55,6 +56,16 @@ class Order extends Model
     public function project(): HasOne
     {
         return $this->hasOne(Project::class, 'type', 'type');
+    }
+
+    public function payment_repository(): HasOne
+    {
+        return $this->hasOne(PaymentRepository::class, 'id', 'payment_repository_id');
+    }
+
+    public function histories(): HasMany
+    {
+        return $this->hasMany(OrderHistory::class, 'order_id', 'id')->orderBy('created_at', 'asc');
     }
 
     // ------------------------------------------------------------

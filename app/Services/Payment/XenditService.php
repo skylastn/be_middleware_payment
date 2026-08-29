@@ -2,6 +2,7 @@
 
 namespace App\Services\Payment;
 
+use App\Enums\NetworkType;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentModeType;
 use App\Http\Helper\FormatHelper;
@@ -12,6 +13,8 @@ use App\Jobs\SendNotificationJob;
 use App\Model\Entity\Order;
 use App\Model\Entity\PaymentRepository;
 use App\Model\Entity\Project;
+use App\Services\Network\NetworkService;
+use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\Request;
 use Xendit\Configuration;
@@ -24,10 +27,13 @@ class XenditService
 
     private PaymentRepositoryService $paymentRepositoryService;
 
+    private OrderHistoryService $orderHistoryService;
+
     public function __construct()
     {
         $this->apiInstance = new InvoiceApi;
         $this->paymentRepositoryService = new PaymentRepositoryService;
+        $this->orderHistoryService = new OrderHistoryService;
     }
 
     public function getPaymentRepo(string|PaymentModeType|null $mode, int|string|null $id): ?PaymentRepository
@@ -184,10 +190,20 @@ class XenditService
             throw new Exception('Status Undefined', 403);
         }
 
+        $previousStatus = $order->status;
         $order->setCallback(json_encode($request->all()));
         $order->setStatus($status);
         $order->setPaymentMethod($request->payment_channel);
         $order->save();
+
+        $this->orderHistoryService->log(
+            $order,
+            $status,
+            'WEBHOOK_XENDIT',
+            "Xendit invoice webhook callback received: {$request->status}",
+            $request->all(),
+            $previousStatus
+        );
 
         $split = explode('-', $request->external_id);
         $project = Project::where('type', $split[0])->first();
@@ -209,5 +225,65 @@ class XenditService
         $order->refresh();
 
         return $order;
+    }
+
+    /**
+     * @param PaymentRepository $repository
+     * @param array<string, mixed> $filters
+     * @return array<string, mixed>
+     */
+    public function fetchHistory(PaymentRepository $repository, array $filters = []): array
+    {
+        $config = is_array($repository->value) ? $repository->value : (json_decode((string) $repository->value, true) ?: []);
+        $secretKey = $config['xendit_secretkey'] ?? null;
+        if (! $secretKey) {
+            throw new Exception('Missing xendit_secretkey in repository configuration');
+        }
+
+        $limit = (int) ($filters['limit'] ?? $filters['per_page'] ?? 10);
+        $queryParams = [
+            'limit' => min($limit, 50),
+        ];
+        if (! empty($filters['start_date'])) {
+            $queryParams['created_after'] = Carbon::parse($filters['start_date'])->startOfDay()->toIso8601String();
+        }
+        if (! empty($filters['end_date'])) {
+            $queryParams['created_before'] = Carbon::parse($filters['end_date'])->endOfDay()->toIso8601String();
+        }
+
+        $headers = [
+            'Authorization' => 'Basic ' . base64_encode($secretKey . ':'),
+            'Accept' => 'application/json',
+        ];
+        $qs = http_build_query($queryParams);
+        $url = 'https://api.xendit.co/v2/invoices' . ($qs ? '?' . $qs : '');
+
+        $network = new NetworkService($url, NetworkType::GET, $headers);
+        $responseBody = $network->sendAsync();
+
+        $data = json_decode((string) $responseBody, true) ?: [];
+        $invoices = is_array($data) ? $data : ($data['data'] ?? []);
+
+        $items = [];
+        foreach ($invoices as $inv) {
+            $items[] = [
+                'id' => $inv['id'] ?? '-',
+                'reference' => $inv['external_id'] ?? $inv['id'] ?? '-',
+                'amount' => (float) ($inv['amount'] ?? 0),
+                'currency' => strtoupper($inv['currency'] ?? 'IDR'),
+                'status' => strtoupper($inv['status'] ?? 'PENDING'),
+                'payment_method' => $inv['payment_method'] ?? $inv['payment_channel'] ?? 'INVOICE',
+                'customer' => $inv['payer_email'] ?? $inv['customer']['email'] ?? '-',
+                'created_at' => isset($inv['created']) ? Carbon::parse($inv['created'])->toDateTimeString() : null,
+                'raw' => $inv,
+            ];
+        }
+
+        return [
+            'gateway' => 'Xendit',
+            'has_more' => count($items) >= $limit,
+            'total' => count($items),
+            'items' => $items,
+        ];
     }
 }

@@ -4,6 +4,7 @@ import { DataTable } from '@/shared/component/ui/data_table';
 import { CopyButton } from '@/shared/component/ui/copy_button';
 import { IconPlus, IconRefresh, IconSearch, IconX, IconArrowLeft } from '@/shared/component/ui/icons';
 import { navigate } from '@/shared/utils/format_utils';
+import { SkeletonFormFields, SkeletonTableRows } from '@/shared/component/ui/skeleton';
 import { usePaymentMethodLogic } from './payment_method_logic';
 
 export interface PaymentMethodPageProps {
@@ -28,20 +29,20 @@ export function PaymentMethodPage({ mode, id }: PaymentMethodPageProps): React.J
         setPerPage,
         total,
         currentPage,
-        loadList,
         handleSearchSubmit,
         handleClearSearch,
         handleFormSubmit,
         handleDelete,
+        loadList,
     } = usePaymentMethodLogic({ mode, id });
 
     if (mode === 'resource-create' || mode === 'resource-edit') {
         return (
             <>
                 <PageTitle
-                    eyebrow="Channel Configurations"
-                    title={isEdit ? `Edit Method: ${form.name || id}` : 'Create Payment Method'}
-                    subtitle="Configure payment channels, bank codes, and display categories."
+                    eyebrow="Channel Definition"
+                    title={isEdit ? `Edit Method #${id}` : 'Create Payment Method'}
+                    subtitle="Configure payment channel keys, provider drivers, and bank routing identifiers."
                 >
                     <div className="toolbar">
                         <button type="button" className="button" onClick={() => navigate('/admin/payment-methods')}>
@@ -54,23 +55,13 @@ export function PaymentMethodPage({ mode, id }: PaymentMethodPageProps): React.J
 
                 <div className="panel">
                     <form className="form-grid" onSubmit={handleFormSubmit}>
-                        {isEdit && id && (
-                            <label className="field full">
-                                <span className="label">ID (Primary Key)</span>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <input className="input" type="text" value={String(id)} disabled readOnly />
-                                    <CopyButton text={String(id)} />
-                                </div>
-                            </label>
-                        )}
-
                         <label className="field">
-                            <span className="label">Method Key *</span>
+                            <span className="label">Category Key *</span>
                             <input
                                 className="input"
                                 type="text"
                                 required
-                                placeholder="e.g. VA_BCA, QRIS, CC"
+                                placeholder="e.g. va, ewallet, cstore, card"
                                 value={form.key}
                                 onChange={(e) => setForm({ ...form, key: e.target.value })}
                             />
@@ -89,46 +80,46 @@ export function PaymentMethodPage({ mode, id }: PaymentMethodPageProps): React.J
                         </label>
 
                         <label className="field">
-                            <span className="label">Channel Type *</span>
+                            <span className="label">Type *</span>
                             <input
                                 className="input"
                                 type="text"
                                 required
-                                placeholder="e.g. VA, EWALLET, CARD"
+                                placeholder="e.g. bank_transfer, ewallet, direct"
                                 value={form.type}
                                 onChange={(e) => setForm({ ...form, type: e.target.value })}
                             />
                         </label>
 
                         <label className="field">
-                            <span className="label">Provider / From *</span>
+                            <span className="label">Gateway Provider (From) *</span>
                             <input
                                 className="input"
                                 type="text"
                                 required
-                                placeholder="e.g. duitku, xendit, midtrans, stripe"
+                                placeholder="e.g. duitku, midtrans, xendit, spnpay, stripe"
                                 value={form.from}
                                 onChange={(e) => setForm({ ...form, from: e.target.value })}
                             />
                         </label>
 
                         <label className="field">
-                            <span className="label">Bank Code</span>
+                            <span className="label">Bank Code / Sub-code</span>
                             <input
-                                className="input"
+                                className="input mono"
                                 type="text"
-                                placeholder="e.g. BCA, BNI, BRI, MANDIRI"
+                                placeholder="e.g. bca, bni, mandiri, permata"
                                 value={form.bankCode}
                                 onChange={(e) => setForm({ ...form, bankCode: e.target.value })}
                             />
                         </label>
 
                         <label className="field">
-                            <span className="label">Internal Value / Channel Code</span>
+                            <span className="label">Gateway Internal Value (Code)</span>
                             <input
-                                className="input"
+                                className="input mono"
                                 type="text"
-                                placeholder="e.g. BC, M2, OV"
+                                placeholder="e.g. BC, M2, VA_BCA"
                                 value={form.value}
                                 onChange={(e) => setForm({ ...form, value: e.target.value })}
                             />
@@ -151,7 +142,7 @@ export function PaymentMethodPage({ mode, id }: PaymentMethodPageProps): React.J
                 <PageTitle
                     eyebrow="Method Details"
                     title={record?.name || `Method #${id}`}
-                    subtitle="Payment channel properties, bank codes, and internal mapping."
+                    subtitle="Payment channel metadata, gateway mapping, and bank codes."
                 >
                     <div className="toolbar">
                         <button type="button" className="button" onClick={() => navigate('/admin/payment-methods')}>
@@ -166,7 +157,7 @@ export function PaymentMethodPage({ mode, id }: PaymentMethodPageProps): React.J
                 {error && <div className="panel alert danger" style={{ marginBottom: '16px' }}>{error}</div>}
 
                 {loading ? (
-                    <div className="panel empty">Loading method details...</div>
+                    <SkeletonFormFields count={6} />
                 ) : record ? (
                     <div className="panel form-grid">
                         <div className="field">
@@ -178,23 +169,23 @@ export function PaymentMethodPage({ mode, id }: PaymentMethodPageProps): React.J
                         </div>
 
                         <div className="field">
-                            <span className="label">Method Key</span>
+                            <span className="label">Category Key</span>
                             <div><span className="badge blue">{record.key}</span></div>
                         </div>
 
                         <div className="field">
-                            <span className="label">Method Name</span>
+                            <span className="label">Display Name</span>
                             <div className="input">{record.name}</div>
                         </div>
 
                         <div className="field">
                             <span className="label">Type</span>
-                            <div><span className="badge">{record.type || '-'}</span></div>
+                            <div className="input mono">{record.type || '-'}</div>
                         </div>
 
                         <div className="field">
-                            <span className="label">Provider / From</span>
-                            <div><span className="badge success">{record.from || '-'}</span></div>
+                            <span className="label">Gateway Provider (From)</span>
+                            <div><span className="badge success">{record.from}</span></div>
                         </div>
 
                         <div className="field">
@@ -203,7 +194,7 @@ export function PaymentMethodPage({ mode, id }: PaymentMethodPageProps): React.J
                         </div>
 
                         <div className="field full">
-                            <span className="label">Channel Value</span>
+                            <span className="label">Gateway Internal Value</span>
                             <div className="input mono">{record.value || '-'}</div>
                         </div>
                     </div>
@@ -217,9 +208,9 @@ export function PaymentMethodPage({ mode, id }: PaymentMethodPageProps): React.J
     return (
         <>
             <PageTitle
-                eyebrow="Channel Configurations"
+                eyebrow="Payment Channels"
                 title="Payment Methods"
-                subtitle="Manage available payment methods, banks, e-wallets, and provider channel keys."
+                subtitle="Configure supported payment channels, gateway routing values, and bank codes."
             >
                 <div className="toolbar">
                     <button
@@ -249,7 +240,7 @@ export function PaymentMethodPage({ mode, id }: PaymentMethodPageProps): React.J
                         <input
                             className="search-input"
                             type="text"
-                            placeholder="Search payment methods (key, name, from, bank)..."
+                            placeholder="Search methods (name, key, code, from)..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
@@ -266,7 +257,7 @@ export function PaymentMethodPage({ mode, id }: PaymentMethodPageProps): React.J
                             value={perPage}
                             onChange={(e) => setPerPage(Number(e.target.value))}
                         >
-                            <option value="15">15 / page</option>
+                            <option value="10">10 / page</option>
                             <option value="25">25 / page</option>
                             <option value="50">50 / page</option>
                             <option value="100">100 / page</option>
@@ -276,11 +267,7 @@ export function PaymentMethodPage({ mode, id }: PaymentMethodPageProps): React.J
 
                 <DataTable columns={['Key', 'Name', 'Type', 'From', 'Bank Code', 'Value', 'Actions']}>
                     {loading ? (
-                        <tr>
-                            <td colSpan={7} className="empty" style={{ padding: '36px', textAlign: 'center' }}>
-                                Loading payment methods...
-                            </td>
-                        </tr>
+                        <SkeletonTableRows rows={perPage > 15 ? 10 : 6} columns={7} />
                     ) : records.length > 0 ? (
                         records.map((row: any) => {
                             const primaryKey = row.id || row.key;

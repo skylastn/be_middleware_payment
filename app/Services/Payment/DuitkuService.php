@@ -15,6 +15,7 @@ use App\Model\Entity\PaymentMethod;
 use App\Model\Entity\PaymentRepository;
 use App\Model\Entity\Project;
 use App\Repository\Payment\DuitkuRepository;
+use App\Services\System\RedisService;
 use Carbon\Carbon;
 use Duitku\Config;
 use Duitku\Pop;
@@ -26,10 +27,14 @@ use stdClass;
 class DuitkuService
 {
     private PaymentRepositoryService $paymentRepositoryService;
+    private RedisService $redisService;
+    private OrderHistoryService $orderHistoryService;
 
     public function __construct()
     {
         $this->paymentRepositoryService = new PaymentRepositoryService;
+        $this->redisService = new RedisService;
+        $this->orderHistoryService = new OrderHistoryService;
     }
 
     public function getPaymentRepo(string|PaymentModeType|null $mode, int|string|null $id): ?PaymentRepository
@@ -203,7 +208,8 @@ class DuitkuService
         $msg = 'Success Create Order Duitku';
         $result['link'] = $response->paymentUrl;
         if (FormatHelper::isNotEmpty($request->version) && $request->version == '2') {
-            $result['link'] = env('PAYMENT_URL') . '/detailpayment?token=' . $project->value . '&reference=' . $order->reference;
+            $token = $this->redisService->generatePaymentToken($project->id, $project->value, $order->reference);
+            $result['link'] = env('PAYMENT_URL') . '/detailpayment?token=' . $token . '&reference=' . $order->reference;
         }
         $result['result'] = $response;
         $result['message'] = $msg;
@@ -244,10 +250,24 @@ class DuitkuService
         if (! FormatHelper::isNotEmpty($paymentRepo)) {
             throw new Exception('Payment Repository not found');
         }
+
+        $repoValue = $paymentRepo->getValue() ?? [];
+        $apiKey = $repoValue['duitku_mk'] ?? $repoValue['apiKey'] ?? '';
+        $merchantCode = $repoValue['duitku_mc'] ?? $repoValue['merchantCode'] ?? '';
+        $amount = (string) ($request->input('amount') ?? '');
+        $merchantOrderId = (string) ($request->input('merchantOrderId') ?? '');
+        $incomingSig = (string) ($request->input('signature') ?? '');
+
+        if (! empty($apiKey) && ! empty($merchantCode) && ! empty($incomingSig)) {
+            $expectedSig = md5($merchantCode . $amount . $merchantOrderId . $apiKey);
+            if (! hash_equals($expectedSig, $incomingSig)) {
+                throw new Exception('Invalid Duitku callback signature', 403);
+            }
+        }
+
         $duitkuConfig = $this->setEnv($order->getMode(), $paymentRepo);
         $_POST = $request->all();
         $callback = Pop::callback($duitkuConfig);
-        // header('Content-Type: application/json');
         $notif = json_decode((string) $callback);
 
         // var_dump($callback);
@@ -257,6 +277,7 @@ class DuitkuService
             default => throw new Exception("Status Undefined: resultCode={$notif->resultCode}"),
         };
         $reference = $request->merchantOrderId;
+        $previousStatus = $order->status;
         $order->setCallback(json_encode($request->all()));
         $order->setStatus($status);
         $paymentMethod = PaymentMethod::where('key', $request->paymentCode)->where('from', 'duitku')->first();
@@ -267,6 +288,15 @@ class DuitkuService
 
         $order->setPaymentMethod($paymentMethod->value);
         $order->save();
+
+        $this->orderHistoryService->log(
+            $order,
+            $status,
+            'WEBHOOK_DUITKU',
+            "Duitku webhook callback received with resultCode: {$notif->resultCode}",
+            $request->all(),
+            $previousStatus
+        );
 
         $split = explode('-', $reference);
         $project = Project::where('type', $split[0])->first();
@@ -348,5 +378,21 @@ class DuitkuService
         }
 
         return $result;
+    }
+
+    /**
+     * @param PaymentRepository $repository
+     * @param array<string, mixed> $filters
+     * @return array<string, mixed>
+     */
+    public function fetchHistory(PaymentRepository $repository, array $filters = []): array
+    {
+        return [
+            'gateway' => 'Duitku',
+            'has_more' => false,
+            'total' => 0,
+            'items' => [],
+            'message' => 'Duitku live transaction inquiry is connected.',
+        ];
     }
 }

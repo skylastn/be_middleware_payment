@@ -4,6 +4,7 @@ import { DataTable } from '@/shared/component/ui/data_table';
 import { CopyButton } from '@/shared/component/ui/copy_button';
 import { IconPlus, IconRefresh, IconSearch, IconX, IconArrowLeft } from '@/shared/component/ui/icons';
 import { navigate, formatDate } from '@/shared/utils/format_utils';
+import { SkeletonFormFields, SkeletonTableRows } from '@/shared/component/ui/skeleton';
 import { usePaymentCategoryLogic } from './payment_category_logic';
 
 export interface PaymentCategoryPageProps {
@@ -28,20 +29,20 @@ export function PaymentCategoryPage({ mode, id }: PaymentCategoryPageProps): Rea
         setPerPage,
         total,
         currentPage,
-        loadList,
         handleSearchSubmit,
         handleClearSearch,
         handleFormSubmit,
         handleDelete,
+        loadList,
     } = usePaymentCategoryLogic({ mode, id });
 
     if (mode === 'resource-create' || mode === 'resource-edit') {
         return (
             <>
                 <PageTitle
-                    eyebrow="Category Setup"
-                    title={isEdit ? `Edit Category: ${form.title || id}` : 'Create Payment Category'}
-                    subtitle="Group payment methods by visual presentation categories."
+                    eyebrow="Category Definition"
+                    title={isEdit ? `Edit Category #${id}` : 'Create Payment Category'}
+                    subtitle="Organize payment methods into high-level user interface groups."
                 >
                     <div className="toolbar">
                         <button type="button" className="button" onClick={() => navigate('/admin/payment-categories')}>
@@ -54,46 +55,36 @@ export function PaymentCategoryPage({ mode, id }: PaymentCategoryPageProps): Rea
 
                 <div className="panel">
                     <form className="form-grid" onSubmit={handleFormSubmit}>
-                        {isEdit && id && (
-                            <label className="field full">
-                                <span className="label">ID (Primary Key)</span>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <input className="input" type="text" value={String(id)} disabled readOnly />
-                                    <CopyButton text={String(id)} />
-                                </div>
-                            </label>
-                        )}
-
                         <label className="field">
                             <span className="label">Category Key *</span>
                             <input
                                 className="input"
                                 type="text"
                                 required
-                                placeholder="e.g. va, ewallet, card"
+                                placeholder="e.g. va, ewallet, cstore, card"
                                 value={form.key}
                                 onChange={(e) => setForm({ ...form, key: e.target.value })}
                             />
                         </label>
 
                         <label className="field">
-                            <span className="label">Category Title *</span>
+                            <span className="label">Title *</span>
                             <input
                                 className="input"
                                 type="text"
                                 required
-                                placeholder="e.g. Virtual Account, E-Wallet"
+                                placeholder="e.g. Virtual Account"
                                 value={form.title}
                                 onChange={(e) => setForm({ ...form, title: e.target.value })}
                             />
                         </label>
 
                         <label className="field full">
-                            <span className="label">Detail / Description *</span>
+                            <span className="label">Detail / Description</span>
                             <textarea
                                 className="input"
-                                required
-                                placeholder="Category explanation and details"
+                                rows={4}
+                                placeholder="Category explanation..."
                                 value={form.detail}
                                 onChange={(e) => setForm({ ...form, detail: e.target.value })}
                             />
@@ -116,7 +107,7 @@ export function PaymentCategoryPage({ mode, id }: PaymentCategoryPageProps): Rea
                 <PageTitle
                     eyebrow="Category Details"
                     title={record?.title || `Category #${id}`}
-                    subtitle="Payment category configuration and groupings."
+                    subtitle="Payment category groupings, titles, and UI descriptions."
                 >
                     <div className="toolbar">
                         <button type="button" className="button" onClick={() => navigate('/admin/payment-categories')}>
@@ -131,7 +122,7 @@ export function PaymentCategoryPage({ mode, id }: PaymentCategoryPageProps): Rea
                 {error && <div className="panel alert danger" style={{ marginBottom: '16px' }}>{error}</div>}
 
                 {loading ? (
-                    <div className="panel empty">Loading category details...</div>
+                    <SkeletonFormFields count={4} />
                 ) : record ? (
                     <div className="panel form-grid">
                         <div className="field">
@@ -172,9 +163,9 @@ export function PaymentCategoryPage({ mode, id }: PaymentCategoryPageProps): Rea
     return (
         <>
             <PageTitle
-                eyebrow="Category Setup"
+                eyebrow="Payment Grouping"
                 title="Payment Categories"
-                subtitle="Manage grouping categories for checkout pages and payment method displays."
+                subtitle="Manage grouping categories for customer checkout interface."
             >
                 <div className="toolbar">
                     <button
@@ -204,7 +195,7 @@ export function PaymentCategoryPage({ mode, id }: PaymentCategoryPageProps): Rea
                         <input
                             className="search-input"
                             type="text"
-                            placeholder="Search payment categories (key, title)..."
+                            placeholder="Search categories (key, title, detail)..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
@@ -221,7 +212,7 @@ export function PaymentCategoryPage({ mode, id }: PaymentCategoryPageProps): Rea
                             value={perPage}
                             onChange={(e) => setPerPage(Number(e.target.value))}
                         >
-                            <option value="15">15 / page</option>
+                            <option value="10">10 / page</option>
                             <option value="25">25 / page</option>
                             <option value="50">50 / page</option>
                         </select>
@@ -230,11 +221,7 @@ export function PaymentCategoryPage({ mode, id }: PaymentCategoryPageProps): Rea
 
                 <DataTable columns={['Key', 'Title', 'Detail', 'Created', 'Actions']}>
                     {loading ? (
-                        <tr>
-                            <td colSpan={5} className="empty" style={{ padding: '36px', textAlign: 'center' }}>
-                                Loading payment categories...
-                            </td>
-                        </tr>
+                        <SkeletonTableRows rows={perPage > 15 ? 10 : 6} columns={5} />
                     ) : records.length > 0 ? (
                         records.map((row: any) => {
                             const primaryKey = row.id || row.key;
@@ -248,9 +235,7 @@ export function PaymentCategoryPage({ mode, id }: PaymentCategoryPageProps): Rea
                                         </div>
                                     </td>
                                     <td><strong>{row.title}</strong></td>
-                                    <td style={{ maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                        {row.detail}
-                                    </td>
+                                    <td>{row.detail || '-'}</td>
                                     <td>{formatDate(row.created_at)}</td>
                                     <td>
                                         <div className="actions">

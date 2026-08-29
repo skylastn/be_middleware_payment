@@ -3,8 +3,10 @@ import { PageTitle } from '@/shared/component/ui/page_title';
 import { DataTable } from '@/shared/component/ui/data_table';
 import { CopyButton } from '@/shared/component/ui/copy_button';
 import { renderBadge } from '@/shared/component/ui/badge';
-import { IconRefresh, IconSearch, IconX, IconArrowLeft } from '@/shared/component/ui/icons';
-import { navigate, displayValue, formatDate } from '@/shared/utils/format_utils';
+import { IconRefresh, IconSearch, IconX, IconArrowLeft, IconCalendar, IconRepositories } from '@/shared/component/ui/icons';
+import { navigate, displayValue, formatDate, getMonthRange, getLastDaysRange, getTodayDateString } from '@/shared/utils/format_utils';
+import { Skeleton, SkeletonFormFields, SkeletonTableRows } from '@/shared/component/ui/skeleton';
+import { ModalDialog } from '@/shared/component/ui/modal_dialog';
 import { useOrderLogic } from './order_logic';
 
 export interface OrderPageProps {
@@ -20,6 +22,10 @@ export function OrderPage({ mode, id }: OrderPageProps): React.JSX.Element {
         error,
         notice,
         resending,
+        updatingStatus,
+        confirmSuccessOrder,
+        setConfirmSuccessOrder,
+        confirmSetSuccessAction,
         searchTerm,
         setSearchTerm,
         page,
@@ -31,10 +37,18 @@ export function OrderPage({ mode, id }: OrderPageProps): React.JSX.Element {
         setSelectedMode,
         selectedStatus,
         setSelectedStatus,
+        startDate,
+        setStartDate,
+        endDate,
+        setEndDate,
+        selectedRepository,
+        setSelectedRepository,
+        repositories,
         loadList,
         handleSearchSubmit,
         handleClearSearch,
         handleResendCallback,
+        handleSetSuccess,
     } = useOrderLogic({ mode, id });
 
     if (mode === 'resource-show') {
@@ -49,10 +63,20 @@ export function OrderPage({ mode, id }: OrderPageProps): React.JSX.Element {
                         <button type="button" className="button" onClick={() => navigate('/admin/orders')}>
                             <IconArrowLeft /> Back to Orders
                         </button>
+                        {record?.status !== 'SUCCESS' && (
+                            <button
+                                type="button"
+                                className="button primary"
+                                disabled={updatingStatus}
+                                onClick={() => id && handleSetSuccess(id, record?.reference)}
+                            >
+                                {updatingStatus ? 'Updating...' : 'Set Success & Send Callback'}
+                            </button>
+                        )}
                         <button
                             type="button"
-                            className="button primary"
-                            disabled={resending}
+                            className="button"
+                            disabled={resending || record?.status !== 'SUCCESS'}
                             onClick={() => id && handleResendCallback(id)}
                         >
                             {resending ? 'Resending...' : 'Resend Callback'}
@@ -64,7 +88,7 @@ export function OrderPage({ mode, id }: OrderPageProps): React.JSX.Element {
                 {error && <div className="panel alert danger" style={{ marginBottom: '16px' }}>{error}</div>}
 
                 {loading ? (
-                    <div className="panel empty">Loading order details...</div>
+                    <SkeletonFormFields count={6} />
                 ) : record ? (
                     <>
                         <div className="panel form-grid" style={{ marginBottom: '24px' }}>
@@ -109,14 +133,14 @@ export function OrderPage({ mode, id }: OrderPageProps): React.JSX.Element {
                             </div>
                         </div>
 
-                        <div className="panel" style={{ padding: '24px' }}>
+                        <div className="panel" style={{ padding: '24px', marginBottom: '24px' }}>
                             <div className="panel-title" style={{ fontSize: '15px', marginBottom: '16px' }}>
                                 Raw Payload Inspection
                             </div>
 
                             <div className="form-grid">
                                 {['request', 'response', 'callback'].map((payloadKey) => {
-                                    const payloadData = record[payloadKey];
+                                    const payloadData = (record as any)[payloadKey];
                                     const jsonString = displayValue(payloadData);
 
                                     return (
@@ -148,6 +172,61 @@ export function OrderPage({ mode, id }: OrderPageProps): React.JSX.Element {
                                 })}
                             </div>
                         </div>
+
+                        {/* Status Change Audit History */}
+                        <div className="panel" style={{ padding: '24px' }}>
+                            <div className="panel-title" style={{ fontSize: '15px', marginBottom: '16px' }}>
+                                Status Change History & Audit Logs
+                            </div>
+
+                            {Array.isArray(record.histories) && record.histories.length > 0 ? (
+                                <div className="table-wrap">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>Timestamp</th>
+                                                <th>Status Transition</th>
+                                                <th>Source</th>
+                                                <th>Description</th>
+                                                <th>Payload Snapshot</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {record.histories.map((h: any) => (
+                                                <tr key={h.id}>
+                                                    <td>{formatDate(h.created_at)}</td>
+                                                    <td>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                            {h.from_status ? renderBadge('status', h.from_status) : <span className="muted">-</span>}
+                                                            <span style={{ color: 'var(--text-subtle)' }}>&rarr;</span>
+                                                            {renderBadge('status', h.to_status)}
+                                                        </div>
+                                                    </td>
+                                                    <td>
+                                                        <span className="badge blue mono">{h.source || 'SYSTEM'}</span>
+                                                    </td>
+                                                    <td>{h.description || '-'}</td>
+                                                    <td className="mono" style={{ maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                        {h.payload ? (
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                <span>{JSON.stringify(h.payload).slice(0, 40)}...</span>
+                                                                <CopyButton text={JSON.stringify(h.payload, null, 2)} />
+                                                            </div>
+                                                        ) : (
+                                                            <span className="muted">-</span>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ) : (
+                                <div className="muted" style={{ fontSize: '13px', padding: '12px 0' }}>
+                                    No status changes logged yet for this order.
+                                </div>
+                            )}
+                        </div>
                     </>
                 ) : (
                     <div className="panel empty">Order not found.</div>
@@ -155,6 +234,46 @@ export function OrderPage({ mode, id }: OrderPageProps): React.JSX.Element {
             </>
         );
     }
+
+    const applyPreset = (preset: 'today' | '7days' | 'month' | '30days') => {
+        if (preset === 'today') {
+            const today = getTodayDateString();
+            setStartDate(today);
+            setEndDate(today);
+        } else if (preset === '7days') {
+            const { startDate: s, endDate: e } = getLastDaysRange(7);
+            setStartDate(s);
+            setEndDate(e);
+        } else if (preset === '30days') {
+            const { startDate: s, endDate: e } = getLastDaysRange(30);
+            setStartDate(s);
+            setEndDate(e);
+        } else if (preset === 'month') {
+            const { startDate: s, endDate: e } = getMonthRange();
+            setStartDate(s);
+            setEndDate(e);
+        }
+    };
+
+    const isMonthActive = (() => {
+        const { startDate: s, endDate: e } = getMonthRange();
+        return startDate === s && endDate === e;
+    })();
+
+    const isTodayActive = (() => {
+        const today = getTodayDateString();
+        return startDate === today && endDate === today;
+    })();
+
+    const is7DaysActive = (() => {
+        const { startDate: s, endDate: e } = getLastDaysRange(7);
+        return startDate === s && endDate === e;
+    })();
+
+    const is30DaysActive = (() => {
+        const { startDate: s, endDate: e } = getLastDaysRange(30);
+        return startDate === s && endDate === e;
+    })();
 
     return (
         <>
@@ -179,14 +298,14 @@ export function OrderPage({ mode, id }: OrderPageProps): React.JSX.Element {
             {notice && <div className="panel alert success" style={{ marginBottom: '16px' }}>{notice}</div>}
             {error && <div className="panel alert danger" style={{ marginBottom: '16px' }}>{error}</div>}
 
-            <div className="panel">
-                <div className="filter-bar">
-                    <form className="search-box" onSubmit={handleSearchSubmit}>
+            <div className="modern-filter-panel">
+                <div className="modern-filter-row">
+                    <form className="search-box" onSubmit={handleSearchSubmit} style={{ minWidth: '280px', flex: '1 1 300px' }}>
                         <span className="search-icon"><IconSearch /></span>
                         <input
                             className="search-input"
                             type="text"
-                            placeholder="Search orders (reference, email, notes)..."
+                            placeholder="Search reference, email, notes..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
@@ -197,7 +316,72 @@ export function OrderPage({ mode, id }: OrderPageProps): React.JSX.Element {
                         )}
                     </form>
 
-                    <div className="filter-group">
+                    <div className="modern-filter-chips">
+                        <span
+                            className={`filter-chip ${isTodayActive ? 'active' : ''}`}
+                            onClick={() => applyPreset('today')}
+                        >
+                            Today
+                        </span>
+                        <span
+                            className={`filter-chip ${is7DaysActive ? 'active' : ''}`}
+                            onClick={() => applyPreset('7days')}
+                        >
+                            Last 7 Days
+                        </span>
+                        <span
+                            className={`filter-chip ${isMonthActive ? 'active' : ''}`}
+                            onClick={() => applyPreset('month')}
+                        >
+                            This Month
+                        </span>
+                        <span
+                            className={`filter-chip ${is30DaysActive ? 'active' : ''}`}
+                            onClick={() => applyPreset('30days')}
+                        >
+                            Last 30 Days
+                        </span>
+                    </div>
+                </div>
+
+                <div className="modern-filter-row" style={{ paddingTop: '8px', borderTop: '1px solid var(--border)' }}>
+                    <div className="modern-filter-fields">
+                        <div className="modern-input-group">
+                            <span className="input-icon"><IconCalendar /></span>
+                            <label>From</label>
+                            <input
+                                type="date"
+                                value={startDate}
+                                onChange={(e) => setStartDate(e.target.value)}
+                            />
+                        </div>
+
+                        <div className="modern-input-group">
+                            <span className="input-icon"><IconCalendar /></span>
+                            <label>To</label>
+                            <input
+                                type="date"
+                                value={endDate}
+                                onChange={(e) => setEndDate(e.target.value)}
+                            />
+                        </div>
+
+                        <div className="modern-input-group">
+                            <span className="input-icon"><IconRepositories /></span>
+                            <label>Repo</label>
+                            <select
+                                value={selectedRepository}
+                                onChange={(e) => setSelectedRepository(e.target.value)}
+                            >
+                                <option value="all">All Repositories</option>
+                                {repositories.map((repo) => (
+                                    <option key={repo.id} value={repo.id}>
+                                        {repo.label}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
                         <select
                             className="filter-select"
                             value={selectedMode}
@@ -225,21 +409,31 @@ export function OrderPage({ mode, id }: OrderPageProps): React.JSX.Element {
                             value={perPage}
                             onChange={(e) => setPerPage(Number(e.target.value))}
                         >
-                            <option value="15">15 / page</option>
+                            <option value="10">10 / page</option>
                             <option value="25">25 / page</option>
                             <option value="50">50 / page</option>
                             <option value="100">100 / page</option>
                         </select>
+
+                        {(searchTerm || startDate || endDate || selectedRepository !== 'all' || selectedMode !== 'all' || selectedStatus !== 'all') && (
+                            <button
+                                type="button"
+                                className="filter-chip"
+                                onClick={handleClearSearch}
+                                style={{ background: 'var(--danger-light)', color: 'var(--danger)', borderColor: 'var(--danger)', height: '36px' }}
+                                title="Reset all filters"
+                            >
+                                <IconX /> Reset
+                            </button>
+                        )}
                     </div>
                 </div>
+            </div>
 
+            <div className="panel">
                 <DataTable columns={['Reference', 'Project', 'Method', 'Status', 'Mode', 'Created', 'Actions']}>
                     {loading ? (
-                        <tr>
-                            <td colSpan={7} className="empty" style={{ padding: '36px', textAlign: 'center' }}>
-                                Loading order records...
-                            </td>
-                        </tr>
+                        <SkeletonTableRows rows={perPage > 15 ? 10 : 6} columns={7} />
                     ) : records.length > 0 ? (
                         records.map((row: any) => {
                             const primaryKey = row.id || row.reference;
@@ -262,13 +456,25 @@ export function OrderPage({ mode, id }: OrderPageProps): React.JSX.Element {
                                             >
                                                 View
                                             </button>
-                                            <button
-                                                className="button"
-                                                disabled={resending}
-                                                onClick={() => handleResendCallback(primaryKey)}
-                                            >
-                                                Resend
-                                            </button>
+                                            {row.status !== 'SUCCESS' ? (
+                                                <button
+                                                    className="button primary"
+                                                    disabled={updatingStatus}
+                                                    onClick={() => handleSetSuccess(primaryKey, row.reference)}
+                                                    title="Mark status as SUCCESS and send callback webhook"
+                                                >
+                                                    Set Success
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    className="button"
+                                                    disabled={resending}
+                                                    onClick={() => handleResendCallback(primaryKey)}
+                                                    title="Resend callback webhook"
+                                                >
+                                                    Resend
+                                                </button>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>
@@ -308,6 +514,31 @@ export function OrderPage({ mode, id }: OrderPageProps): React.JSX.Element {
                     </div>
                 </div>
             )}
+
+            {/* Confirm Set Success Dialog */}
+            <ModalDialog
+                isOpen={Boolean(confirmSuccessOrder)}
+                title="Mark Order as SUCCESS?"
+                description="This action will immediately update the transaction status to SUCCESS and dispatch a webhook callback to the merchant backend."
+                confirmText="Yes, Set Success & Send Callback"
+                cancelText="Cancel"
+                confirmTone="primary"
+                loading={updatingStatus}
+                onConfirm={confirmSetSuccessAction}
+                onClose={() => setConfirmSuccessOrder(null)}
+            >
+                {confirmSuccessOrder && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <div>
+                            <span className="muted">Order Reference: </span>
+                            <strong className="mono">{confirmSuccessOrder.reference || confirmSuccessOrder.id}</strong>
+                        </div>
+                        <div className="alert warning" style={{ fontSize: '12px', margin: '8px 0 0' }}>
+                            Make sure payment has been verified before triggering merchant fulfillment.
+                        </div>
+                    </div>
+                )}
+            </ModalDialog>
         </>
     );
 }

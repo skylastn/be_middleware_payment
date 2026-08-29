@@ -2,8 +2,9 @@ import React from 'react';
 import { PageTitle } from '@/shared/component/ui/page_title';
 import { DataTable } from '@/shared/component/ui/data_table';
 import { CopyButton } from '@/shared/component/ui/copy_button';
-import { IconPlus, IconRefresh, IconSearch, IconX, IconArrowLeft } from '@/shared/component/ui/icons';
-import { navigate, displayValue, formatDate } from '@/shared/utils/format_utils';
+import { IconArrowLeft, IconPlus, IconRefresh, IconSearch, IconX } from '@/shared/component/ui/icons';
+import { formatDate, navigate } from '@/shared/utils/format_utils';
+import { SkeletonFormFields, SkeletonTableRows } from '@/shared/component/ui/skeleton';
 import { useProjectLogic } from './project_logic';
 
 export interface ProjectPageProps {
@@ -32,21 +33,21 @@ export function ProjectPage({ mode, id }: ProjectPageProps): React.JSX.Element {
         setPerPage,
         total,
         currentPage,
-        loadList,
         handleSearchSubmit,
         handleClearSearch,
         handleFormSubmit,
         handleDelete,
         handleSyncMissingLog,
+        loadList,
     } = useProjectLogic({ mode, id });
 
     if (mode === 'resource-create' || mode === 'resource-edit') {
         return (
             <>
                 <PageTitle
-                    eyebrow="Merchant Apps"
-                    title={isEdit ? `Edit Project: ${form.name || id}` : 'Create New Project'}
-                    subtitle="Configure merchant identification, slug routing, and callback endpoints."
+                    eyebrow="Merchant Configuration"
+                    title={isEdit ? `Edit Project #${id}` : 'Create New Project'}
+                    subtitle="Register merchant application, webhook callback endpoint, and routing strategy."
                 >
                     <div className="toolbar">
                         <button type="button" className="button" onClick={() => navigate('/admin/projects')}>
@@ -59,22 +60,13 @@ export function ProjectPage({ mode, id }: ProjectPageProps): React.JSX.Element {
 
                 <div className="panel">
                     <form className="form-grid" onSubmit={handleFormSubmit}>
-                        {isEdit && id && (
-                            <label className="field full">
-                                <span className="label">ID (Primary Key)</span>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <input className="input" type="text" value={String(id)} disabled readOnly />
-                                    <CopyButton text={String(id)} />
-                                </div>
-                            </label>
-                        )}
-
                         <label className="field">
                             <span className="label">Project Name *</span>
                             <input
                                 className="input"
                                 type="text"
                                 required
+                                placeholder="e.g. POS Order App"
                                 value={form.name}
                                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                             />
@@ -86,14 +78,14 @@ export function ProjectPage({ mode, id }: ProjectPageProps): React.JSX.Element {
                                 className="input"
                                 type="text"
                                 required
-                                placeholder="e.g. SHOP, STORE, PORTAL"
+                                placeholder="e.g. OTSA, POS, STORE"
                                 value={form.type}
-                                onChange={(e) => setForm({ ...form, type: e.target.value })}
+                                onChange={(e) => setForm({ ...form, type: e.target.value.toUpperCase() })}
                             />
                         </label>
 
                         <label className="field">
-                            <span className="label">Default Gateway Slug *</span>
+                            <span className="label">Gateway Slug Strategy *</span>
                             <select
                                 className="input"
                                 value={form.slug}
@@ -111,40 +103,14 @@ export function ProjectPage({ mode, id }: ProjectPageProps): React.JSX.Element {
                         <label className="field full">
                             <span className="label">Merchant Callback URL *</span>
                             <textarea
-                                className="input"
+                                className="input mono"
                                 required
+                                rows={3}
                                 placeholder="https://merchant.example.com/api/payment/callback"
                                 value={form.callback}
                                 onChange={(e) => setForm({ ...form, callback: e.target.value })}
                             />
                         </label>
-
-                        {/* Display readonly credential fields if in edit mode */}
-                        {isEdit && record && (
-                            <>
-                                <label className="field">
-                                    <span className="label">API Key (Generated)</span>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <input className="input mono" type="text" value={record.key || ''} disabled readOnly />
-                                        <CopyButton text={record.key || ''} />
-                                    </div>
-                                </label>
-                                <label className="field">
-                                    <span className="label">Secure Key (Generated)</span>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <input className="input mono" type="text" value={record.secure || ''} disabled readOnly />
-                                        <CopyButton text={record.secure || ''} />
-                                    </div>
-                                </label>
-                                <label className="field full">
-                                    <span className="label">Auth Token (Header 'Token')</span>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <input className="input mono" type="text" value={record.value || ''} disabled readOnly />
-                                        <CopyButton text={record.value || ''} />
-                                    </div>
-                                </label>
-                            </>
-                        )}
 
                         <div className="field full" style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
                             <button className="button primary" type="submit" disabled={saving}>
@@ -178,7 +144,7 @@ export function ProjectPage({ mode, id }: ProjectPageProps): React.JSX.Element {
                 {error && <div className="panel alert danger" style={{ marginBottom: '16px' }}>{error}</div>}
 
                 {loading ? (
-                    <div className="panel empty">Loading project details...</div>
+                    <SkeletonFormFields count={8} />
                 ) : record ? (
                     <div className="panel form-grid">
                         <div className="field">
@@ -251,11 +217,19 @@ export function ProjectPage({ mode, id }: ProjectPageProps): React.JSX.Element {
                     <button
                         type="button"
                         className="button"
-                        disabled={syncing}
                         onClick={handleSyncMissingLog}
-                        title="Sync missing log tables"
+                        disabled={syncing}
+                        title="Ensure dynamic audit log tables exist for all registered projects"
                     >
-                        <IconRefresh /> {syncing ? 'Syncing...' : 'Sync Missing Logs'}
+                        <IconRefresh /> {syncing ? 'Syncing Tables...' : 'Sync Log Tables'}
+                    </button>
+                    <button
+                        type="button"
+                        className="button"
+                        onClick={() => loadList(page)}
+                        disabled={loading}
+                    >
+                        <IconRefresh /> Refresh
                     </button>
                     <button
                         type="button"
@@ -307,7 +281,7 @@ export function ProjectPage({ mode, id }: ProjectPageProps): React.JSX.Element {
                             value={perPage}
                             onChange={(e) => setPerPage(Number(e.target.value))}
                         >
-                            <option value="15">15 / page</option>
+                            <option value="10">10 / page</option>
                             <option value="25">25 / page</option>
                             <option value="50">50 / page</option>
                         </select>
@@ -316,11 +290,7 @@ export function ProjectPage({ mode, id }: ProjectPageProps): React.JSX.Element {
 
                 <DataTable columns={['Name', 'Type', 'Slug', 'Callback URL', 'Created', 'Actions']}>
                     {loading ? (
-                        <tr>
-                            <td colSpan={6} className="empty" style={{ padding: '36px', textAlign: 'center' }}>
-                                Loading projects...
-                            </td>
-                        </tr>
+                        <SkeletonTableRows rows={perPage > 15 ? 10 : 6} columns={6} />
                     ) : records.length > 0 ? (
                         records.map((row: any) => {
                             const primaryKey = row.id || row.key || row.name;
@@ -333,10 +303,11 @@ export function ProjectPage({ mode, id }: ProjectPageProps): React.JSX.Element {
                                             <CopyButton text={String(row.id)} />
                                         </div>
                                     </td>
-                                    <td><span className="badge blue">{row.type}</span></td>
-                                    <td><span className="badge">{row.slug}</span></td>
-                                    <td style={{ maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    <td><span className="badge">{row.type}</span></td>
+                                    <td><span className="badge blue">{row.slug}</span></td>
+                                    <td className="mono" style={{ maxWidth: '280px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                         {row.callback}
+                                        <CopyButton text={row.callback} />
                                     </td>
                                     <td>{formatDate(row.created_at)}</td>
                                     <td>

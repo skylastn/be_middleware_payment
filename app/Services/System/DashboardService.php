@@ -6,6 +6,7 @@ use App\Enums\OrderStatus;
 use App\Enums\PaymentModeType;
 use App\Enums\ProjectSlug;
 use App\Repository\System\DashboardRepository;
+use Illuminate\Http\Request;
 
 class DashboardService
 {
@@ -17,10 +18,14 @@ class DashboardService
     /**
      * @return array<string, mixed>
      */
-    public function monitoringData(): array
+    public function monitoringData(?Request $request = null): array
     {
-        $statusCounts = $this->dashboard->orderStatusCounts();
-        $modeCounts = $this->dashboard->orderModeCounts();
+        $startDate = $request?->query('start_date') ?: $request?->query('startDate') ?: now()->startOfMonth()->toDateString();
+        $endDate = $request?->query('end_date') ?: $request?->query('endDate') ?: now()->endOfMonth()->toDateString();
+        $paymentRepositoryId = $request?->query('payment_repository_id') ?: $request?->query('paymentRepositoryId');
+
+        $statusCounts = $this->dashboard->orderStatusCounts($startDate, $endDate, $paymentRepositoryId);
+        $modeCounts = $this->dashboard->orderModeCounts($startDate, $endDate, $paymentRepositoryId);
 
         $successTotal = (int) ($statusCounts[OrderStatus::SUCCESS->value] ?? 0);
         $pendingTotal = (int) ($statusCounts[OrderStatus::PENDING->value] ?? 0);
@@ -29,7 +34,7 @@ class DashboardService
 
         return [
             'summary' => [
-                'orders' => $this->dashboard->countOrders(),
+                'orders' => $this->dashboard->countOrders($startDate, $endDate, $paymentRepositoryId),
                 'paidOrders' => $successTotal,
                 'pendingOrders' => $pendingTotal,
                 'failedOrders' => $failedTotal,
@@ -53,7 +58,7 @@ class DashboardService
                 ])
                 ->values()
                 ->all(),
-            'recentOrders' => $this->dashboard->latestOrders()
+            'recentOrders' => $this->dashboard->latestOrders(12, $startDate, $endDate, $paymentRepositoryId)
                 ->map(fn ($order): array => [
                     'reference' => (string) $order->reference,
                     'type' => (string) $order->type,
@@ -74,7 +79,7 @@ class DashboardService
                 ])
                 ->values()
                 ->all(),
-            'repositories' => $this->dashboard->latestPaymentRepositories()
+            'repositories' => $this->dashboard->latestPaymentRepositories(100)
                 ->map(fn ($repository): array => [
                     'id' => (string) $repository->id,
                     'gateway' => $repository->payment_gateway?->name ?? 'Unknown gateway',
@@ -82,6 +87,11 @@ class DashboardService
                 ])
                 ->values()
                 ->all(),
+            'filters' => [
+                'startDate' => $startDate,
+                'endDate' => $endDate,
+                'paymentRepositoryId' => $paymentRepositoryId,
+            ],
             'updatedAt' => now()->format('Y-m-d H:i'),
         ];
     }

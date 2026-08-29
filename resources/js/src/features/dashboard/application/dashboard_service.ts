@@ -1,6 +1,7 @@
 import { DashboardRepository } from '../domain/repository/dashboard_repository';
 import { DashboardRepositoryImpl } from '../infrastructure/persistence/dashboard_repository_impl';
 import { DashboardData } from '../domain/model/response/dashboard_response';
+import { DashboardFilterParams } from '../infrastructure/data_source/remote/dashboard_remote_data_source';
 
 export class DashboardService {
     private repo: DashboardRepository;
@@ -9,8 +10,8 @@ export class DashboardService {
         this.repo = repo ?? new DashboardRepositoryImpl();
     }
 
-    async getDashboardData(): Promise<DashboardData> {
-        return this.repo.getDashboardData();
+    async getDashboardData(params?: DashboardFilterParams): Promise<DashboardData> {
+        return this.repo.getDashboardData(params);
     }
 }
 

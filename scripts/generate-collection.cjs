@@ -139,9 +139,132 @@ const updatedCollection = {
                         method: 'GET',
                         header: [{ key: 'Accept', value: 'application/json', type: 'text' }],
                         url: {
-                            raw: '{{url_payment}}admin/dashboard',
+                            raw: '{{url_payment}}admin/dashboard?start_date=&end_date=&payment_repository_id=all',
                             host: ['{{url_payment}}admin'],
                             path: ['dashboard'],
+                            query: [
+                                { key: 'start_date', value: '', disabled: true },
+                                { key: 'end_date', value: '', disabled: true },
+                                { key: 'payment_repository_id', value: 'all', disabled: true },
+                            ],
+                        },
+                    },
+                    response: [],
+                },
+                {
+                    name: 'Get Live Gateway Transaction History',
+                    request: {
+                        auth: bearerAuth,
+                        method: 'GET',
+                        header: [{ key: 'Accept', value: 'application/json', type: 'text' }],
+                        url: {
+                            raw: '{{url_payment}}admin/gateway-history?payment_repository_id={{paymentRepositoryId}}&per_page=10&start_date=&end_date=',
+                            host: ['{{url_payment}}admin'],
+                            path: ['gateway-history'],
+                            query: [
+                                { key: 'payment_repository_id', value: '{{paymentRepositoryId}}' },
+                                { key: 'per_page', value: '10' },
+                                { key: 'start_date', value: '', disabled: true },
+                                { key: 'end_date', value: '', disabled: true },
+                            ],
+                        },
+                    },
+                    response: [],
+                },
+            ],
+        },
+        {
+            name: 'Client (Checkout Flow)',
+            item: [
+                {
+                    name: 'Client - Get Order Detail',
+                    request: {
+                        auth: noAuth,
+                        method: 'GET',
+                        header: [
+                            { key: 'Token', value: '{{client_redis_token}}', type: 'text' },
+                            { key: 'Accept', value: 'application/json', type: 'text' },
+                        ],
+                        url: {
+                            raw: '{{url_payment}}client/order/detail?reference=OTSA-20220912-00078',
+                            host: ['{{url_payment}}client'],
+                            path: ['order', 'detail'],
+                            query: [{ key: 'reference', value: 'OTSA-20220912-00078' }],
+                        },
+                    },
+                    response: [],
+                },
+                {
+                    name: 'Client - Check Order Status',
+                    request: {
+                        auth: noAuth,
+                        method: 'GET',
+                        header: [
+                            { key: 'Token', value: '{{client_redis_token}}', type: 'text' },
+                            { key: 'Accept', value: 'application/json', type: 'text' },
+                        ],
+                        url: {
+                            raw: '{{url_payment}}client/order/checkOrderStatus?reference=OTSA-20220912-00078',
+                            host: ['{{url_payment}}client'],
+                            path: ['order', 'checkOrderStatus'],
+                            query: [{ key: 'reference', value: 'OTSA-20220912-00078' }],
+                        },
+                    },
+                    response: [],
+                },
+                {
+                    name: 'Client - Create Payment',
+                    request: {
+                        auth: noAuth,
+                        method: 'POST',
+                        header: [
+                            { key: 'Content-Type', value: 'application/json', type: 'text' },
+                            { key: 'Token', value: '{{client_redis_token}}', type: 'text' },
+                            { key: 'Accept', value: 'application/json', type: 'text' },
+                        ],
+                        body: {
+                            mode: 'raw',
+                            raw: '{\n    "reference": "OTSA-20220912-00078",\n    "paymentMethod": "BCA_VA"\n}',
+                            options: { raw: { language: 'json' } },
+                        },
+                        url: {
+                            raw: '{{url_payment}}client/order/createPayment',
+                            host: ['{{url_payment}}client'],
+                            path: ['order', 'createPayment'],
+                        },
+                    },
+                    response: [],
+                },
+                {
+                    name: 'Client - Get Payment Categories',
+                    request: {
+                        auth: noAuth,
+                        method: 'GET',
+                        header: [
+                            { key: 'Token', value: '{{client_redis_token}}', type: 'text' },
+                            { key: 'Accept', value: 'application/json', type: 'text' },
+                        ],
+                        url: {
+                            raw: '{{url_payment}}client/payment/getPaymentCategory',
+                            host: ['{{url_payment}}client'],
+                            path: ['payment', 'getPaymentCategory'],
+                        },
+                    },
+                    response: [],
+                },
+                {
+                    name: 'Client - Get Payment Methods',
+                    request: {
+                        auth: noAuth,
+                        method: 'GET',
+                        header: [
+                            { key: 'Token', value: '{{client_redis_token}}', type: 'text' },
+                            { key: 'Accept', value: 'application/json', type: 'text' },
+                        ],
+                        url: {
+                            raw: '{{url_payment}}client/payment/getPaymentMethod',
+                            host: ['{{url_payment}}client'],
+                            path: ['payment', 'getPaymentMethod'],
                         },
                     },
                     response: [],
@@ -420,6 +543,45 @@ const updatedCollection = {
                             path: ['create'],
                         },
                         description: 'Direct PaymentIntent flow supporting immediate card token confirmation or confirmation later via /stripe/confirm.',
+                    },
+                    response: [],
+                },
+                {
+                    name: 'Set Order Success (Merchant)',
+                    request: {
+                        method: 'POST',
+                        header: [
+                            { key: 'Content-Type', value: 'application/json', type: 'text' },
+                            { key: 'Accept', value: 'application/json', type: 'text' },
+                            { key: 'Token', value: '{{Token}}', type: 'text' },
+                        ],
+                        body: {
+                            mode: 'raw',
+                            raw: '{\n    "reference": "STORE-INV-12345"\n}',
+                            options: { raw: { language: 'json' } },
+                        },
+                        url: {
+                            raw: '{{url_payment}}order/set-success',
+                            host: ['{{url_payment}}order'],
+                            path: ['set-success'],
+                        },
+                        description: 'Merchant API to mark an order as SUCCESS and trigger webhook callback.',
+                    },
+                    response: [],
+                },
+                {
+                    name: 'Set Order Success (Admin)',
+                    request: {
+                        auth: bearerAuth,
+                        method: 'POST',
+                        header: [{ key: 'Accept', value: 'application/json', type: 'text' }],
+                        url: {
+                            raw: '{{url_payment}}admin/orders/:id/set-success',
+                            host: ['{{url_payment}}admin'],
+                            path: ['orders', ':id', 'set-success'],
+                            variable: [{ key: 'id', value: '1' }],
+                        },
+                        description: 'Admin endpoint to override order status to SUCCESS and dispatch merchant callback webhook.',
                     },
                     response: [],
                 },
@@ -983,5 +1145,25 @@ const updatedCollection = {
     ],
 };
 
-fs.writeFileSync(srcFile, JSON.stringify(updatedCollection, null, 2));
-console.log('✅ Collection updated successfully at:', srcFile);
+function normalizeForComparison(obj) {
+    if (!obj || typeof obj !== 'object') return obj;
+    if (Array.isArray(obj)) return obj.map(normalizeForComparison);
+    const sorted = {};
+    Object.keys(obj)
+        .filter((k) => !['_postman_id', '_exporter_id', '_collection_link', 'updatedAt'].includes(k))
+        .sort()
+        .forEach((k) => {
+            sorted[k] = normalizeForComparison(obj[k]);
+        });
+    return sorted;
+}
+
+const existingNormalized = JSON.stringify(normalizeForComparison(existing));
+const updatedNormalized = JSON.stringify(normalizeForComparison(updatedCollection));
+
+if (existingNormalized === updatedNormalized && fs.existsSync(srcFile)) {
+    console.log('⏭️  Postman collection is already up to date. Skipped write.');
+} else {
+    fs.writeFileSync(srcFile, JSON.stringify(updatedCollection, null, 2));
+    console.log('✅ Collection updated successfully at:', srcFile);
+}

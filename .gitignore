@@ -27,4 +27,5 @@ run_output.log
 .gitlab-ci.yml
 .phpunit.cache/test-resultsw
 storage/framework
+.commandcode/
 .phpunit.cache

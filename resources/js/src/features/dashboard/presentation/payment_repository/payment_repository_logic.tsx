@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { resourceDefinitions } from '@/features/resource/domain/constant/resource_definitions';
-import { ResourceService } from '@/features/resource/application/resource_service';
-import { dataItems, dataRecord, navigate } from '@/shared/utils/format_utils';
+import { paymentRepositoryService } from '../../application/payment_repository_service';
+import { paymentGatewayService } from '../../application/payment_gateway_service';
+import { PaymentRepositoryItem } from '../../domain/model/response/payment/payment_repository_response';
+import { navigate } from '@/shared/utils/format_utils';
 
 export interface UsePaymentRepositoryLogicProps {
     mode: 'resource-index' | 'resource-create' | 'resource-edit' | 'resource-show';
@@ -9,11 +10,10 @@ export interface UsePaymentRepositoryLogicProps {
 }
 
 export function usePaymentRepositoryLogic({ mode, id }: UsePaymentRepositoryLogicProps) {
-    const definition = resourceDefinitions['payment-repositories'];
     const isEdit = mode === 'resource-edit';
 
     const [payload, setPayload] = useState<any>(null);
-    const [record, setRecord] = useState<any | null>(null);
+    const [record, setRecord] = useState<PaymentRepositoryItem | null>(null);
     const [form, setForm] = useState<Record<string, any>>({
         payment_gateway_id: '',
         key: '',
@@ -24,26 +24,46 @@ export function usePaymentRepositoryLogic({ mode, id }: UsePaymentRepositoryLogi
     const [loading, setLoading] = useState<boolean>(true);
     const [saving, setSaving] = useState<boolean>(false);
     const [error, setError] = useState<string>('');
+    const [notice, setNotice] = useState<string>('');
+    const [gateways, setGateways] = useState<Array<{ id: string | number; name: string; key: string }>>([]);
+
+    // Test Order State
+    const [testModalRepo, setTestModalRepo] = useState<any | null>(null);
+    const [testingOrder, setTestingOrder] = useState<boolean>(false);
+    const [testOrderResult, setTestOrderResult] = useState<any | null>(null);
+    const [testForm, setTestForm] = useState({
+        amount: 10000,
+        currency: 'IDR',
+        email: 'test-customer@example.com',
+        name: 'Test Buyer',
+        paymentMethod: '',
+    });
 
     // Filter states
     const [searchTerm, setSearchTerm] = useState<string>('');
     const [selectedMode, setSelectedMode] = useState<string>('all');
     const [page, setPage] = useState<number>(1);
-    const [perPage, setPerPage] = useState<number>(15);
+    const [perPage, setPerPage] = useState<number>(10);
+
+    useEffect(() => {
+        paymentGatewayService.getPaymentGateways({ per_page: 100 })
+            .then((res: any) => {
+                const items = res?.data || [];
+                setGateways(items.map((g: any) => ({ id: g.id, name: g.name || g.key, key: g.key })));
+            })
+            .catch(() => {});
+    }, []);
 
     const loadList = async (pageNum = page) => {
         setLoading(true);
         setError('');
         try {
-            const query = new URLSearchParams();
-            if (pageNum > 1) query.set('page', String(pageNum));
-            if (perPage !== 15) query.set('per_page', String(perPage));
-            if (searchTerm.trim()) query.set('search', searchTerm.trim());
-            if (selectedMode !== 'all') query.set('mode', selectedMode);
-
-            const queryString = query.toString();
-            const url = `${definition.endpoints.list}${queryString ? `?${queryString}` : ''}`;
-            const res = await ResourceService.list(url);
+            const res = await paymentRepositoryService.getPaymentRepositories({
+                page: pageNum,
+                per_page: perPage,
+                search: searchTerm.trim() || undefined,
+                mode: selectedMode !== 'all' ? selectedMode : undefined,
+            });
             setPayload(res);
             setPage(pageNum);
         } catch (err: any) {
@@ -54,13 +74,11 @@ export function usePaymentRepositoryLogic({ mode, id }: UsePaymentRepositoryLogi
     };
 
     const loadItem = async () => {
-        if (!id || !definition.endpoints.show) return;
+        if (!id) return;
         setLoading(true);
         setError('');
         try {
-            const url = definition.endpoints.show(id);
-            const res = await ResourceService.show(url);
-            const itemData = dataRecord(res);
+            const itemData = await paymentRepositoryService.getPaymentRepositoryById(id);
             setRecord(itemData);
             if (isEdit) {
                 const valStr = typeof itemData.value === 'object' ? JSON.stringify(itemData.value, null, 2) : (itemData.value || '{}');
@@ -121,10 +139,10 @@ export function usePaymentRepositoryLogic({ mode, id }: UsePaymentRepositoryLogi
                 ...form,
                 value: parsedValue,
             };
-            if (isEdit && id && definition.endpoints.update) {
-                await ResourceService.update(definition.endpoints.update(id), submitData);
-            } else if (definition.endpoints.create) {
-                await ResourceService.create(definition.endpoints.create, submitData);
+            if (isEdit && id) {
+                await paymentRepositoryService.updatePaymentRepository(id, submitData);
+            } else {
+                await paymentRepositoryService.createPaymentRepository(submitData);
             }
             navigate('/admin/payment-repositories');
         } catch (err: any) {
@@ -135,33 +153,75 @@ export function usePaymentRepositoryLogic({ mode, id }: UsePaymentRepositoryLogi
     };
 
     const handleDelete = async (repoId: string | number) => {
-        if (!definition.endpoints.delete) return;
         if (!window.confirm(`Are you sure you want to delete payment repository #${repoId}?`)) return;
         try {
-            await ResourceService.delete(definition.endpoints.delete(repoId));
+            await paymentRepositoryService.deletePaymentRepository(repoId);
             loadList(page);
         } catch (err: any) {
             setError(err?.message || 'Failed to delete payment repository.');
         }
     };
 
-    const records = dataItems(payload);
+    const openTestModal = (repo: any) => {
+        const gwKey = repo.payment_gateway?.key || repo.key || '';
+        const isStripe = String(gwKey).toLowerCase().includes('stripe');
+        setTestModalRepo(repo);
+        setTestOrderResult(null);
+        setTestForm({
+            amount: isStripe ? 50 : 10000,
+            currency: isStripe ? 'MYR' : 'IDR',
+            email: 'test-buyer@example.com',
+            name: 'Test Buyer',
+            paymentMethod: '',
+        });
+    };
+
+    const closeTestModal = () => {
+        setTestModalRepo(null);
+        setTestOrderResult(null);
+    };
+
+    const handleExecuteTestOrder = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!testModalRepo) return;
+        setTestingOrder(true);
+        setError('');
+        try {
+            const res = await paymentRepositoryService.testOrder(testModalRepo.id, testForm);
+            setTestOrderResult(res?.data || res);
+        } catch (err: any) {
+            setError(err?.message || 'Failed to execute test order on gateway.');
+        } finally {
+            setTestingOrder(false);
+        }
+    };
+
+    const records = payload?.data || [];
     const total = Number(payload?.total ?? records.length);
     const currentPage = Number(payload?.currentPage ?? page);
     const currentPerPage = Number(payload?.perPage ?? perPage);
 
     return {
-        definition,
         isEdit,
         payload,
         records,
         record,
         form,
         setForm,
+        gateways,
         jsonError,
         loading,
         saving,
         error,
+        notice,
+        testModalRepo,
+        testingOrder,
+        testOrderResult,
+        testForm,
+        setTestForm,
+        openTestModal,
+        closeTestModal,
+        handleExecuteTestOrder,
         searchTerm,
         setSearchTerm,
         selectedMode,

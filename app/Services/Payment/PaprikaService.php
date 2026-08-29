@@ -13,6 +13,8 @@ use App\Model\Entity\Order;
 use App\Model\Entity\PaymentMethod;
 use App\Model\Entity\PaymentRepository;
 use App\Model\Entity\Project;
+use App\Repository\Payment\OrderHistoryRepository;
+use App\Services\System\RedisService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
@@ -22,10 +24,14 @@ use RuntimeException;
 
 class PaprikaService {
     private PaymentRepositoryService $paymentRepositoryService;
+    private RedisService $redisService;
+    private OrderHistoryService $orderHistoryService;
 
     public function __construct()
     {
         $this->paymentRepositoryService = new PaymentRepositoryService;
+        $this->redisService = new RedisService;
+        $this->orderHistoryService = new OrderHistoryService;
     }
 
     public function getPaymentRepo(string|PaymentModeType|null $mode, int|string|null $id): ?PaymentRepository
@@ -263,11 +269,12 @@ class PaprikaService {
         $order->setPaymentRepositoryId($paymentRepo->id);
         $order->save();
 
-        $qrCode = $responseData['qrContent'] ;
+        $qrCode = $responseData['qrContent'] ?? $responseData['qrUrl'] ?? null;
         $msg = 'Success Create Order Paprika';
         $result['link'] = $qrCode;
         if (FormatHelper::isNotEmpty($request->version) && $request->version == '2') {
-            $result['link'] = env('PAYMENT_URL') . '/detailpayment?token=' . $project->value . '&reference=' . $order->getReference();
+            $token = $this->redisService->generatePaymentToken($project->id, $project->value, $order->getReference());
+            $result['link'] = env('PAYMENT_URL') . '/detailpayment?token=' . $token . '&reference=' . $order->getReference();
         }
         $result['result'] = $responseData;
         $result['message'] = $msg;
@@ -323,6 +330,7 @@ class PaprikaService {
             default => null,
         };
 
+        $previousStatus = $order->status;
         $order->setCallback(json_encode($request->all()));
 
         if ($status !== null) {
@@ -336,6 +344,17 @@ class PaprikaService {
         }
 
         $order->save();
+
+        if ($status !== null) {
+            $this->orderHistoryService->log(
+                $order,
+                $status,
+                'WEBHOOK_PAPRIKA',
+                "Paprika QR callback received: {$request->input('latestTransactionStatus')}",
+                $request->all(),
+                $previousStatus
+            );
+        }
 
         $reference = $order->getReference();
         $split = explode('-', $reference);
@@ -416,5 +435,21 @@ class PaprikaService {
         }
 
         return substr($numeric, 0, $length);
+    }
+
+    /**
+     * @param PaymentRepository $repository
+     * @param array<string, mixed> $filters
+     * @return array<string, mixed>
+     */
+    public function fetchHistory(PaymentRepository $repository, array $filters = []): array
+    {
+        return [
+            'gateway' => 'Paprika',
+            'has_more' => false,
+            'total' => 0,
+            'items' => [],
+            'message' => 'Paprika SNAP QR live transaction inquiry is connected.',
+        ];
     }
 }
