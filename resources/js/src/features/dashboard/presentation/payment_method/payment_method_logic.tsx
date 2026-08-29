@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { paymentMethodService } from '../../application/payment_method_service';
 import { paymentCategoryService } from '../../application/payment_category_service';
+import { paymentGatewayService } from '../../application/payment_gateway_service';
 import { PaymentMethodItem } from '../../domain/model/response/payment/payment_method_response';
 import { PaymentCategoryItem } from '../../domain/model/response/payment/payment_category_response';
+import { PaymentGatewayItem } from '../../domain/model/response/payment/payment_gateway_response';
 import { navigate } from '@/shared/utils/format_utils';
 
 export interface UsePaymentMethodLogicProps {
@@ -16,6 +18,7 @@ export function usePaymentMethodLogic({ mode, id }: UsePaymentMethodLogicProps) 
     const [payload, setPayload] = useState<any>(null);
     const [record, setRecord] = useState<PaymentMethodItem | null>(null);
     const [categories, setCategories] = useState<PaymentCategoryItem[]>([]);
+    const [gateways, setGateways] = useState<PaymentGatewayItem[]>([]);
     const [form, setForm] = useState<Record<string, any>>({
         key: '',
         name: '',
@@ -39,6 +42,15 @@ export function usePaymentMethodLogic({ mode, id }: UsePaymentMethodLogicProps) 
             setCategories(res?.data || []);
         } catch {
             // Ignore failure to load categories
+        }
+    };
+
+    const loadGateways = async () => {
+        try {
+            const res = await paymentGatewayService.getPaymentGateways({ per_page: 100 });
+            setGateways(res?.data || []);
+        } catch {
+            // Ignore failure to load gateways
         }
     };
 
@@ -89,9 +101,11 @@ export function usePaymentMethodLogic({ mode, id }: UsePaymentMethodLogicProps) 
             loadList(1);
         } else if (mode === 'resource-edit' || mode === 'resource-show') {
             loadCategories();
+            loadGateways();
             loadItem();
         } else if (mode === 'resource-create') {
             loadCategories();
+            loadGateways();
             setLoading(false);
         }
     }, [mode, id, perPage]);
@@ -149,6 +163,7 @@ export function usePaymentMethodLogic({ mode, id }: UsePaymentMethodLogicProps) 
         records,
         record,
         categories,
+        gateways,
         form,
         setForm,
         loading,
