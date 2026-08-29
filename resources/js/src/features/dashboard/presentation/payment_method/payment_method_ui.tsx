@@ -18,6 +18,7 @@ export function PaymentMethodPage({ mode, id }: PaymentMethodPageProps): React.J
         records,
         record,
         categories,
+        gateways,
         form,
         setForm,
         loading,
@@ -99,14 +100,30 @@ export function PaymentMethodPage({ mode, id }: PaymentMethodPageProps): React.J
 
                         <label className="field">
                             <span className="label">Gateway Provider (From) *</span>
-                            <input
+                            <select
                                 className="input"
-                                type="text"
                                 required
-                                placeholder="e.g. duitku, midtrans, xendit, spnpay, stripe"
-                                value={form.from}
+                                value={form.from || ''}
                                 onChange={(e) => setForm({ ...form, from: e.target.value })}
-                            />
+                            >
+                                <option value="">-- Select Gateway Provider --</option>
+                                {gateways.length > 0 ? (
+                                    gateways.map((gw) => (
+                                        <option key={gw.id || gw.key} value={gw.key}>
+                                            {gw.name} ({gw.key})
+                                        </option>
+                                    ))
+                                ) : (
+                                    <>
+                                        <option value="duitku">Duitku (duitku)</option>
+                                        <option value="midtrans">Midtrans (midtrans)</option>
+                                        <option value="xendit">Xendit (xendit)</option>
+                                        <option value="spnpay">SPNPay (spnpay)</option>
+                                        <option value="stripe">Stripe (stripe)</option>
+                                        <option value="paprika">Paprika (paprika)</option>
+                                    </>
+                                )}
+                            </select>
                         </label>
 
                         <label className="field">
