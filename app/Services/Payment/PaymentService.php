@@ -328,6 +328,10 @@ class PaymentService
         $slug = $project->getSlug();
 
         switch ($slug) {
+            // case ProjectSlug::XENDIT:
+            //     return $this->xenditService->order($request, $project);
+            // case ProjectSlug::MIDTRANS:
+            //     return $this->midtransService->orderMidtrans($request, $project);
             case ProjectSlug::DUITKU:
                 return $this->duitkuService->createOrderPaymentDuitku($request, $project, $order);
             case ProjectSlug::SPNPAY:
