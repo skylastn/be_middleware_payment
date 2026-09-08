@@ -54,6 +54,7 @@ class MidtransService
         $req['mode'] = $mode->value;
         $req['payment_method'] = '';
         $req['status'] = OrderStatus::PENDING->value;
+        $req['return_url'] = $request->returnUrl ?? $request->return_url ?? $project->callback;
 
         $transactionDetails['order_id'] = $req['reference'] ?? $project->type.'-'.$req['id'];
         $transactionDetails['gross_amount'] = $request->paymentAmount ?? 0;

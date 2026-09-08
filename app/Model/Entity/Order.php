@@ -36,6 +36,7 @@ class Order extends Model
         'response',
         'callback',
         'url',
+        'return_url',
         'notes',
         'address',
         'phone',
@@ -217,6 +218,16 @@ class Order extends Model
     public function setUrl(?string $url): void
     {
         $this->url = $url;
+    }
+
+    public function getReturnUrl(): ?string
+    {
+        return $this->return_url;
+    }
+
+    public function setReturnUrl(?string $returnUrl): void
+    {
+        $this->return_url = $returnUrl;
     }
 
     public function getNotes(): ?string

@@ -73,6 +73,7 @@ class StripeService
         $req['mode'] = $mode->value;
         $req['payment_method'] = $request->input('paymentMethod') ?? $request->input('payment_method') ?? '';
         $req['status'] = OrderStatus::PENDING->value;
+        $req['return_url'] = $request->input('returnUrl') ?: $request->input('return_url') ?: $project->callback;
 
         $currency = strtolower($request->currency ?? 'idr');
         $rawAmount = (int) ($request->paymentAmount ?? 0);
