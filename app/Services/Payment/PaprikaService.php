@@ -27,6 +27,7 @@ class PaprikaService {
     private PaymentRepositoryService $paymentRepositoryService;
     private RedisService $redisService;
     private OrderHistoryService $orderHistoryService;
+    private ?array $vaBankCodeMap = null;
 
     public function __construct()
     {
@@ -37,11 +38,20 @@ class PaprikaService {
 
     private function getVABankCodeMap(): array
     {
-        return PaymentMethod::where('from', 'paprika')
+        if ($this->vaBankCodeMap !== null) {
+            return $this->vaBankCodeMap;
+        }
+
+        $methods = PaymentMethod::whereHas('payment_gateway', fn ($q) => $q->where('key', 'paprika'))
             ->whereNotNull('bankCode')
+            ->where('bankCode', '!=', '')
             ->whereNotNull('key')
             ->pluck('bankCode', 'key')
             ->toArray();
+
+        $this->vaBankCodeMap = array_change_key_case($methods, CASE_UPPER);
+
+        return $this->vaBankCodeMap;
     }
 
     public function getPaymentRepo(string|PaymentModeType|null $mode, int|string|null $id): ?PaymentRepository

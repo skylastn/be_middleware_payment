@@ -176,6 +176,24 @@ class PaymentRepoSeeder extends Seeder
                 $stripeRepo->value = $stripeValue;
                 $stripeRepo->save();
             }
+
+            PaymentRepository::firstOrCreate(
+                [
+                    'payment_gateway_id' => $paprika->id,
+                    'mode' => $mode->value,
+                ],
+                [
+                    'key' => 'default_paprika_'.$mode->value,
+                    'value' => json_encode([
+                        'api_key' => 'paprika_api_key_xxx',
+                        'api_secret' => 'paprika_api_secret_xxx',
+                        'base_url' => $mode === PaymentModeType::sandbox
+                            ? 'https://sandbox.paprika.id'
+                            : 'https://api.paprika.id',
+                        'private_key' => '-----BEGIN RSA PRIVATE KEY-----...',
+                    ]),
+                ]
+            );
         }
     }
 }

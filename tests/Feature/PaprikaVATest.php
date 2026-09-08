@@ -111,7 +111,7 @@ class PaprikaVATest extends TestCase
     {
         $method = PaymentMethod::create([
             'key' => $key,
-            'from' => 'paprika',
+            'payment_gateway_id' => $this->gateway->id,
             'bankCode' => $bankCode,
             'name' => $key,
         ]);

@@ -57,7 +57,23 @@ return new class extends Migration
             });
         }
 
-        // 4. Migrate existing `from` data to `payment_gateway_id`
+        // 4. Add composite index for client gateway and visibility queries
+        if (Schema::hasColumn('payment_methods', 'payment_gateway_id') && Schema::hasColumn('payment_methods', 'is_active')) {
+            $hasIndex = false;
+            try {
+                $indexes = collect(DB::select('SHOW INDEX FROM payment_methods'))->pluck('Key_name')->all();
+                $hasIndex = in_array('pm_gateway_active_idx', $indexes, true);
+            } catch (\Throwable) {
+            }
+
+            if (! $hasIndex) {
+                Schema::table('payment_methods', function (Blueprint $table) {
+                    $table->index(['payment_gateway_id', 'is_active'], 'pm_gateway_active_idx');
+                });
+            }
+        }
+
+        // 5. Migrate existing `from` data to `payment_gateway_id`
         if (Schema::hasColumn('payment_methods', 'from') && Schema::hasTable('payment_gateways')) {
             $gateways = DB::table('payment_gateways')->get()->keyBy('key');
             $methods = DB::table('payment_methods')->whereNull('payment_gateway_id')->whereNotNull('from')->get();
@@ -71,7 +87,7 @@ return new class extends Migration
             }
         }
 
-        // 5. Safely drop `from` column
+        // 6. Safely drop `from` column
         if (Schema::hasColumn('payment_methods', 'from')) {
             Schema::table('payment_methods', function (Blueprint $table) {
                 $table->dropColumn('from');
@@ -105,14 +121,30 @@ return new class extends Migration
             }
         }
 
-        // 3. Drop is_active column
+        // 3. Drop composite index
+        if (Schema::hasColumn('payment_methods', 'payment_gateway_id') && Schema::hasColumn('payment_methods', 'is_active')) {
+            $hasIndex = false;
+            try {
+                $indexes = collect(DB::select('SHOW INDEX FROM payment_methods'))->pluck('Key_name')->all();
+                $hasIndex = in_array('pm_gateway_active_idx', $indexes, true);
+            } catch (\Throwable) {
+            }
+
+            if ($hasIndex) {
+                Schema::table('payment_methods', function (Blueprint $table) {
+                    $table->dropIndex('pm_gateway_active_idx');
+                });
+            }
+        }
+
+        // 4. Drop is_active column
         if (Schema::hasColumn('payment_methods', 'is_active')) {
             Schema::table('payment_methods', function (Blueprint $table) {
                 $table->dropColumn('is_active');
             });
         }
 
-        // 4. Drop foreign key and column
+        // 5. Drop foreign key and column
         if (Schema::hasColumn('payment_methods', 'payment_gateway_id')) {
             Schema::table('payment_methods', function (Blueprint $table) {
                 if (DB::getDriverName() !== 'sqlite') {
