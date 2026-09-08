@@ -129,6 +129,7 @@ class PaprikaOrderCreateTest extends TestCase
         $response = $this->postJson('/api/order/create', [
             'paymentAmount' => 100000,
             'merchantOrderId' => 'FM-0000003',
+            'paymentMethod' => 'qris',
             'mode' => 'sandbox',
         ], [
             'Token' => $this->project->value,
@@ -158,6 +159,7 @@ class PaprikaOrderCreateTest extends TestCase
         $response = $this->postJson('/api/order/create', [
             'paymentAmount' => 50000,
             'merchantOrderId' => 'FM-0000004',
+            'paymentMethod' => 'qris',
             'mode' => 'sandbox',
         ], [
             'Token' => $this->project->value,
@@ -185,6 +187,7 @@ class PaprikaOrderCreateTest extends TestCase
         $this->postJson('/api/order/create', [
             'paymentAmount' => 75000,
             'merchantOrderId' => 'FM-0000005',
+            'paymentMethod' => 'qris',
             'mode' => 'sandbox',
         ], [
             'Token' => $this->project->value,
@@ -211,6 +214,7 @@ class PaprikaOrderCreateTest extends TestCase
         $response = $this->postJson('/api/order/create', [
             'paymentAmount' => 100000,
             'merchantOrderId' => 'FM-0000006',
+            'paymentMethod' => 'qris',
             'mode' => 'sandbox',
         ], [
             'Token' => $this->project->value,
@@ -240,6 +244,7 @@ class PaprikaOrderCreateTest extends TestCase
         $this->postJson('/api/order/create', [
             'paymentAmount' => 10000,
             'merchantOrderId' => 'FM-UNIQUE-001',
+            'paymentMethod' => 'qris',
             'mode' => 'sandbox',
         ], [
             'Token' => $this->project->value,
@@ -248,6 +253,7 @@ class PaprikaOrderCreateTest extends TestCase
         $this->postJson('/api/order/create', [
             'paymentAmount' => 20000,
             'merchantOrderId' => 'FM-UNIQUE-002',
+            'paymentMethod' => 'qris',
             'mode' => 'sandbox',
         ], [
             'Token' => $this->project->value,

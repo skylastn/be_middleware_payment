@@ -118,6 +118,6 @@ class PaymentServiceTest extends TestCase
         $this->assertTrue($result['success']);
         $this->assertEquals('Paprika Gateway', $result['gateway']);
         $this->assertEquals('2', $result['version']);
-        $this->assertStringContainsString('/home?token=', $result['checkout_url']);
+        $this->assertStringContainsString('/detailpayment?token=', $result['checkout_url']);
     }
 }
