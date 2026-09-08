@@ -333,6 +333,10 @@ class PaprikaService {
 
     public function createVA(Request $request, Project $project): array
     {
+        if(!FormatHelper::isNotEmpty($request->paymentMethod)) {
+            throw new Exception("payment method required");
+        }
+
         $mode = PaymentModeType::fromName($request->mode) ?? PaymentModeType::sandbox;
         $paymentRepo = $this->getPaymentRepo($mode, $request->paymentRepositoryId);
         $baseurl = $paymentRepo->getValue()['base_url'];
@@ -468,11 +472,10 @@ class PaprikaService {
         $result['link'] = $vaNumber;
         if (FormatHelper::isNotEmpty($request->version) && $request->version == '2') {
             $token = $this->redisService->generatePaymentToken($project->id, $project->value, $order->getReference());
-            if (FormatHelper::isNotEmpty($request->paymentMethod)) {
-                $result['link'] = env('PAYMENT_URL') . '/detailpayment?token=' . $token . '&reference=' . $order->getReference();
-            } else {
-                $result['link'] = env('PAYMENT_URL') . '/home?token=' . $token . '&reference=' . $order->getReference();
-            }
+            
+
+            $result['link'] = env('PAYMENT_URL') . '/detailpayment?token=' . $token . '&reference=' . $order->getReference();
+           
         }
         $result['result'] = $responseData;
         $result['message'] = $msg;
