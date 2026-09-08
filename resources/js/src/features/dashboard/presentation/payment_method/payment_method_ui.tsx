@@ -278,7 +278,7 @@ export function PaymentMethodPage({ mode, id }: PaymentMethodPageProps): React.J
                             <span className="label">Payment Gateway</span>
                             <div>
                                 <span className="badge success">
-                                    {record.gateway?.name ? `${record.gateway.name} (${record.gateway.key})` : '-'}
+                                    {record.payment_gateway?.name ? `${record.payment_gateway.name} (${record.payment_gateway.key})` : '-'}
                                 </span>
                             </div>
                         </div>
@@ -454,7 +454,7 @@ export function PaymentMethodPage({ mode, id }: PaymentMethodPageProps): React.J
                                             {row.category?.title ? `${row.category.title} (${row.category.key})` : (row.type || '-')}
                                         </span>
                                     </td>
-                                    <td><span className="badge success">{row.gateway?.name || '-'}</span></td>
+                                    <td><span className="badge success">{row.payment_gateway?.name || '-'}</span></td>
                                     <td>{row.bankCode || '-'}</td>
                                     <td>
                                         <button

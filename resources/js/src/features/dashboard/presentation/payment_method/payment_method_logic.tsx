@@ -90,7 +90,7 @@ export function usePaymentMethodLogic({ mode, id }: UsePaymentMethodLogicProps) 
                     key: itemData.key || '',
                     name: itemData.name || '',
                     category_id: itemData.category_id || itemData.category?.id || '',
-                    payment_gateway_id: itemData.payment_gateway_id || itemData.gateway?.id || itemData.payment_gateway?.id || '',
+                    payment_gateway_id: itemData.payment_gateway_id || itemData.payment_gateway?.id || '',
                     bankCode: itemData.bankCode || '',
                     image: itemData.image || '',
                     image_url: itemData.image_url || '',

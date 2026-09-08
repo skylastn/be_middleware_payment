@@ -8,7 +8,6 @@ export interface PaymentMethodItem {
     category_id?: number | string | null;
     type?: string;
     payment_gateway_id?: string | null;
-    gateway?: PaymentGatewayItem | null;
     payment_gateway?: PaymentGatewayItem | null;
     bankCode?: string;
     image?: string | null;
