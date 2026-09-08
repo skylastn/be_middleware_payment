@@ -16,6 +16,7 @@ use App\Model\Entity\Project;
 use App\Repository\Payment\OrderHistoryRepository;
 use App\Services\System\RedisService;
 use Carbon\Carbon;
+use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -23,6 +24,12 @@ use InvalidArgumentException;
 use RuntimeException;
 
 class PaprikaService {
+    private const VA_BANK_CODE_MAP = [
+        'VA_PERMATA' => '013',
+        'VA_MAYBANK' => '016',
+        'VA_AGRAHA' => '037',
+    ];
+
     private PaymentRepositoryService $paymentRepositoryService;
     private RedisService $redisService;
     private OrderHistoryService $orderHistoryService;
@@ -174,6 +181,26 @@ class PaprikaService {
 
     public function orderPaprika(Request $request, Project $project): array
     {
+
+        if (FormatHelper::isNotEmpty($request->paymentMethod)) {
+
+            if(strtolower($request->paymentMethod) == 'qris') {
+                return $this->createQris($request, $project);
+            }
+
+            if(isset(self::VA_BANK_CODE_MAP[strtoupper($request->paymentMethod)])) {
+                return $this->createVA($request, $project);
+            }
+
+            throw new Exception("no supported payment method {$request->paymentMethod}");
+        }else {
+            throw new Exception("payment method is requred");
+        }
+
+
+    }
+
+    public function createQris(Request $request, Project $project): array {
         $mode = PaymentModeType::fromName($request->mode) ?? PaymentModeType::sandbox;
         $paymentRepo = $this->getPaymentRepo($mode, $request->paymentRepositoryId);
         $baseurl = $paymentRepo->getValue()['base_url'];
@@ -265,6 +292,8 @@ class PaprikaService {
             'response_order_paprika'
         );
 
+        $this->assertPaprikaSuccess($responseData);
+
         $qrContent = $responseData['qrContent'] ?? null;
         $qrUrl = $responseData['qrUrl'] ?? null;
         $order->setResponse(json_encode($responseData));
@@ -284,6 +313,155 @@ class PaprikaService {
 
         $msg = 'Success Create Order Paprika';
         $result['link'] = $qrContent ?? $qrUrl;
+        if (FormatHelper::isNotEmpty($request->version) && $request->version == '2') {
+            $token = $this->redisService->generatePaymentToken($project->id, $project->value, $order->getReference());
+            if (FormatHelper::isNotEmpty($request->paymentMethod)) {
+                $result['link'] = env('PAYMENT_URL') . '/detailpayment?token=' . $token . '&reference=' . $order->getReference();
+            } else {
+                $result['link'] = env('PAYMENT_URL') . '/home?token=' . $token . '&reference=' . $order->getReference();
+            }
+        }
+        $result['result'] = $responseData;
+        $result['message'] = $msg;
+
+        return $result;
+    }
+
+    public function createVA(Request $request, Project $project): array
+    {
+        $mode = PaymentModeType::fromName($request->mode) ?? PaymentModeType::sandbox;
+        $paymentRepo = $this->getPaymentRepo($mode, $request->paymentRepositoryId);
+        $baseurl = $paymentRepo->getValue()['base_url'];
+        $idSystem = OrderIdGenerator::generate();
+        $reference = $project->type . '-' . $request->merchantOrderId;
+
+        $req['id'] = $idSystem;
+        $req['reference'] = $reference;
+        $req['type'] = $project->type;
+        $req['mode'] = $mode->value;
+        $req['payment_method'] = $request->paymentMethod ?? '';
+
+        $url = "$baseurl/api/snap/v1.0/transfer-va/create-va";
+
+        $bankCode = self::VA_BANK_CODE_MAP[$request->paymentMethod] ?? '';
+
+        if (empty($bankCode)) {
+            throw new RuntimeException('Unsupported VA payment method: ' . $request->paymentMethod);
+        }
+
+        $expiryPeriod = $request->expiryPeriod ?? 60;
+        $expiredDate = Carbon::now()->addMinutes((int) $expiryPeriod)->format('Y-m-d\TH:i:sP');
+
+        $customerName = trim(($request->firstName ?? '') . ' ' . ($request->lastName ?? ''));
+
+        $body = [
+            'customerNo' => '',
+            'virtualAccountName' => $customerName ?: 'Paprika VA',
+            'virtualAccountEmail' => $request->email ?? '',
+            'virtualAccountPhone' => $request->phone ?? '',
+            'trxId' => $reference,
+            'totalAmount' => [
+                'value' => number_format($request->paymentAmount, 2, '.', ''),
+                'currency' => $request->currency ?? 'IDR',
+            ],
+            'virtualAccountTrxType' => 'C',
+            // TODO: nextnya ini bisa dipake kalo dari paprika expiredDate udah oke
+            // 'expiredDate' => $expiredDate,
+            'expiredDate' => "",
+            'additionalInfo' => [
+                'bankCode' => $bankCode,
+            ],
+        ];
+
+        $token = $this->getB2BToken($paymentRepo);
+
+        if (!isset($token['accessToken'])) {
+            throw new \Error('access token is fail to generate');
+        }
+
+        $timestamp = date('c');
+
+        $endpoint = '/api/snap/v1.0/transfer-va/create-va';
+        $headerGeneration = $this->signBySymmetricSignature(
+            $paymentRepo,
+            $token['accessToken'],
+            'POST',
+            $endpoint,
+            json_encode($body),
+            $timestamp
+        );
+
+        $headers = [
+            'Content-Type' => 'application/json',
+            'Authorization' => 'Bearer ' . $token['accessToken'],
+            'X-PARTNER-ID' => $headerGeneration['X-CLIENT-KEY'],
+            'X-TIMESTAMP' => $headerGeneration['X-TIMESTAMP'],
+            'X-SIGNATURE' => $headerGeneration['X-SIGNATURE'],
+            'X-EXTERNAL-ID' => $this->dailyUnique($reference, 28),
+            'CHANNEL-ID' => 95221,
+        ];
+
+        $req['request'] = json_encode($body);
+        $req['status'] = OrderStatus::PENDING->value;
+        $order = Order::createAndFind($req);
+
+        LogHelper::sendLog(
+            'Request Order Paprika VA',
+            ['header' => json_encode($headers), 'body' => json_encode($body)],
+            $project->id,
+            'request_order_paprika_va'
+        );
+
+        try {
+            $response = Http::withHeaders($headers)
+                ->post($url, $body);
+
+            Log::debug('Paprika VA: Response received', [
+                'status' => $response->status(),
+                'successful' => $response->successful(),
+                'body' => $response->body(),
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Paprika VA: HTTP request exception', [
+                'message' => $e->getMessage(),
+                'exception' => get_class($e),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            throw $e;
+        }
+
+        $responseData = $response->json();
+
+        LogHelper::sendLog(
+            'Response Order Paprika VA',
+            $responseData,
+            $project->id,
+            'response_order_paprika_va'
+        );
+
+        $this->assertPaprikaSuccess($responseData);
+
+        $vaNumber = $responseData['virtualAccountData']['virtualAccountNo'] ?? null;
+        $order->setResponse(json_encode($responseData));
+        $order->setUrl($vaNumber);
+        $order->setValue($vaNumber);
+        $order->setPaymentRepositoryId($paymentRepo->id);
+        $order->save();
+
+        $this->orderHistoryService->log(
+            $order,
+            OrderStatus::PENDING,
+            'ORDER_CREATE_PAPRIKA_VA',
+            'Order created with status PENDING',
+            $body,
+            null
+        );
+
+        $msg = 'Success Create Order Paprika VA';
+        $result['link'] = $vaNumber;
         if (FormatHelper::isNotEmpty($request->version) && $request->version == '2') {
             $token = $this->redisService->generatePaymentToken($project->id, $project->value, $order->getReference());
             if (FormatHelper::isNotEmpty($request->paymentMethod)) {
@@ -401,6 +579,23 @@ class PaprikaService {
             'responseCode' => '2002600',
             'responseMessage' => 'Success',
         ]);
+    }
+
+    private function assertPaprikaSuccess(array $responseData): void
+    {
+        if (!empty($responseData['virtualAccountData']['virtualAccountNo'])) {
+            return;
+        }
+
+        $responseCode = $responseData['responseCode'] ?? null;
+
+        if ($responseCode !== null && str_starts_with((string) $responseCode, '200')) {
+            return;
+        }
+
+        throw new RuntimeException(
+            $responseData['responseMessage'] ?? 'Failed to create order at Paprika'
+        );
     }
 
     private function verifyCallbackSignature(Request $request, PaymentRepository $paymentRepo): void
