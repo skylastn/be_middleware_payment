@@ -3,14 +3,15 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-
 use App\Http\Helper\LogHelper;
 use App\Http\Helper\ResponseHelper;
-use App\Model\Entity\PaymentCategory;
-use App\Model\Entity\PaymentGateway;
-use App\Model\Entity\PaymentMethod;
-use App\Model\Entity\PaymentRepository;
-use App\Model\Entity\Setting;
+use App\Model\Request\Payment\CreatePaymentRequest;
+use App\Model\Request\Payment\PaymentCategory\CreatePaymentCategoryRequest;
+use App\Model\Request\Payment\PaymentGateway\CreatePaymentGatewayRequest;
+use App\Model\Request\Payment\PaymentMethod\CreatePaymentMethodRequest;
+use App\Model\Request\Payment\PaymentRepository\CreatePaymentRepositoryRequest;
+use App\Model\Request\Payment\Setting\CreateSettingRequest;
+use App\Model\Response\Payment\PaymentMethod\PaymentMethodResource;
 use App\Services\Payment\PaymentService;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -21,6 +22,7 @@ use Illuminate\Validation\ValidationException;
 class PaymentController extends Controller
 {
     private PaymentService $paymentService;
+
     public function __construct()
     {
         $this->paymentService = new PaymentService();
@@ -28,283 +30,405 @@ class PaymentController extends Controller
 
     public function getPaymentCategory(Request $request): JsonResponse
     {
-        $query = PaymentCategory::query();
-        if ($search = $request->query('search')) {
-            $query->where(function ($q) use ($search) {
-                $q->where('key', 'like', "%{$search}%")
-                    ->orWhere('title', 'like', "%{$search}%")
-                    ->orWhere('detail', 'like', "%{$search}%");
-            });
-        }
-
         if (! $request->has('page') && ! $request->has('search') && ! $request->has('per_page') && ! $request->has('perPage') && ! auth('sanctum')->check()) {
             return ResponseHelper::successResponse($this->paymentService->getListPaymentCategory());
         }
 
-        $perPage = (int) ($request->query('per_page', $request->query('perPage', 15)));
-        return ResponseHelper::formatPagination($query->latest()->paginate($perPage));
+        return ResponseHelper::formatPagination($this->paymentService->getPaginatedPaymentCategory($request));
     }
 
     public function getPaymentMethod(Request $request): JsonResponse
     {
-        $query = PaymentMethod::query();
-        if ($search = $request->query('search')) {
-            $query->where(function ($q) use ($search) {
-                $q->where('key', 'like', "%{$search}%")
-                    ->orWhere('name', 'like', "%{$search}%")
-                    ->orWhere('type', 'like', "%{$search}%")
-                    ->orWhere('from', 'like', "%{$search}%")
-                    ->orWhere('bankCode', 'like', "%{$search}%")
-                    ->orWhere('value', 'like', "%{$search}%");
-            });
-        }
-        if ($from = $request->query('from')) {
-            $query->where('from', $from);
-        }
-        if ($categoriesKey = $request->query('categoriesKey')) {
-            $keys = is_array($categoriesKey) ? $categoriesKey : [$categoriesKey];
-            $query->whereIn('key', $keys);
-        }
-
         if (! $request->has('page') && ! $request->has('search') && ! $request->has('per_page') && ! $request->has('perPage') && ! auth('sanctum')->check()) {
-            $result = $this->paymentService->getListPaymentMethod($request);
-            return ResponseHelper::successResponse($result);
+            return ResponseHelper::successResponse($this->paymentService->getListPaymentMethod($request));
         }
 
-        $perPage = (int) ($request->query('per_page', $request->query('perPage', 15)));
-        return ResponseHelper::formatPagination($query->latest()->paginate($perPage));
+        return ResponseHelper::formatPagination($this->paymentService->getPaginatedPaymentMethod($request));
     }
 
     public function getDetailPaymentMethod(Request $request): JsonResponse
     {
-        $value          = $request->value;
-        $from           = $request->from;
-        $result         = $this->paymentService->getDetailPaymentMethod($value, $from);
-        return ResponseHelper::successResponse($result);
+        $key = $request->query('key', $request->query('value'));
+        $from = $request->query('from');
+        $result = $this->paymentService->getDetailPaymentMethod($key, $from);
+
+        return ResponseHelper::successResponse($result ? new PaymentMethodResource($result) : null);
     }
 
-
-
-    public function createPayment(Request $request): JsonResponse
+    public function createPayment(CreatePaymentRequest $request): JsonResponse
     {
         try {
             DB::beginTransaction();
-            $result = $this->paymentService->createPayment($request);
+            $project = $request->attributes->get('project');
+            $result = $this->paymentService->createPayment($request, $project);
             DB::commit();
 
             return ResponseHelper::successResponse($result);
         } catch (Exception $ex) {
             DB::rollBack();
             LogHelper::sendErrorLog($ex);
+
             return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400, $ex->getLine());
         }
     }
 
     public function getPaymentGateway(Request $request): JsonResponse
     {
-        $query = PaymentGateway::query();
-        if ($search = $request->query('search')) {
-            $query->where(function ($q) use ($search) {
-                $q->where('key', 'like', "%{$search}%")
-                    ->orWhere('name', 'like', "%{$search}%")
-                    ->orWhere('description', 'like', "%{$search}%");
-            });
-        }
-        $perPage = (int) ($request->query('per_page', $request->query('perPage', 15)));
-        return ResponseHelper::formatPagination($query->latest()->paginate($perPage));
+        return ResponseHelper::formatPagination($this->paymentService->getPaginatedPaymentGateway($request));
     }
 
     public function getPaymentRepository(Request $request): JsonResponse
     {
-        $query = PaymentRepository::query();
-        if ($search = $request->query('search')) {
-            $query->where(function ($q) use ($search) {
-                $q->where('key', 'like', "%{$search}%")
-                    ->orWhere('payment_gateway_id', 'like', "%{$search}%")
-                    ->orWhere('value', 'like', "%{$search}%");
-            });
-        }
-        if ($mode = $request->query('mode')) {
-            if ($mode !== 'all') {
-                $query->where('mode', $mode);
-            }
-        }
-        $perPage = (int) ($request->query('per_page', $request->query('perPage', 15)));
-        return ResponseHelper::formatPagination($query->latest()->paginate($perPage));
+        return ResponseHelper::formatPagination($this->paymentService->getPaginatedPaymentRepository($request));
     }
 
     public function getSetting(Request $request): JsonResponse
     {
-        $query = Setting::query();
-        if ($search = $request->query('search')) {
-            $query->where(function ($q) use ($search) {
-                $q->where('key', 'like', "%{$search}%")
-                    ->orWhere('value', 'like', "%{$search}%");
-            });
-        }
-        $perPage = (int) ($request->query('per_page', $request->query('perPage', 15)));
-        return ResponseHelper::formatPagination($query->latest()->paginate($perPage));
+        return ResponseHelper::formatPagination($this->paymentService->getPaginatedSetting($request));
     }
 
     public function showPaymentCategory(int|string $id): JsonResponse
     {
-        return ResponseHelper::successResponse(PaymentCategory::query()->findOrFail($id));
+        $category = $this->paymentService->getPaymentCategoryById($id);
+        if (! $category) {
+            return ResponseHelper::failedResponse('Payment Category Not Found', 'Not Found', 404);
+        }
+
+        return ResponseHelper::successResponse($category);
     }
 
-    public function createPaymentCategory(Request $request): JsonResponse
+    public function createPaymentCategory(CreatePaymentCategoryRequest $request): JsonResponse
     {
-        return ResponseHelper::successResponse(PaymentCategory::query()->create($request->validate([
-            'key' => ['required'],
-            'title' => ['required'],
-            'detail' => ['required'],
-        ])), 'Success Create Payment Category', 201);
+        try {
+            DB::beginTransaction();
+            $category = $this->paymentService->createPaymentCategory($request->validated());
+            DB::commit();
+
+            return ResponseHelper::successResponse($category, 'Success Create Payment Category', 201);
+        } catch (Exception $ex) {
+            if (DB::transactionLevel() > 0) {
+                DB::rollback();
+            }
+            LogHelper::sendErrorLog($ex);
+
+            return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400);
+        }
     }
 
-    public function updatePaymentCategory(Request $request, int|string $id): JsonResponse
+    public function updatePaymentCategory(CreatePaymentCategoryRequest $request, int|string $id): JsonResponse
     {
-        $category = PaymentCategory::query()->findOrFail($id);
-        $category->update($request->validate([
-            'key' => ['required'],
-            'title' => ['required'],
-            'detail' => ['required'],
-        ]));
+        try {
+            DB::beginTransaction();
+            $category = $this->paymentService->updatePaymentCategory($id, $request->validated());
+            DB::commit();
 
-        return ResponseHelper::successResponse($category->refresh());
+            return ResponseHelper::successResponse($category);
+        } catch (Exception $ex) {
+            if (DB::transactionLevel() > 0) {
+                DB::rollback();
+            }
+            LogHelper::sendErrorLog($ex);
+
+            return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400);
+        }
     }
 
     public function deletePaymentCategory(int|string $id): JsonResponse
     {
-        PaymentCategory::query()->findOrFail($id)->delete();
+        try {
+            DB::beginTransaction();
+            $this->paymentService->deletePaymentCategory($id);
+            DB::commit();
 
-        return ResponseHelper::successResponse(null, 'Success Delete Payment Category');
+            return ResponseHelper::successResponse(null, 'Success Delete Payment Category');
+        } catch (Exception $ex) {
+            if (DB::transactionLevel() > 0) {
+                DB::rollback();
+            }
+            LogHelper::sendErrorLog($ex);
+
+            return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400);
+        }
     }
 
     public function showPaymentMethod(int|string $id): JsonResponse
     {
-        return ResponseHelper::successResponse(PaymentMethod::query()->findOrFail($id));
+        $method = $this->paymentService->getPaymentMethodById($id);
+        if (! $method) {
+            return ResponseHelper::failedResponse('Payment Method Not Found', 'Not Found', 404);
+        }
+
+        return ResponseHelper::successResponse(new PaymentMethodResource($method));
     }
 
-    public function createPaymentMethod(Request $request): JsonResponse
+    public function createPaymentMethod(CreatePaymentMethodRequest $request): JsonResponse
     {
-        return ResponseHelper::successResponse(PaymentMethod::query()->create($request->validate([
-            'key' => ['required'],
-            'name' => ['required'],
-            'type' => ['required'],
-            'from' => ['required'],
-            'bankCode' => ['nullable'],
-            'value' => ['nullable'],
-        ])), 'Success Create Payment Method', 201);
+        try {
+            DB::beginTransaction();
+            $method = $this->paymentService->createPaymentMethod($request->validated());
+            DB::commit();
+
+            return ResponseHelper::successResponse(new PaymentMethodResource($method), 'Success Create Payment Method', 201);
+        } catch (Exception $ex) {
+            if (DB::transactionLevel() > 0) {
+                DB::rollback();
+            }
+            LogHelper::sendErrorLog($ex);
+
+            return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400);
+        }
     }
 
-    public function updatePaymentMethod(Request $request, int|string $id): JsonResponse
+    public function updatePaymentMethod(CreatePaymentMethodRequest $request, int|string $id): JsonResponse
     {
-        $method = PaymentMethod::query()->findOrFail($id);
-        $method->update($request->validate([
-            'key' => ['required'],
-            'name' => ['required'],
-            'type' => ['required'],
-            'from' => ['required'],
-            'bankCode' => ['nullable'],
-            'value' => ['nullable'],
-        ]));
+        try {
+            DB::beginTransaction();
+            $method = $this->paymentService->updatePaymentMethod($id, $request->validated());
+            DB::commit();
 
-        return ResponseHelper::successResponse($method->refresh());
+            return ResponseHelper::successResponse(new PaymentMethodResource($method));
+        } catch (Exception $ex) {
+            if (DB::transactionLevel() > 0) {
+                DB::rollback();
+            }
+            LogHelper::sendErrorLog($ex);
+
+            return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400);
+        }
     }
 
     public function deletePaymentMethod(int|string $id): JsonResponse
     {
-        PaymentMethod::query()->findOrFail($id)->delete();
+        try {
+            DB::beginTransaction();
+            $this->paymentService->deletePaymentMethod($id);
+            DB::commit();
 
-        return ResponseHelper::successResponse(null, 'Success Delete Payment Method');
+            return ResponseHelper::successResponse(null, 'Success Delete Payment Method');
+        } catch (Exception $ex) {
+            if (DB::transactionLevel() > 0) {
+                DB::rollback();
+            }
+            LogHelper::sendErrorLog($ex);
+
+            return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400);
+        }
     }
 
     public function showPaymentGateway(int|string $id): JsonResponse
     {
-        return ResponseHelper::successResponse(PaymentGateway::query()->findOrFail($id));
+        $gateway = $this->paymentService->getPaymentGatewayById($id);
+        if (! $gateway) {
+            return ResponseHelper::failedResponse('Payment Gateway Not Found', 'Not Found', 404);
+        }
+
+        return ResponseHelper::successResponse($gateway);
     }
 
-    public function createPaymentGateway(Request $request): JsonResponse
+    public function createPaymentGateway(CreatePaymentGatewayRequest $request): JsonResponse
     {
-        return ResponseHelper::successResponse(PaymentGateway::query()->create($request->validate([
-            'key' => ['required'],
-            'name' => ['required'],
-            'description' => ['required'],
-        ])), 'Success Create Payment Gateway', 201);
+        try {
+            DB::beginTransaction();
+            $gateway = $this->paymentService->createPaymentGateway($request->validated());
+            DB::commit();
+
+            return ResponseHelper::successResponse($gateway, 'Success Create Payment Gateway', 201);
+        } catch (Exception $ex) {
+            if (DB::transactionLevel() > 0) {
+                DB::rollback();
+            }
+            LogHelper::sendErrorLog($ex);
+
+            return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400);
+        }
     }
 
-    public function updatePaymentGateway(Request $request, int|string $id): JsonResponse
+    public function updatePaymentGateway(CreatePaymentGatewayRequest $request, int|string $id): JsonResponse
     {
-        $gateway = PaymentGateway::query()->findOrFail($id);
-        $gateway->update($request->validate([
-            'key' => ['required'],
-            'name' => ['required'],
-            'description' => ['required'],
-        ]));
+        try {
+            DB::beginTransaction();
+            $gateway = $this->paymentService->updatePaymentGateway($id, $request->validated());
+            DB::commit();
 
-        return ResponseHelper::successResponse($gateway->refresh());
+            return ResponseHelper::successResponse($gateway);
+        } catch (Exception $ex) {
+            if (DB::transactionLevel() > 0) {
+                DB::rollback();
+            }
+            LogHelper::sendErrorLog($ex);
+
+            return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400);
+        }
     }
 
     public function deletePaymentGateway(int|string $id): JsonResponse
     {
-        PaymentGateway::query()->findOrFail($id)->delete();
+        try {
+            DB::beginTransaction();
+            $this->paymentService->deletePaymentGateway($id);
+            DB::commit();
 
-        return ResponseHelper::successResponse(null, 'Success Delete Payment Gateway');
+            return ResponseHelper::successResponse(null, 'Success Delete Payment Gateway');
+        } catch (Exception $ex) {
+            if (DB::transactionLevel() > 0) {
+                DB::rollback();
+            }
+            LogHelper::sendErrorLog($ex);
+
+            return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400);
+        }
     }
 
     public function showPaymentRepository(int|string $id): JsonResponse
     {
-        return ResponseHelper::successResponse(PaymentRepository::query()->findOrFail($id));
+        $repository = $this->paymentService->getPaymentRepositoryById($id);
+        if (! $repository) {
+            return ResponseHelper::failedResponse('Payment Repository Not Found', 'Not Found', 404);
+        }
+
+        return ResponseHelper::successResponse($repository);
     }
 
-    public function createPaymentRepository(Request $request): JsonResponse
+    public function testOrder(Request $request, int|string $id): JsonResponse
     {
-        return ResponseHelper::successResponse(PaymentRepository::query()->create($this->paymentRepositoryPayload($request)), 'Success Create Payment Repository', 201);
+        try {
+            DB::beginTransaction();
+
+            $repository = $this->paymentService->getPaymentRepositoryById($id);
+            if (! $repository) {
+                return ResponseHelper::failedResponse('Payment Repository Not Found', 'Not Found', 404);
+            }
+
+            $result = $this->paymentService->testCreateOrder($repository, $request->all());
+            DB::commit();
+
+            return ResponseHelper::successResponse($result, 'Test order created successfully on gateway.');
+        } catch (Exception $ex) {
+            if (DB::transactionLevel() > 0) {
+                DB::rollback();
+            }
+            LogHelper::sendErrorLog($ex);
+
+            return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400, $ex->getLine(), $ex->getFile());
+        }
     }
 
-    public function updatePaymentRepository(Request $request, int|string $id): JsonResponse
+    public function createPaymentRepository(CreatePaymentRepositoryRequest $request): JsonResponse
     {
-        $repository = PaymentRepository::query()->findOrFail($id);
-        $repository->update($this->paymentRepositoryPayload($request));
+        try {
+            DB::beginTransaction();
+            $repository = $this->paymentService->createPaymentRepository($this->paymentRepositoryPayload($request));
+            DB::commit();
 
-        return ResponseHelper::successResponse($repository->refresh());
+            return ResponseHelper::successResponse($repository, 'Success Create Payment Repository', 201);
+        } catch (Exception $ex) {
+            if (DB::transactionLevel() > 0) {
+                DB::rollback();
+            }
+            LogHelper::sendErrorLog($ex);
+
+            return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400);
+        }
+    }
+
+    public function updatePaymentRepository(CreatePaymentRepositoryRequest $request, int|string $id): JsonResponse
+    {
+        try {
+            DB::beginTransaction();
+            $repository = $this->paymentService->updatePaymentRepository($id, $this->paymentRepositoryPayload($request));
+            DB::commit();
+
+            return ResponseHelper::successResponse($repository);
+        } catch (Exception $ex) {
+            if (DB::transactionLevel() > 0) {
+                DB::rollback();
+            }
+            LogHelper::sendErrorLog($ex);
+
+            return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400);
+        }
     }
 
     public function deletePaymentRepository(int|string $id): JsonResponse
     {
-        PaymentRepository::query()->findOrFail($id)->delete();
+        try {
+            DB::beginTransaction();
+            $this->paymentService->deletePaymentRepository($id);
+            DB::commit();
 
-        return ResponseHelper::successResponse(null, 'Success Delete Payment Repository');
+            return ResponseHelper::successResponse(null, 'Success Delete Payment Repository');
+        } catch (Exception $ex) {
+            if (DB::transactionLevel() > 0) {
+                DB::rollback();
+            }
+            LogHelper::sendErrorLog($ex);
+
+            return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400);
+        }
     }
 
     public function showSetting(int|string $id): JsonResponse
     {
-        return ResponseHelper::successResponse(Setting::query()->findOrFail($id));
+        $setting = $this->paymentService->getSettingById($id);
+        if (! $setting) {
+            return ResponseHelper::failedResponse('Setting Not Found', 'Not Found', 404);
+        }
+
+        return ResponseHelper::successResponse($setting);
     }
 
-    public function createSetting(Request $request): JsonResponse
+    public function createSetting(CreateSettingRequest $request): JsonResponse
     {
-        return ResponseHelper::successResponse(Setting::query()->create($request->validate([
-            'key' => ['required'],
-            'value' => ['required'],
-        ])), 'Success Create Setting', 201);
+        try {
+            DB::beginTransaction();
+            $setting = $this->paymentService->createSetting($request->validated());
+            DB::commit();
+
+            return ResponseHelper::successResponse($setting, 'Success Create Setting', 201);
+        } catch (Exception $ex) {
+            if (DB::transactionLevel() > 0) {
+                DB::rollback();
+            }
+            LogHelper::sendErrorLog($ex);
+
+            return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400);
+        }
     }
 
-    public function updateSetting(Request $request, int|string $id): JsonResponse
+    public function updateSetting(CreateSettingRequest $request, int|string $id): JsonResponse
     {
-        $setting = Setting::query()->findOrFail($id);
-        $setting->update($request->validate([
-            'key' => ['required'],
-            'value' => ['required'],
-        ]));
+        try {
+            DB::beginTransaction();
+            $setting = $this->paymentService->updateSetting($id, $request->validated());
+            DB::commit();
 
-        return ResponseHelper::successResponse($setting->refresh());
+            return ResponseHelper::successResponse($setting);
+        } catch (Exception $ex) {
+            if (DB::transactionLevel() > 0) {
+                DB::rollback();
+            }
+            LogHelper::sendErrorLog($ex);
+
+            return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400);
+        }
     }
 
     public function deleteSetting(int|string $id): JsonResponse
     {
-        Setting::query()->findOrFail($id)->delete();
+        try {
+            DB::beginTransaction();
+            $this->paymentService->deleteSetting($id);
+            DB::commit();
 
-        return ResponseHelper::successResponse(null, 'Success Delete Setting');
+            return ResponseHelper::successResponse(null, 'Success Delete Setting');
+        } catch (Exception $ex) {
+            if (DB::transactionLevel() > 0) {
+                DB::rollback();
+            }
+            LogHelper::sendErrorLog($ex);
+
+            return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400);
+        }
     }
 
     /**

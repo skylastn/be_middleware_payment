@@ -14,6 +14,7 @@ use App\Jobs\SendNotificationJob;
 use App\Model\Entity\Order;
 use App\Model\Entity\PaymentRepository;
 use App\Model\Entity\Project;
+use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -30,10 +31,12 @@ use Stripe\Webhook;
 class StripeService
 {
     private PaymentRepositoryService $paymentRepositoryService;
+    private OrderHistoryService $orderHistoryService;
 
     public function __construct()
     {
         $this->paymentRepositoryService = new PaymentRepositoryService;
+        $this->orderHistoryService = new OrderHistoryService;
     }
 
     public function getPaymentRepo(string|PaymentModeType|null $mode, int|string|null $id): ?PaymentRepository
@@ -168,9 +171,19 @@ class StripeService
                 'response_order_stripe'
             );
             $order->setResponse($result);
-            $order->setUrl($paymentIntent->client_secret);
+            $order->setUrl($paymentIntent->client_secret ?? null);
+            $order->setValue(null);
             $order->setPaymentRepositoryId($paymentRepo->id);
             $order->save();
+
+            $this->orderHistoryService->log(
+                $order,
+                OrderStatus::PENDING,
+                'ORDER_CREATE_STRIPE',
+                'Order created with status PENDING (Direct Card Flow)',
+                $params,
+                null
+            );
 
             if ($cardProvidedAtCreate && $paymentIntent->status === 'succeeded') {
                 $order->setStatus(OrderStatus::SUCCESS);
@@ -345,9 +358,19 @@ class StripeService
             'response_order_stripe'
         );
         $order->setResponse($result);
-        $order->setUrl($checkoutSession->url);
+        $order->setUrl($checkoutSession->url ?? null);
+        $order->setValue(null);
         $order->setPaymentRepositoryId($paymentRepo->id);
         $order->save();
+
+        $this->orderHistoryService->log(
+            $order,
+            OrderStatus::PENDING,
+            'ORDER_CREATE_STRIPE',
+            'Order created with status PENDING (Hosted Checkout Flow)',
+            $params,
+            null
+        );
 
         $response['message'] = 'Success Create Order';
         $response['reference'] = $req['reference'];
@@ -476,6 +499,7 @@ class StripeService
                     $isSuccessEvent = $event->type === 'payment_intent.succeeded';
                     $alreadySucceeded = $matchedOrder->getStatus()?->isSuccess();
 
+                    $previousStatus = $matchedOrder->status;
                     if ($isSuccessEvent) {
                         if (! $alreadySucceeded) {
                             $matchedOrder->setStatus(OrderStatus::SUCCESS);
@@ -485,6 +509,15 @@ class StripeService
                         $matchedOrder->setStatus(OrderStatus::FAILED);
                     }
                     $matchedOrder->save();
+
+                    $this->orderHistoryService->log(
+                        $matchedOrder,
+                        $matchedOrder->status ?? OrderStatus::SUCCESS,
+                        'WEBHOOK_STRIPE',
+                        "Stripe webhook event processed: {$event->type}",
+                        $event->toArray(),
+                        $previousStatus
+                    );
 
                     // Send merchant callback after save (and controller will commit after this method)
                     // Skip if already succeeded (e.g. confirmStripe already processed success + sent the merchant callback)
@@ -635,11 +668,23 @@ class StripeService
 
             $order->setResponse($resultJson);
             $order->setPaymentMethod('card');
+            $previousStatus = $order->status;
             $newStatus = $this->mapStripePiStatusToOrder($confirmedIntent->status);
             if ($newStatus) {
                 $order->setStatus($newStatus);
             }
             $order->save();
+
+            if ($newStatus) {
+                $this->orderHistoryService->log(
+                    $order,
+                    $newStatus,
+                    'DIRECT_CARD_CONFIRM',
+                    "Stripe PaymentIntent confirmed: {$confirmedIntent->status}",
+                    $confirmedIntent->toArray(),
+                    $previousStatus
+                );
+            }
 
             if ($confirmedIntent->status === 'succeeded') {
                 // Merchant callback (project's webhook) is sent here, right after save but before the controller's DB::commit().
@@ -1056,5 +1101,60 @@ class StripeService
         // All other currencies (including MYR, IDR, USD, SGD, etc.) use 2 decimal places
         // IDR is treated by Stripe as having a minor unit for API purposes.
         return (int) round($amount * 100);
+    }
+
+    /**
+     * @param PaymentRepository $repository
+     * @param array<string, mixed> $filters
+     * @return array<string, mixed>
+     */
+    public function fetchHistory(PaymentRepository $repository, array $filters = []): array
+    {
+        $config = is_array($repository->value) ? $repository->value : (json_decode((string) $repository->value, true) ?: []);
+        $secretKey = $config['stripe_secretkey'] ?? null;
+        if (! $secretKey) {
+            throw new Exception('Missing stripe_secretkey in repository configuration');
+        }
+
+        Stripe::setApiKey($secretKey);
+
+        $limit = (int) ($filters['limit'] ?? $filters['per_page'] ?? 10);
+        $params = ['limit' => min($limit, 100)];
+        if (! empty($filters['starting_after'])) {
+            $params['starting_after'] = $filters['starting_after'];
+        }
+        if (! empty($filters['ending_before'])) {
+            $params['ending_before'] = $filters['ending_before'];
+        }
+        if (! empty($filters['start_date'])) {
+            $params['created']['gte'] = Carbon::parse($filters['start_date'])->startOfDay()->timestamp;
+        }
+        if (! empty($filters['end_date'])) {
+            $params['created']['lte'] = Carbon::parse($filters['end_date'])->endOfDay()->timestamp;
+        }
+
+        $paymentIntents = PaymentIntent::all($params);
+
+        $items = [];
+        foreach ($paymentIntents->data as $pi) {
+            $items[] = [
+                'id' => $pi->id,
+                'reference' => $pi->metadata->reference ?? $pi->id,
+                'amount' => $pi->amount / (in_array(strtolower($pi->currency), ['idr', 'jpy', 'krw', 'vnd']) ? 1 : 100),
+                'currency' => strtoupper($pi->currency),
+                'status' => strtoupper($pi->status),
+                'payment_method' => implode(', ', $pi->payment_method_types ?? ['card']),
+                'customer' => $pi->receipt_email ?? $pi->customer ?? '-',
+                'created_at' => Carbon::createFromTimestamp($pi->created)->toDateTimeString(),
+                'raw' => $pi->toArray(),
+            ];
+        }
+
+        return [
+            'gateway' => 'Stripe',
+            'has_more' => $paymentIntents->has_more,
+            'total' => count($items),
+            'items' => $items,
+        ];
     }
 }

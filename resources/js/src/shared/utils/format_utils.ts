@@ -36,3 +36,27 @@ export function navigate(path: string): void {
     window.history.pushState({}, '', path);
     window.dispatchEvent(new PopStateEvent('popstate'));
 }
+
+export function getTodayDateString(): string {
+    const d = new Date();
+    return d.toISOString().split('T')[0];
+}
+
+export function getMonthRange(date = new Date()): { startDate: string; endDate: string } {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const startDate = `${year}-${month}-01`;
+    const lastDay = new Date(year, date.getMonth() + 1, 0).getDate();
+    const endDate = `${year}-${month}-${String(lastDay).padStart(2, '0')}`;
+    return { startDate, endDate };
+}
+
+export function getLastDaysRange(days: number): { startDate: string; endDate: string } {
+    const end = new Date();
+    const start = new Date();
+    start.setDate(end.getDate() - (days - 1));
+    return {
+        startDate: start.toISOString().split('T')[0],
+        endDate: end.toISOString().split('T')[0],
+    };
+}

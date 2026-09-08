@@ -3,40 +3,32 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Model\Entity\User;
+use App\Model\Request\Auth\LoginRequest;
+use App\Model\Response\Auth\UserResource;
+use App\Services\System\AdminAuthService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
 
 class AdminAuthController extends Controller
 {
-    public function login(Request $request): JsonResponse
+    private AdminAuthService $authService;
+
+    public function __construct(?AdminAuthService $authService = null)
     {
-        $credentials = $request->validate([
-            'email' => ['required', 'email'],
-            'password' => ['required', 'string'],
-        ]);
+        $this->authService = $authService ?? new AdminAuthService();
+    }
 
-        /** @var User|null $user */
-        $user = User::query()->where('email', $credentials['email'])->first();
-        if (! $user || ! Hash::check($credentials['password'], $user->password) || ! $user->isAdmin()) {
-            return response()->json([
-                'message' => 'Invalid admin credentials.',
-                'errors' => ['email' => ['Invalid admin credentials.']],
-            ], 422);
-        }
-
-        $token = $user->createToken('backoffice')->plainTextToken;
+    public function login(LoginRequest $request): JsonResponse
+    {
+        $credentials = $request->validated();
+        $authData = $this->authService->attemptAdminLogin($credentials['email'], $credentials['password']);
 
         return response()->json([
-            'token' => $token,
-            'user' => [
-                'name' => $user->name,
-                'email' => $user->email,
-            ],
+            'token' => $authData['token'],
+            'user' => new UserResource($authData['user']),
         ])->withCookie(cookie(
             'log_viewer_token',
-            $token,
+            $authData['token'],
             1440,
             '/',
             null,
@@ -50,16 +42,13 @@ class AdminAuthController extends Controller
         $user = $request->user();
 
         return response()->json([
-            'user' => [
-                'name' => $user?->name,
-                'email' => $user?->email,
-            ],
+            'user' => $user ? new UserResource($user) : null,
         ]);
     }
 
     public function logout(Request $request): JsonResponse
     {
-        $request->user()?->currentAccessToken()?->delete();
+        $this->authService->logout($request->user());
 
         return response()->json([
             'message' => 'Logged out.',

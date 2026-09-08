@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Model\Entity\PaymentCategory;
 use App\Model\Entity\PaymentMethod;
 use Illuminate\Database\Seeder;
 
@@ -12,59 +13,135 @@ class PaymentMethodSeeder extends Seeder
      */
     public function run(): void
     {
-        PaymentMethod::firstOrCreate(
-            ['key' => 'SP'],
+        $categories = PaymentCategory::all()->keyBy('key');
+
+        $methods = [
+            // QRIS Channels (category: qris)
             [
+                'key' => 'SP',
                 'name' => 'ShopeePay QRIS',
-                'type' => 'qris',
+                'category_key' => 'qris',
                 'from' => 'duitku',
                 'bankCode' => '',
-                'value' => '',
-            ]
-        );
-
-        PaymentMethod::firstOrCreate(
-            ['key' => 'NQ'],
+            ],
             [
+                'key' => 'NQ',
                 'name' => 'Nobu QRIS',
-                'type' => 'qris',
+                'category_key' => 'qris',
                 'from' => 'duitku',
                 'bankCode' => '',
-                'value' => '',
-            ]
-        );
-
-        PaymentMethod::firstOrCreate(
-            ['key' => 'DQ'],
+            ],
             [
+                'key' => 'DQ',
                 'name' => 'Dana QRIS',
-                'type' => 'qris',
+                'category_key' => 'qris',
                 'from' => 'duitku',
                 'bankCode' => '',
-                'value' => '',
-            ]
-        );
-
-        PaymentMethod::firstOrCreate(
-            ['key' => 'BR'],
+            ],
             [
-                'name' => 'BRIVA',
-                'type' => 'virtual_account',
-                'from' => 'duitku',
+                'key' => 'PAPRIKA_QRIS',
+                'name' => 'Paprika QRIS',
+                'category_key' => 'qris',
+                'from' => 'paprika',
                 'bankCode' => '',
-                'value' => '',
-            ]
-        );
+            ],
 
-        PaymentMethod::firstOrCreate(
-            ['key' => 'BC'],
+            // Virtual Account Channels (category: va)
             [
+                'key' => 'BC',
                 'name' => 'BCA VA',
-                'type' => 'virtual_account',
+                'category_key' => 'va',
+                'from' => 'duitku',
+                'bankCode' => 'bca',
+            ],
+            [
+                'key' => 'BR',
+                'name' => 'BRIVA',
+                'category_key' => 'va',
+                'from' => 'duitku',
+                'bankCode' => 'bri',
+            ],
+            [
+                'key' => 'M2',
+                'name' => 'Mandiri VA',
+                'category_key' => 'va',
+                'from' => 'duitku',
+                'bankCode' => 'mandiri',
+            ],
+            [
+                'key' => 'BN',
+                'name' => 'BNI VA',
+                'category_key' => 'va',
+                'from' => 'duitku',
+                'bankCode' => 'bni',
+            ],
+            [
+                'key' => 'BT',
+                'name' => 'Permata VA',
+                'category_key' => 'va',
+                'from' => 'duitku',
+                'bankCode' => 'permata',
+            ],
+            [
+                'key' => 'B1',
+                'name' => 'CIMB Niaga VA',
+                'category_key' => 'va',
+                'from' => 'duitku',
+                'bankCode' => 'cimb',
+            ],
+            [
+                'key' => 'VA_PERMATA',
+                'name' => 'Paprika Permata VA',
+                'category_key' => 'va',
+                'from' => 'paprika',
+                'bankCode' => '013',
+            ],
+            [
+                'key' => 'VA_MAYBANK',
+                'name' => 'Paprika Maybank VA',
+                'category_key' => 'va',
+                'from' => 'paprika',
+                'bankCode' => '016',
+            ],
+            [
+                'key' => 'VA_AGRAHA',
+                'name' => 'Paprika Artha Graha VA',
+                'category_key' => 'va',
+                'from' => 'paprika',
+                'bankCode' => '037',
+            ],
+
+            // Credit Card Channels (category: cc)
+            [
+                'key' => 'VC',
+                'name' => 'Credit Card',
+                'category_key' => 'cc',
                 'from' => 'duitku',
                 'bankCode' => '',
-                'value' => '',
-            ]
-        );
+            ],
+            [
+                'key' => 'CARD_STRIPE',
+                'name' => 'Credit / Debit Card (Stripe)',
+                'category_key' => 'cc',
+                'from' => 'stripe',
+                'bankCode' => '',
+            ],
+        ];
+
+        foreach ($methods as $method) {
+            $categoryId = $categories->get($method['category_key'])?->id;
+
+            PaymentMethod::updateOrCreate(
+                [
+                    'key' => $method['key'],
+                    'from' => $method['from'],
+                ],
+                [
+                    'name' => $method['name'],
+                    'category_id' => $categoryId,
+                    'bankCode' => $method['bankCode'],
+                ]
+            );
+        }
     }
 }

@@ -21,13 +21,42 @@ class RequestHelper
                 ])
                 ->post($urlCallback, $params);
 
+            $body = $response->body();
+
+            if (! $response->successful()) {
+                Log::error('Callback failed', [
+                    'url' => $urlCallback,
+                    'status' => $response->status(),
+                    'response' => $body,
+                ]);
+
+                return new stdClass;
+            }
+
+            Log::info('Result Callback', [$body]);
+
             $decoded = $response->json();
 
-            Log::info('Result Callback', [$response->body()]);
-
             return $decoded instanceof stdClass ? $decoded : (object) $decoded;
-        } catch (\Exception $e) {
-            Log::error('Callback failed', ['url' => $urlCallback, 'error' => $e->getMessage()]);
+        } catch (\Throwable $e) {
+            $fullMessage = $e->getMessage();
+            if (method_exists($e, 'getResponse') && $e->getResponse()) {
+                try {
+                    $stream = $e->getResponse()->getBody();
+                    if ($stream->isReadable()) {
+                        $stream->rewind();
+                        $fullBody = (string) $stream;
+                        if (! empty($fullBody)) {
+                            $fullMessage .= "\nFull Response: " . $fullBody;
+                        }
+                    }
+                } catch (\Throwable) {}
+            }
+
+            Log::error('Callback failed', [
+                'url' => $urlCallback,
+                'error' => $fullMessage,
+            ]);
 
             return new stdClass;
         }

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { IconCheck, IconCopy } from './icons';
 
-export function CopyButton({ text }: { text: string }): React.JSX.Element {
+export function CopyButton({ text, label }: { text: string; label?: string }): React.JSX.Element {
     const [copied, setCopied] = useState<boolean>(false);
 
     const copy = (e: React.MouseEvent) => {
@@ -15,6 +15,7 @@ export function CopyButton({ text }: { text: string }): React.JSX.Element {
     return (
         <button type="button" className="copy-btn" onClick={copy} title={copied ? 'Copied!' : 'Copy to clipboard'}>
             {copied ? <IconCheck /> : <IconCopy />}
+            {label && <span style={{ fontSize: '11px', marginLeft: '4px' }}>{copied ? 'Copied!' : label}</span>}
         </button>
     );
 }

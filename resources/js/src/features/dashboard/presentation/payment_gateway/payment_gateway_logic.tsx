@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { resourceDefinitions } from '@/features/resource/domain/constant/resource_definitions';
-import { ResourceService } from '@/features/resource/application/resource_service';
-import { dataItems, dataRecord, navigate } from '@/shared/utils/format_utils';
+import { paymentGatewayService } from '../../application/payment_gateway_service';
+import { PaymentGatewayItem } from '../../domain/model/response/payment/payment_gateway_response';
+import { navigate } from '@/shared/utils/format_utils';
 
 export interface UsePaymentGatewayLogicProps {
     mode: 'resource-index' | 'resource-create' | 'resource-edit' | 'resource-show';
@@ -9,11 +9,10 @@ export interface UsePaymentGatewayLogicProps {
 }
 
 export function usePaymentGatewayLogic({ mode, id }: UsePaymentGatewayLogicProps) {
-    const definition = resourceDefinitions['payment-gateways'];
     const isEdit = mode === 'resource-edit';
 
     const [payload, setPayload] = useState<any>(null);
-    const [record, setRecord] = useState<any | null>(null);
+    const [record, setRecord] = useState<PaymentGatewayItem | null>(null);
     const [form, setForm] = useState<Record<string, any>>({
         key: '',
         name: '',
@@ -26,20 +25,17 @@ export function usePaymentGatewayLogic({ mode, id }: UsePaymentGatewayLogicProps
     // Filter states
     const [searchTerm, setSearchTerm] = useState<string>('');
     const [page, setPage] = useState<number>(1);
-    const [perPage, setPerPage] = useState<number>(15);
+    const [perPage, setPerPage] = useState<number>(10);
 
     const loadList = async (pageNum = page) => {
         setLoading(true);
         setError('');
         try {
-            const query = new URLSearchParams();
-            if (pageNum > 1) query.set('page', String(pageNum));
-            if (perPage !== 15) query.set('per_page', String(perPage));
-            if (searchTerm.trim()) query.set('search', searchTerm.trim());
-
-            const queryString = query.toString();
-            const url = `${definition.endpoints.list}${queryString ? `?${queryString}` : ''}`;
-            const res = await ResourceService.list(url);
+            const res = await paymentGatewayService.getPaymentGateways({
+                page: pageNum,
+                per_page: perPage,
+                search: searchTerm.trim() || undefined,
+            });
             setPayload(res);
             setPage(pageNum);
         } catch (err: any) {
@@ -50,13 +46,11 @@ export function usePaymentGatewayLogic({ mode, id }: UsePaymentGatewayLogicProps
     };
 
     const loadItem = async () => {
-        if (!id || !definition.endpoints.show) return;
+        if (!id) return;
         setLoading(true);
         setError('');
         try {
-            const url = definition.endpoints.show(id);
-            const res = await ResourceService.show(url);
-            const itemData = dataRecord(res);
+            const itemData = await paymentGatewayService.getPaymentGatewayById(id);
             setRecord(itemData);
             if (isEdit) {
                 setForm({
@@ -66,7 +60,7 @@ export function usePaymentGatewayLogic({ mode, id }: UsePaymentGatewayLogicProps
                 });
             }
         } catch (err: any) {
-            setError(err?.message || 'Failed to load payment gateway details.');
+            setError(err?.message || 'Failed to load gateway details.');
         } finally {
             setLoading(false);
         }
@@ -97,10 +91,10 @@ export function usePaymentGatewayLogic({ mode, id }: UsePaymentGatewayLogicProps
         setSaving(true);
         setError('');
         try {
-            if (isEdit && id && definition.endpoints.update) {
-                await ResourceService.update(definition.endpoints.update(id), form);
-            } else if (definition.endpoints.create) {
-                await ResourceService.create(definition.endpoints.create, form);
+            if (isEdit && id) {
+                await paymentGatewayService.updatePaymentGateway(id, form);
+            } else {
+                await paymentGatewayService.createPaymentGateway(form);
             }
             navigate('/admin/payment-gateways');
         } catch (err: any) {
@@ -111,23 +105,21 @@ export function usePaymentGatewayLogic({ mode, id }: UsePaymentGatewayLogicProps
     };
 
     const handleDelete = async (gatewayId: string | number) => {
-        if (!definition.endpoints.delete) return;
         if (!window.confirm(`Are you sure you want to delete payment gateway #${gatewayId}?`)) return;
         try {
-            await ResourceService.delete(definition.endpoints.delete(gatewayId));
+            await paymentGatewayService.deletePaymentGateway(gatewayId);
             loadList(page);
         } catch (err: any) {
             setError(err?.message || 'Failed to delete payment gateway.');
         }
     };
 
-    const records = dataItems(payload);
+    const records = payload?.data || [];
     const total = Number(payload?.total ?? records.length);
     const currentPage = Number(payload?.currentPage ?? page);
     const currentPerPage = Number(payload?.perPage ?? perPage);
 
     return {
-        definition,
         isEdit,
         payload,
         records,

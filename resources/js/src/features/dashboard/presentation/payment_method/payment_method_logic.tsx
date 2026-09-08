@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react';
-import { resourceDefinitions } from '@/features/resource/domain/constant/resource_definitions';
-import { ResourceService } from '@/features/resource/application/resource_service';
-import { dataItems, dataRecord, navigate } from '@/shared/utils/format_utils';
+import { paymentMethodService } from '../../application/payment_method_service';
+import { paymentCategoryService } from '../../application/payment_category_service';
+import { paymentGatewayService } from '../../application/payment_gateway_service';
+import { PaymentMethodItem } from '../../domain/model/response/payment/payment_method_response';
+import { PaymentCategoryItem } from '../../domain/model/response/payment/payment_category_response';
+import { PaymentGatewayItem } from '../../domain/model/response/payment/payment_gateway_response';
+import { navigate } from '@/shared/utils/format_utils';
 
 export interface UsePaymentMethodLogicProps {
     mode: 'resource-index' | 'resource-create' | 'resource-edit' | 'resource-show';
@@ -9,18 +13,20 @@ export interface UsePaymentMethodLogicProps {
 }
 
 export function usePaymentMethodLogic({ mode, id }: UsePaymentMethodLogicProps) {
-    const definition = resourceDefinitions['payment-methods'];
     const isEdit = mode === 'resource-edit';
 
     const [payload, setPayload] = useState<any>(null);
-    const [record, setRecord] = useState<any | null>(null);
+    const [record, setRecord] = useState<PaymentMethodItem | null>(null);
+    const [categories, setCategories] = useState<PaymentCategoryItem[]>([]);
+    const [gateways, setGateways] = useState<PaymentGatewayItem[]>([]);
     const [form, setForm] = useState<Record<string, any>>({
         key: '',
         name: '',
-        type: '',
-        from: '',
+        category_id: '',
+        from: 'duitku',
         bankCode: '',
-        value: '',
+        image: '',
+        image_url: '',
     });
     const [loading, setLoading] = useState<boolean>(true);
     const [saving, setSaving] = useState<boolean>(false);
@@ -29,20 +35,35 @@ export function usePaymentMethodLogic({ mode, id }: UsePaymentMethodLogicProps) 
     // Filter states
     const [searchTerm, setSearchTerm] = useState<string>('');
     const [page, setPage] = useState<number>(1);
-    const [perPage, setPerPage] = useState<number>(15);
+    const [perPage, setPerPage] = useState<number>(10);
+
+    const loadCategories = async () => {
+        try {
+            const res = await paymentCategoryService.getPaymentCategories({ per_page: 100 });
+            setCategories(res?.data || []);
+        } catch {
+            // Ignore failure to load categories
+        }
+    };
+
+    const loadGateways = async () => {
+        try {
+            const res = await paymentGatewayService.getPaymentGateways({ per_page: 100 });
+            setGateways(res?.data || []);
+        } catch {
+            // Ignore failure to load gateways
+        }
+    };
 
     const loadList = async (pageNum = page) => {
         setLoading(true);
         setError('');
         try {
-            const query = new URLSearchParams();
-            if (pageNum > 1) query.set('page', String(pageNum));
-            if (perPage !== 15) query.set('per_page', String(perPage));
-            if (searchTerm.trim()) query.set('search', searchTerm.trim());
-
-            const queryString = query.toString();
-            const url = `${definition.endpoints.list}${queryString ? `?${queryString}` : ''}`;
-            const res = await ResourceService.list(url);
+            const res = await paymentMethodService.getPaymentMethods({
+                page: pageNum,
+                per_page: perPage,
+                search: searchTerm.trim() || undefined,
+            });
             setPayload(res);
             setPage(pageNum);
         } catch (err: any) {
@@ -53,26 +74,25 @@ export function usePaymentMethodLogic({ mode, id }: UsePaymentMethodLogicProps) 
     };
 
     const loadItem = async () => {
-        if (!id || !definition.endpoints.show) return;
+        if (!id) return;
         setLoading(true);
         setError('');
         try {
-            const url = definition.endpoints.show(id);
-            const res = await ResourceService.show(url);
-            const itemData = dataRecord(res);
+            const itemData = await paymentMethodService.getPaymentMethodById(id);
             setRecord(itemData);
             if (isEdit) {
                 setForm({
                     key: itemData.key || '',
                     name: itemData.name || '',
-                    type: itemData.type || '',
-                    from: itemData.from || '',
+                    category_id: itemData.category_id || itemData.category?.id || '',
+                    from: itemData.from || 'duitku',
                     bankCode: itemData.bankCode || '',
-                    value: itemData.value || '',
+                    image: itemData.image || '',
+                    image_url: itemData.image_url || '',
                 });
             }
         } catch (err: any) {
-            setError(err?.message || 'Failed to load payment method details.');
+            setError(err?.message || 'Failed to load method details.');
         } finally {
             setLoading(false);
         }
@@ -82,8 +102,12 @@ export function usePaymentMethodLogic({ mode, id }: UsePaymentMethodLogicProps) 
         if (mode === 'resource-index') {
             loadList(1);
         } else if (mode === 'resource-edit' || mode === 'resource-show') {
+            loadCategories();
+            loadGateways();
             loadItem();
         } else if (mode === 'resource-create') {
+            loadCategories();
+            loadGateways();
             setLoading(false);
         }
     }, [mode, id, perPage]);
@@ -98,15 +122,45 @@ export function usePaymentMethodLogic({ mode, id }: UsePaymentMethodLogicProps) 
         setTimeout(() => loadList(1), 0);
     };
 
+    const handleImageUpload = (file: File) => {
+        if (!file.type.startsWith('image/')) {
+            setError('Please select a valid image file (PNG, JPG, SVG, WebP).');
+            return;
+        }
+        if (file.size > 2 * 1024 * 1024) {
+            setError('Image file size must be less than 2MB.');
+            return;
+        }
+        setError('');
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const base64 = e.target?.result as string;
+            setForm((prev) => ({ ...prev, image: base64, image_url: base64 }));
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const handleClearImage = () => {
+        setForm((prev) => ({ ...prev, image: '', image_url: '' }));
+    };
+
     const handleFormSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setSaving(true);
         setError('');
         try {
-            if (isEdit && id && definition.endpoints.update) {
-                await ResourceService.update(definition.endpoints.update(id), form);
-            } else if (definition.endpoints.create) {
-                await ResourceService.create(definition.endpoints.create, form);
+            const submitData = {
+                key: form.key,
+                name: form.name,
+                from: form.from,
+                bankCode: form.bankCode || '',
+                image: form.image || null,
+                category_id: form.category_id ? Number(form.category_id) : null,
+            };
+            if (isEdit && id) {
+                await paymentMethodService.updatePaymentMethod(id, submitData);
+            } else {
+                await paymentMethodService.createPaymentMethod(submitData);
             }
             navigate('/admin/payment-methods');
         } catch (err: any) {
@@ -117,27 +171,27 @@ export function usePaymentMethodLogic({ mode, id }: UsePaymentMethodLogicProps) 
     };
 
     const handleDelete = async (methodId: string | number) => {
-        if (!definition.endpoints.delete) return;
         if (!window.confirm(`Are you sure you want to delete payment method #${methodId}?`)) return;
         try {
-            await ResourceService.delete(definition.endpoints.delete(methodId));
+            await paymentMethodService.deletePaymentMethod(methodId);
             loadList(page);
         } catch (err: any) {
             setError(err?.message || 'Failed to delete payment method.');
         }
     };
 
-    const records = dataItems(payload);
+    const records = payload?.data || [];
     const total = Number(payload?.total ?? records.length);
     const currentPage = Number(payload?.currentPage ?? page);
     const currentPerPage = Number(payload?.perPage ?? perPage);
 
     return {
-        definition,
         isEdit,
         payload,
         records,
         record,
+        categories,
+        gateways,
         form,
         setForm,
         loading,
@@ -154,6 +208,8 @@ export function usePaymentMethodLogic({ mode, id }: UsePaymentMethodLogicProps) 
         loadList,
         handleSearchSubmit,
         handleClearSearch,
+        handleImageUpload,
+        handleClearImage,
         handleFormSubmit,
         handleDelete,
     };

@@ -2,9 +2,13 @@
 
 namespace App\Services\Payment;
 
+use App\Enums\OrderStatus;
 use App\Enums\ProjectSlug;
 use App\Http\Helper\FormatHelper;
+use App\Jobs\SendMerchantCallback;
+use App\Jobs\SendNotificationJob;
 use App\Model\Entity\Order;
+use App\Model\Entity\Project;
 use App\Repository\Payment\OrderRepository;
 use App\Services\System\ProjectService;
 use Exception;
@@ -17,6 +21,8 @@ class OrderService
     private ProjectService $projectService;
 
     private OrderRepository $orders;
+
+    private OrderHistoryService $orderHistoryService;
 
     private XenditService $xenditService;
 
@@ -34,6 +40,7 @@ class OrderService
     {
         $this->projectService = new ProjectService;
         $this->orders = new OrderRepository;
+        $this->orderHistoryService = new OrderHistoryService;
         $this->xenditService = new XenditService;
         $this->duitkuService = new DuitkuService;
         $this->midtransService = new MidtransService;
@@ -47,13 +54,25 @@ class OrderService
         $search = $request->query('search');
         $mode = $request->query('mode');
         $status = $request->query('status');
-        $perPage = (int) ($request->query('per_page', $request->query('perPage', 15)));
+        $perPage = (int) ($request->query('per_page', $request->query('perPage', 10)));
+        $startDate = $request->query('start_date') ?: $request->query('startDate');
+        $endDate = $request->query('end_date') ?: $request->query('endDate');
+        $paymentRepositoryId = $request->query('payment_repository_id') ?: $request->query('paymentRepositoryId');
 
         $type = auth('sanctum')->user()?->isAdmin()
             ? $request->query('type')
             : $this->projectService->checkKey()->type;
 
-        return $this->orders->latestPaginated($perPage, $search, $mode, $status, $type);
+        return $this->orders->latestPaginated(
+            $perPage,
+            $search,
+            $mode,
+            $status,
+            $type,
+            $startDate,
+            $endDate,
+            $paymentRepositoryId
+        );
     }
 
     public function detailByReferenceAndKey(string $reference, ?string $projectType): ?Order
@@ -117,5 +136,87 @@ class OrderService
             return $this->stripeService->confirmCardPayment($request, $project);
         }
         throw new Exception('Stripe confirm only supported for Stripe projects');
+    }
+
+    public function getOrderById(int|string $id): ?Order
+    {
+        return $this->orders->findById($id, ['histories']);
+    }
+
+    public function resendCallbackById(int|string $id): Order
+    {
+        $order = $this->orders->findById($id);
+        if (! $order) {
+            throw new Exception('Order Not Found', 404);
+        }
+
+        $status = $order->getStatus();
+        if (! $status?->isSuccess()) {
+            throw new Exception('Only successful orders can resend callback.');
+        }
+
+        $project = $order->project ?: Project::where('type', $order->type)->first();
+        if (! $project || ! $project->value || ! $project->callback) {
+            throw new Exception('Project callback configuration is incomplete.');
+        }
+
+        SendMerchantCallback::dispatch(
+            $project->value,
+            [
+                'merchantOrderId' => $order->getMerchantOrderId(),
+                'paymentCode' => $order->payment_method,
+                'resultCode' => '00',
+            ],
+            $project->callback,
+        )->afterCommit();
+
+        return $order;
+    }
+
+    public function setSuccessById(int|string $id): Order
+    {
+        $order = $this->orders->findById($id, ['histories']);
+        if (! $order) {
+            throw new Exception('Order Not Found', 404);
+        }
+
+        return $this->markAsSuccessAndSendCallback($order);
+    }
+
+    public function markAsSuccessAndSendCallback(Order $order, ?Project $project = null, string $source = 'MANUAL_OVERRIDE'): Order
+    {
+        $previousStatus = $order->status;
+        $order->setStatus(OrderStatus::SUCCESS);
+        $order->save();
+
+        $this->orderHistoryService->log(
+            $order,
+            OrderStatus::SUCCESS,
+            $source,
+            'Status marked as SUCCESS and callback dispatched to merchant.',
+            ['updated_by' => auth('sanctum')->user()?->email ?? 'API'],
+            $previousStatus
+        );
+
+        $project ??= $order->project ?: Project::where('type', $order->type)->first();
+        if ($project && $project->value && $project->callback) {
+            SendMerchantCallback::dispatch(
+                $project->value,
+                [
+                    'merchantOrderId' => $order->getMerchantOrderId(),
+                    'paymentCode' => $order->payment_method ?: '',
+                    'resultCode' => '00',
+                ],
+                $project->callback,
+            )->afterCommit();
+        }
+
+        if (FormatHelper::isNotEmpty($order->reference)) {
+            SendNotificationJob::dispatch($order->reference);
+        }
+
+        $order->refresh();
+
+        return $order;
     }
 }

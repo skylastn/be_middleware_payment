@@ -7,6 +7,7 @@ use App\Enums\PaymentModeType;
 use App\Traits\BaseModelTrait;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Order extends Model
@@ -29,6 +30,7 @@ class Order extends Model
         'type',
         'reference',
         'payment_method',
+        'value',
         'status',
         'request',
         'response',
@@ -41,7 +43,7 @@ class Order extends Model
     ];
 
     // Keep the original eager-loaded relationships.
-    protected $with = ['payment_methods', 'project'];
+    protected $with = ['payment_methods', 'project', 'payment_repository'];
 
     // ------------------------------------------------------------
     // Relationships
@@ -49,12 +51,22 @@ class Order extends Model
 
     public function payment_methods(): HasOne
     {
-        return $this->hasOne(PaymentMethod::class, 'value', 'payment_method');
+        return $this->hasOne(PaymentMethod::class, 'key', 'payment_method');
     }
 
     public function project(): HasOne
     {
         return $this->hasOne(Project::class, 'type', 'type');
+    }
+
+    public function payment_repository(): HasOne
+    {
+        return $this->hasOne(PaymentRepository::class, 'id', 'payment_repository_id');
+    }
+
+    public function histories(): HasMany
+    {
+        return $this->hasMany(OrderHistory::class, 'order_id', 'id')->orderBy('created_at', 'asc');
     }
 
     // ------------------------------------------------------------
@@ -143,6 +155,16 @@ class Order extends Model
     public function setPaymentMethod(?string $paymentMethod): void
     {
         $this->payment_method = $paymentMethod;
+    }
+
+    public function getValue(): ?string
+    {
+        return $this->value;
+    }
+
+    public function setValue(?string $value): void
+    {
+        $this->value = $value;
     }
 
     public function getStatus(): ?OrderStatus

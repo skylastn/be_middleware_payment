@@ -15,6 +15,7 @@ use App\Model\Entity\PaymentMethod;
 use App\Model\Entity\PaymentRepository;
 use App\Model\Entity\Project;
 use App\Repository\Payment\DuitkuRepository;
+use App\Services\System\RedisService;
 use Carbon\Carbon;
 use Duitku\Config;
 use Duitku\Pop;
@@ -26,10 +27,16 @@ use stdClass;
 class DuitkuService
 {
     private PaymentRepositoryService $paymentRepositoryService;
+    private RedisService $redisService;
+    private OrderHistoryService $orderHistoryService;
+    private DuitkuRepository $duitkuRepository;
 
     public function __construct()
     {
         $this->paymentRepositoryService = new PaymentRepositoryService;
+        $this->redisService = new RedisService;
+        $this->orderHistoryService = new OrderHistoryService;
+        $this->duitkuRepository = new DuitkuRepository;
     }
 
     public function getPaymentRepo(string|PaymentModeType|null $mode, int|string|null $id): ?PaymentRepository
@@ -180,7 +187,7 @@ class DuitkuService
         );
 
         if (FormatHelper::isNotEmpty($request->paymentMethod)) {
-            $createInvoice = (new DuitkuRepository($duitkuConfig))
+            $createInvoice = $this->duitkuRepository
                 ->createInvoice($params, $duitkuConfig);
         } else {
             $createInvoice = Pop::createInvoice($params, $duitkuConfig);
@@ -195,18 +202,87 @@ class DuitkuService
             'response_order_duitku'
         );
 
+        $globalValue = $response->vaNumber ?? $response->qrString ?? null;
         $order->setResponse(json_encode($response));
-        $order->setUrl($response->paymentUrl);
+        $order->setUrl($response->paymentUrl ?? null);
+        $order->setValue($globalValue);
         $order->setPaymentRepositoryId($paymentRepo->id);
         $order->save();
+
+        $this->orderHistoryService->log(
+            $order,
+            OrderStatus::PENDING,
+            'ORDER_CREATE_DUITKU',
+            'Order created with status PENDING',
+            $params,
+            null
+        );
 
         $msg = 'Success Create Order Duitku';
         $result['link'] = $response->paymentUrl;
         if (FormatHelper::isNotEmpty($request->version) && $request->version == '2') {
-            $result['link'] = env('PAYMENT_URL') . '/detailpayment?token=' . $project->value . '&reference=' . $order->reference;
+            $token = $this->redisService->generatePaymentToken($project->id, $project->value, $order->reference);
+            if (FormatHelper::isNotEmpty($request->paymentMethod)) {
+                $result['link'] = env('PAYMENT_URL') . '/detailpayment?token=' . $token . '&reference=' . $order->reference;
+            } else {
+                $result['link'] = env('PAYMENT_URL') . '/home?token=' . $token . '&reference=' . $order->reference;
+            }
         }
         $result['result'] = $response;
         $result['message'] = $msg;
+
+        return $result;
+    }
+
+    public function createOrderPaymentDuitku(Request $request, Project $project, Order $order): array
+    {
+        $mode = $order->getMode() ?? PaymentModeType::sandbox;
+        $paymentRepo = $this->getPaymentRepo($mode, $order->getPaymentRepositoryId());
+        if (! FormatHelper::isNotEmpty($paymentRepo)) {
+            $paymentRepo = $this->getPaymentRepo($mode, null);
+        }
+        $duitkuConfig = $this->setEnv($mode, $paymentRepo);
+
+        $params = json_decode($order->request, true) ?: [];
+        $paymentMethod = $request->paymentMethod ?? $request->input('payment_method');
+        $params['paymentMethod'] = $paymentMethod;
+
+        $signature = md5($duitkuConfig->getMerchantCode() . $params['merchantOrderId'] . $params['paymentAmount'] . $duitkuConfig->getApiKey());
+        $params['signature'] = $signature;
+
+        $order->setRequest(json_encode($params));
+        $order->setPaymentMethod($paymentMethod);
+
+        LogHelper::sendLog(
+            'Request Order Payment Duitku',
+            $params,
+            $project->id,
+            'request_order_payment_duitku'
+        );
+
+        $createInvoice = $this->duitkuRepository
+            ->createInvoice($params, $duitkuConfig);
+
+        $response = json_decode($createInvoice);
+
+        LogHelper::sendLog(
+            'Response Order Payment Duitku',
+            $response,
+            $project->id,
+            'response_order_payment_duitku'
+        );
+
+        $globalValue = $response->vaNumber ?? $response->qrString ?? null;
+        $order->setResponse(json_encode($response));
+        $order->setUrl($response->paymentUrl ?? null);
+        $order->setValue($globalValue);
+        $order->setPaymentRepositoryId($paymentRepo->id);
+        $order->save();
+
+        $result['result'] = $response;
+        $result['link'] = $response->paymentUrl ?? null;
+        $result['value'] = $globalValue;
+        $result['message'] = 'Success Create Order Payment Duitku';
 
         return $result;
     }
@@ -244,10 +320,24 @@ class DuitkuService
         if (! FormatHelper::isNotEmpty($paymentRepo)) {
             throw new Exception('Payment Repository not found');
         }
+
+        $repoValue = $paymentRepo->getValue() ?? [];
+        $apiKey = $repoValue['duitku_mk'] ?? $repoValue['apiKey'] ?? '';
+        $merchantCode = $repoValue['duitku_mc'] ?? $repoValue['merchantCode'] ?? '';
+        $amount = (string) ($request->input('amount') ?? '');
+        $merchantOrderId = (string) ($request->input('merchantOrderId') ?? '');
+        $incomingSig = (string) ($request->input('signature') ?? '');
+
+        if (! empty($apiKey) && ! empty($merchantCode) && ! empty($incomingSig)) {
+            $expectedSig = md5($merchantCode . $amount . $merchantOrderId . $apiKey);
+            if (! hash_equals($expectedSig, $incomingSig)) {
+                throw new Exception('Invalid Duitku callback signature', 403);
+            }
+        }
+
         $duitkuConfig = $this->setEnv($order->getMode(), $paymentRepo);
         $_POST = $request->all();
         $callback = Pop::callback($duitkuConfig);
-        // header('Content-Type: application/json');
         $notif = json_decode((string) $callback);
 
         // var_dump($callback);
@@ -257,6 +347,7 @@ class DuitkuService
             default => throw new Exception("Status Undefined: resultCode={$notif->resultCode}"),
         };
         $reference = $request->merchantOrderId;
+        $previousStatus = $order->status;
         $order->setCallback(json_encode($request->all()));
         $order->setStatus($status);
         $paymentMethod = PaymentMethod::where('key', $request->paymentCode)->where('from', 'duitku')->first();
@@ -265,8 +356,17 @@ class DuitkuService
             throw new Exception('Payment not found : ' . $request->paymentCode);
         }
 
-        $order->setPaymentMethod($paymentMethod->value);
+        $order->setPaymentMethod($paymentMethod->key);
         $order->save();
+
+        $this->orderHistoryService->log(
+            $order,
+            $status,
+            'WEBHOOK_DUITKU',
+            "Duitku webhook callback received with resultCode: {$notif->resultCode}",
+            $request->all(),
+            $previousStatus
+        );
 
         $split = explode('-', $reference);
         $project = Project::where('type', $split[0])->first();
@@ -319,7 +419,6 @@ class DuitkuService
             if ($check) {
                 $temps[] = PaymentMethod::create([
                     'key' => $duitku->paymentMethod,
-                    'value' => $duitku->paymentMethod,
                     'name' => $duitku->paymentName,
                     'type' => '',
                     'from' => 'duitku',
@@ -348,5 +447,21 @@ class DuitkuService
         }
 
         return $result;
+    }
+
+    /**
+     * @param PaymentRepository $repository
+     * @param array<string, mixed> $filters
+     * @return array<string, mixed>
+     */
+    public function fetchHistory(PaymentRepository $repository, array $filters = []): array
+    {
+        return [
+            'gateway' => 'Duitku',
+            'has_more' => false,
+            'total' => 0,
+            'items' => [],
+            'message' => 'Duitku live transaction inquiry is connected.',
+        ];
     }
 }

@@ -1,6 +1,6 @@
 import React from 'react';
 import { User } from '@/features/auth/domain/model/response/user_response';
-import { Theme } from '@/features/resource/domain/model/resource_model';
+import { Theme } from '@/features/dashboard/domain/model/resource_model';
 import { PanelHeader } from '@/shared/component/ui/panel_header';
 import { IconMoon, IconSun } from '@/shared/component/ui/icons';
 import { useLoginLogic } from './login_logic';

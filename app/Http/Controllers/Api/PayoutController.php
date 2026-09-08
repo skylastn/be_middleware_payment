@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Helper\LogHelper;
 use App\Http\Helper\ResponseHelper;
+use App\Model\Request\Payout\CreatePayoutRequest;
 use App\Services\Payment\PayoutService;
 use App\Services\System\ProjectService;
 use Exception;
@@ -24,7 +25,7 @@ class PayoutController extends Controller
         $this->projectService = new ProjectService;
     }
 
-    public function create(Request $request): JsonResponse
+    public function create(CreatePayoutRequest $request): JsonResponse
     {
         try {
             DB::beginTransaction();
@@ -38,14 +39,6 @@ class PayoutController extends Controller
             $bankDetails = $request->input('bank_details', []);
             $callerReference = $request->input('reference');
             $callbackUrl = $request->input('callback_url');
-
-            if (empty($amount) || $amount <= 0) {
-                throw new Exception('amount is required and must be greater than 0');
-            }
-
-            if (empty($bankDetails['bank_account'])) {
-                throw new Exception('bank_details.bank_account is required');
-            }
 
             $result = $this->payoutService->create(
                 $project, $amount, $bankDetails, $gateway,

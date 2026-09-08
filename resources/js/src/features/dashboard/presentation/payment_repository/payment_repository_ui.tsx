@@ -5,6 +5,8 @@ import { CopyButton } from '@/shared/component/ui/copy_button';
 import { renderBadge } from '@/shared/component/ui/badge';
 import { IconPlus, IconRefresh, IconSearch, IconX, IconArrowLeft } from '@/shared/component/ui/icons';
 import { navigate, displayValue, formatDate } from '@/shared/utils/format_utils';
+import { SkeletonFormFields, SkeletonTableRows } from '@/shared/component/ui/skeleton';
+import { ModalDialog } from '@/shared/component/ui/modal_dialog';
 import { usePaymentRepositoryLogic } from './payment_repository_logic';
 
 export interface PaymentRepositoryPageProps {
@@ -19,10 +21,21 @@ export function PaymentRepositoryPage({ mode, id }: PaymentRepositoryPageProps):
         record,
         form,
         setForm,
+        gateways,
         jsonError,
         loading,
         saving,
         error,
+        notice,
+        testModalRepo,
+        testingOrder,
+        testOrderResult,
+        testError,
+        testForm,
+        setTestForm,
+        openTestModal,
+        closeTestModal,
+        handleExecuteTestOrder,
         searchTerm,
         setSearchTerm,
         selectedMode,
@@ -32,20 +45,192 @@ export function PaymentRepositoryPage({ mode, id }: PaymentRepositoryPageProps):
         setPerPage,
         total,
         currentPage,
-        loadList,
         handleSearchSubmit,
         handleClearSearch,
         handleFormSubmit,
         handleDelete,
+        loadList,
     } = usePaymentRepositoryLogic({ mode, id });
+
+    const renderTestOrderModal = () => (
+        <ModalDialog
+            isOpen={Boolean(testModalRepo)}
+            title={`🧪 Test Create Order: ${testModalRepo?.payment_gateway?.name || testModalRepo?.key || 'Gateway'}`}
+            description={`Simulate real API order creation on ${testModalRepo?.mode?.toUpperCase() || 'SANDBOX'} mode.`}
+            confirmText={testOrderResult ? 'Re-run Test Order' : 'Create Test Order'}
+            cancelText="Close"
+            confirmTone="primary"
+            loading={testingOrder}
+            onConfirm={handleExecuteTestOrder as any}
+            onClose={closeTestModal}
+        >
+            {testModalRepo && (
+                <form onSubmit={handleExecuteTestOrder} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    {testModalRepo.mode === 'prod' && (
+                        <div className="alert warning" style={{ fontSize: '12px', margin: 0 }}>
+                            ⚠️ <strong>Caution:</strong> This repository is configured for <strong>PRODUCTION / LIVE</strong> mode. Creating a test order will generate a real transaction on the live payment gateway engine.
+                        </div>
+                    )}
+
+                    {testError && (
+                        <div className="panel alert danger" style={{ fontSize: '12px', margin: 0, padding: '10px 14px' }}>
+                            <strong>Error:</strong> {testError}
+                        </div>
+                    )}
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                        <label className="field" style={{ margin: 0 }}>
+                            <span className="label">Amount *</span>
+                            <input
+                                className="input"
+                                type="number"
+                                required
+                                min="1"
+                                value={testForm.amount}
+                                onChange={(e) => setTestForm({ ...testForm, amount: Number(e.target.value) })}
+                            />
+                        </label>
+
+                        <label className="field" style={{ margin: 0 }}>
+                            <span className="label">Currency *</span>
+                            <input
+                                className="input mono"
+                                type="text"
+                                required
+                                placeholder="IDR, MYR, USD..."
+                                value={testForm.currency}
+                                onChange={(e) => setTestForm({ ...testForm, currency: e.target.value.toUpperCase() })}
+                            />
+                        </label>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                        <label className="field" style={{ margin: 0 }}>
+                            <span className="label">Buyer Email *</span>
+                            <input
+                                className="input"
+                                type="email"
+                                required
+                                value={testForm.email}
+                                onChange={(e) => setTestForm({ ...testForm, email: e.target.value })}
+                            />
+                        </label>
+
+                        <label className="field" style={{ margin: 0 }}>
+                            <span className="label">Buyer Name</span>
+                            <input
+                                className="input"
+                                type="text"
+                                value={testForm.name}
+                                onChange={(e) => setTestForm({ ...testForm, name: e.target.value })}
+                            />
+                        </label>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                        <label className="field" style={{ margin: 0 }}>
+                            <span className="label">API Version (Versi)</span>
+                            <select
+                                className="input"
+                                value={testForm.version}
+                                onChange={(e) => setTestForm({ ...testForm, version: e.target.value })}
+                            >
+                                <option value="1">Version 1 (Default / Direct Gateway URL)</option>
+                                <option value="2">Version 2 (Hosted Detail Payment Page)</option>
+                            </select>
+                        </label>
+
+                        <label className="field" style={{ margin: 0 }}>
+                            <span className="label">Payment Method <span className="muted" style={{ fontSize: '11px', fontWeight: 'normal' }}>(Optional)</span></span>
+                            <input
+                                className="input mono"
+                                type="text"
+                                placeholder="e.g. VA, QRIS, BCA_VA..."
+                                value={testForm.paymentMethod}
+                                onChange={(e) => setTestForm({ ...testForm, paymentMethod: e.target.value })}
+                            />
+                        </label>
+                    </div>
+
+                    {/* Test Results Section */}
+                    {testOrderResult && (
+                        <div style={{ marginTop: '12px', borderTop: '1px solid var(--border)', paddingTop: '14px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                <strong style={{ color: 'var(--success)', fontSize: '13px' }}>
+                                    ✅ Test Order Successfully Created!
+                                </strong>
+                                <div style={{ display: 'flex', gap: '6px' }}>
+                                    <span className="badge blue mono" style={{ fontSize: '11px' }}>
+                                        {testOrderResult.order_reference || 'Ref OK'}
+                                    </span>
+                                    <span className="badge green" style={{ fontSize: '11px' }}>
+                                        v{testOrderResult.version || testForm.version}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {testOrderResult.checkout_url && (
+                                <div style={{ marginBottom: '12px', background: 'var(--bg-page)', padding: '10px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
+                                    <span className="label" style={{ fontSize: '11px', marginBottom: '6px', display: 'block' }}>Payment / Checkout URL:</span>
+                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                        <a
+                                            href={testOrderResult.checkout_url}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="button primary"
+                                            style={{ fontSize: '12px', padding: '0 12px', minHeight: '32px' }}
+                                        >
+                                            👉 Open Payment Checkout Page
+                                        </a>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden', flex: 1, minWidth: '150px' }}>
+                                            <input
+                                                type="text"
+                                                readOnly
+                                                className="input mono"
+                                                value={testOrderResult.checkout_url}
+                                                style={{ fontSize: '11px', height: '32px', padding: '0 8px' }}
+                                            />
+                                            <CopyButton text={testOrderResult.checkout_url} />
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                    <span className="label" style={{ fontSize: '11px' }}>Gateway Response Data:</span>
+                                    <CopyButton text={displayValue(testOrderResult.raw_result || testOrderResult)} />
+                                </div>
+                                <pre
+                                    className="mono"
+                                    style={{
+                                        margin: 0,
+                                        padding: '10px',
+                                        background: 'var(--bg-page)',
+                                        border: '1px solid var(--border)',
+                                        borderRadius: 'var(--radius-sm)',
+                                        maxHeight: '180px',
+                                        overflowY: 'auto',
+                                        fontSize: '11px',
+                                    }}
+                                >
+                                    {displayValue(testOrderResult.raw_result || testOrderResult)}
+                                </pre>
+                            </div>
+                        </div>
+                    )}
+                </form>
+            )}
+        </ModalDialog>
+    );
 
     if (mode === 'resource-create' || mode === 'resource-edit') {
         return (
             <>
                 <PageTitle
-                    eyebrow="Gateway Credentials"
-                    title={isEdit ? `Edit Repository: #${id}` : 'Create Payment Repository'}
-                    subtitle="Configure gateway credentials, API keys, webhook secrets, and surcharges."
+                    eyebrow="Gateway Configurations"
+                    title={isEdit ? `Edit Repository #${id}` : 'Create Payment Repository'}
+                    subtitle="Configure gateway credentials, environment mode, and fee surcharge settings."
                 >
                     <div className="toolbar">
                         <button type="button" className="button" onClick={() => navigate('/admin/payment-repositories')}>
@@ -70,15 +255,20 @@ export function PaymentRepositoryPage({ mode, id }: PaymentRepositoryPageProps):
                         )}
 
                         <label className="field">
-                            <span className="label">Payment Gateway ID *</span>
-                            <input
+                            <span className="label">Payment Gateway *</span>
+                            <select
                                 className="input"
-                                type="text"
                                 required
-                                placeholder="Gateway ID (e.g. 1, 2, 3)"
                                 value={form.payment_gateway_id}
                                 onChange={(e) => setForm({ ...form, payment_gateway_id: e.target.value })}
-                            />
+                            >
+                                <option value="">-- Select Payment Gateway --</option>
+                                {gateways.map((gw) => (
+                                    <option key={gw.id} value={gw.id}>
+                                        {gw.name} ({gw.key}) - #{gw.id}
+                                    </option>
+                                ))}
+                            </select>
                         </label>
 
                         <label className="field">
@@ -86,7 +276,7 @@ export function PaymentRepositoryPage({ mode, id }: PaymentRepositoryPageProps):
                             <input
                                 className="input"
                                 type="text"
-                                placeholder="e.g. duitku, stripe, xendit"
+                                placeholder="e.g. default_duitku_sandbox"
                                 value={form.key}
                                 onChange={(e) => setForm({ ...form, key: e.target.value })}
                             />
@@ -128,7 +318,8 @@ export function PaymentRepositoryPage({ mode, id }: PaymentRepositoryPageProps):
     }
 
     if (mode === 'resource-show') {
-        const jsonValue = displayValue(record?.value);
+        const jsonValue = record?.value ? displayValue(record.value) : '';
+
         return (
             <>
                 <PageTitle
@@ -140,6 +331,16 @@ export function PaymentRepositoryPage({ mode, id }: PaymentRepositoryPageProps):
                         <button type="button" className="button" onClick={() => navigate('/admin/payment-repositories')}>
                             <IconArrowLeft /> Back to Repositories
                         </button>
+                        {record && (
+                            <button
+                                type="button"
+                                className="button"
+                                onClick={() => openTestModal(record)}
+                                title="Simulate create order on this gateway repository"
+                            >
+                                🧪 Test Create Order
+                            </button>
+                        )}
                         <button type="button" className="button primary" onClick={() => navigate(`/admin/payment-repositories/${id}/edit`)}>
                             Edit Repository
                         </button>
@@ -149,7 +350,7 @@ export function PaymentRepositoryPage({ mode, id }: PaymentRepositoryPageProps):
                 {error && <div className="panel alert danger" style={{ marginBottom: '16px' }}>{error}</div>}
 
                 {loading ? (
-                    <div className="panel empty">Loading repository details...</div>
+                    <SkeletonFormFields count={5} />
                 ) : record ? (
                     <>
                         <div className="panel form-grid" style={{ marginBottom: '24px' }}>
@@ -162,8 +363,10 @@ export function PaymentRepositoryPage({ mode, id }: PaymentRepositoryPageProps):
                             </div>
 
                             <div className="field">
-                                <span className="label">Payment Gateway ID</span>
-                                <div className="input mono">Gateway #{record.payment_gateway_id}</div>
+                                <span className="label">Gateway Name</span>
+                                <div className="input" style={{ fontWeight: 600 }}>
+                                    {record.payment_gateway?.name || `Gateway #${record.payment_gateway_id}`}
+                                </div>
                             </div>
 
                             <div className="field">
@@ -209,6 +412,7 @@ export function PaymentRepositoryPage({ mode, id }: PaymentRepositoryPageProps):
                 ) : (
                     <div className="panel empty">Payment repository not found.</div>
                 )}
+                {renderTestOrderModal()}
             </>
         );
     }
@@ -239,6 +443,7 @@ export function PaymentRepositoryPage({ mode, id }: PaymentRepositoryPageProps):
                 </div>
             </PageTitle>
 
+            {notice && <div className="panel alert success" style={{ marginBottom: '16px' }}>{notice}</div>}
             {error && <div className="panel alert danger" style={{ marginBottom: '16px' }}>{error}</div>}
 
             <div className="panel">
@@ -275,20 +480,16 @@ export function PaymentRepositoryPage({ mode, id }: PaymentRepositoryPageProps):
                             value={perPage}
                             onChange={(e) => setPerPage(Number(e.target.value))}
                         >
-                            <option value="15">15 / page</option>
+                            <option value="10">10 / page</option>
                             <option value="25">25 / page</option>
                             <option value="50">50 / page</option>
                         </select>
                     </div>
                 </div>
 
-                <DataTable columns={['ID', 'Gateway ID', 'Key', 'Mode', 'Config Summary', 'Created', 'Actions']}>
+                <DataTable columns={['ID', 'Gateway Name', 'Key', 'Mode', 'Config Summary', 'Created', 'Actions']}>
                     {loading ? (
-                        <tr>
-                            <td colSpan={7} className="empty" style={{ padding: '36px', textAlign: 'center' }}>
-                                Loading payment repositories...
-                            </td>
-                        </tr>
+                        <SkeletonTableRows rows={perPage > 15 ? 10 : 6} columns={7} />
                     ) : records.length > 0 ? (
                         records.map((row: any) => {
                             const primaryKey = row.id;
@@ -300,7 +501,12 @@ export function PaymentRepositoryPage({ mode, id }: PaymentRepositoryPageProps):
                                         #{row.id}
                                         <CopyButton text={String(row.id)} />
                                     </td>
-                                    <td>Gateway #{row.payment_gateway_id}</td>
+                                    <td>
+                                        <strong>{row.payment_gateway?.name || `Gateway #${row.payment_gateway_id}`}</strong>
+                                        <div className="muted mono" style={{ fontSize: '11px' }}>
+                                            ID: {row.payment_gateway_id}
+                                        </div>
+                                    </td>
                                     <td><span className="badge blue">{row.key || '-'}</span></td>
                                     <td>{renderBadge('mode', row.mode)}</td>
                                     <td style={{ maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '12px' }}>
@@ -309,6 +515,14 @@ export function PaymentRepositoryPage({ mode, id }: PaymentRepositoryPageProps):
                                     <td>{formatDate(row.created_at)}</td>
                                     <td>
                                         <div className="actions">
+                                            <button
+                                                type="button"
+                                                className="button"
+                                                onClick={() => openTestModal(row)}
+                                                title="Test create order on this gateway"
+                                            >
+                                                Test
+                                            </button>
                                             <button
                                                 className="button"
                                                 onClick={() => navigate(`/admin/payment-repositories/${primaryKey}`)}
@@ -366,6 +580,8 @@ export function PaymentRepositoryPage({ mode, id }: PaymentRepositoryPageProps):
                     </div>
                 </div>
             )}
+
+            {renderTestOrderModal()}
         </>
     );
 }

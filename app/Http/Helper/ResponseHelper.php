@@ -155,12 +155,24 @@ class ResponseHelper
 
     private static function resourceFor(Model $model): ?JsonResource
     {
-        $resourceClass = 'App\\Model\\Response\\'.Str::afterLast($model::class, '\\').'Resource';
+        $shortName = Str::afterLast($model::class, '\\');
+        $candidates = [
+            'App\\Model\\Response\\'.$shortName.'Resource',
+            'App\\Model\\Response\\Order\\'.$shortName.'Resource',
+            'App\\Model\\Response\\Project\\'.$shortName.'Resource',
+            'App\\Model\\Response\\Payment\\'.$shortName.'Resource',
+            'App\\Model\\Response\\Payment\\'.$shortName.'\\'.$shortName.'Resource',
+            'App\\Model\\Response\\Payout\\'.$shortName.'Resource',
+            'App\\Model\\Response\\Auth\\'.$shortName.'Resource',
+            'App\\Model\\Response\\User\\'.$shortName.'Resource',
+        ];
 
-        if (! class_exists($resourceClass)) {
-            return null;
+        foreach ($candidates as $candidate) {
+            if (class_exists($candidate)) {
+                return new $candidate($model);
+            }
         }
 
-        return new $resourceClass($model);
+        return null;
     }
 }

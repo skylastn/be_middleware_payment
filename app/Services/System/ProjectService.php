@@ -7,6 +7,7 @@ use App\Repository\System\ProjectRepository;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Http\Request;
 use App\Model\Entity\Project;
+use App\Model\Response\Project\ProjectLogResource;
 use Exception;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -22,7 +23,12 @@ class ProjectService
 
     public function checkKey(): Project
     {
-        $project = $this->projects->findByToken(request()->header('Token'));
+        $token = request()->header('Token');
+        if (!$token) {
+            throw new Exception('Unauthorized');
+        }
+
+        $project = $this->projects->findByToken($token);
         if (!isset($project)) {
             throw new Exception('Unauthorized');
         }
@@ -31,49 +37,16 @@ class ProjectService
 
     public function getListProject(Request $request): LengthAwarePaginator
     {
-        if (auth('sanctum')->check() && auth('sanctum')->user()?->isAdmin()) {
-            $search = $request->query('search');
-            $slug = $request->query('slug');
-            $perPage = (int) ($request->query('per_page', $request->query('perPage', 15)));
+        $search = $request->query('search');
+        $slug = $request->query('slug');
+        $perPage = (int) ($request->query('per_page', $request->query('perPage', 10)));
 
-            return $this->projects->latestPaginated($perPage, $search, $slug);
-        }
-
-        $token = request()->header('Token');
-        if ($token) {
-            $project = $this->projects->findByToken($token);
-            if ($project) {
-                $items = collect([$project]);
-                $perPage = (int) ($request->query('per_page', $request->query('perPage', 15)));
-                return new LengthAwarePaginator(
-                    $items,
-                    $items->count(),
-                    $perPage,
-                    1,
-                    ['path' => request()->url()]
-                );
-            }
-        }
-
-        throw new Exception('Unauthorized', 401);
+        return $this->projects->latestPaginated($perPage, $search, $slug);
     }
 
     public function getProjectById(int|string $id): ?Project
     {
-        if (auth('sanctum')->check() && auth('sanctum')->user()?->isAdmin()) {
-            return $this->projects->find($id);
-        }
-
-        $token = request()->header('Token');
-        if ($token) {
-            $tokenProject = $this->projects->findByToken($token);
-            $project = $this->projects->find($id);
-            if ($tokenProject && $project && $tokenProject->id == $project->id) {
-                return $project;
-            }
-        }
-
-        throw new Exception('Unauthorized', 401);
+        return $this->projects->find($id);
     }
 
     public function create(Request $request): Project
@@ -145,6 +118,34 @@ class ProjectService
             'slug' => ProjectSlug::fromName($payload['slug']),
             'callback' => $payload['callback'],
         ]);
+    }
+
+    public function getProjectLogs(int|string $id, Request $request): LengthAwarePaginator
+    {
+        $project = Project::findOrFailCustom($id);
+        $search = $request->query('search');
+        $key = $request->query('key');
+        $dateFrom = $request->query('date_from');
+        $dateTo = $request->query('date_to');
+        $perPage = (int) ($request->query('per_page', $request->query('perPage', 20)));
+
+        $paginator = $this->projects->getProjectLogs($project->id, $perPage, $search, $key, $dateFrom, $dateTo);
+
+        return $paginator->through(fn ($item) => (new ProjectLogResource($item))->toArray(request()));
+    }
+
+    public function getProjectLogKeys(int|string $id): array
+    {
+        $project = Project::findOrFailCustom($id);
+
+        return $this->projects->getDistinctLogKeys($project->id);
+    }
+
+    public function clearProjectLogs(int|string $id): bool
+    {
+        $project = Project::findOrFailCustom($id);
+
+        return $this->projects->clearProjectLogs($project->id);
     }
 
     public function delete(int|string $id): Project

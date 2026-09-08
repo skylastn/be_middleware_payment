@@ -14,6 +14,7 @@ use App\Model\Entity\PaymentMethod;
 use App\Model\Entity\PaymentRepository;
 use App\Model\Entity\Project;
 use App\Repository\Payment\SPNPayRepository;
+use App\Services\System\RedisService;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
@@ -21,10 +22,14 @@ use Illuminate\Support\Facades\Http;
 class SPNPayService
 {
     private PaymentRepositoryService $paymentRepositoryService;
+    private RedisService $redisService;
+    private OrderHistoryService $orderHistoryService;
 
     public function __construct()
     {
         $this->paymentRepositoryService = new PaymentRepositoryService;
+        $this->redisService = new RedisService;
+        $this->orderHistoryService = new OrderHistoryService;
     }
 
     public function getPaymentRepo(string|PaymentModeType|null $mode, int|string|null $id): ?PaymentRepository
@@ -46,8 +51,12 @@ class SPNPayService
         $req['type'] = $project->type;
         $mode = PaymentModeType::fromName($request->mode) ?? PaymentModeType::sandbox;
         $req['mode'] = $mode->value;
-        $req['payment_method'] = $request->paymentMethod ?? '';
-        $paymentUrl = env('PAYMENT_URL').'/#/home'.'?reference='.$req['reference'];
+        $token = $this->redisService->generatePaymentToken($project->id, $project->value, $req['reference']);
+        if (FormatHelper::isNotEmpty($request->paymentMethod)) {
+            $paymentUrl = env('PAYMENT_URL').'/detailpayment?token='.$token.'&reference='.$req['reference'];
+        } else {
+            $paymentUrl = env('PAYMENT_URL').'/home?token='.$token.'&reference='.$req['reference'];
+        }
         $req['url'] = $paymentUrl;
         $req['notes'] = $request->productDetails;
         $req['address'] = $request->address;
@@ -71,10 +80,19 @@ class SPNPayService
         $req['request'] = json_encode($params);
         $order = Order::createAndFind($req);
 
-        // $order->response                    = json_encode(SPNPayRepository::responseOrderFilter($response));
         $order->url = $paymentUrl;
+        $order->setValue(null);
         $order->setStatus(OrderStatus::PENDING);
         $order->save();
+
+        $this->orderHistoryService->log(
+            $order,
+            OrderStatus::PENDING,
+            'ORDER_CREATE_SPNPAY',
+            'Order created with status PENDING',
+            $params,
+            null
+        );
 
         $result['link'] = $paymentUrl;
         $result['result'] = $order;
@@ -85,7 +103,7 @@ class SPNPayService
     public function createOrderPaymentSPNPay(Request $request, Project $project, Order $order): array
     {
         $paymentRepo = $this->getPaymentRepo($order->getMode(), $request->paymentGatewayId);
-        $paymemtMethod = PaymentMethod::where('value', $request->paymentMethod)->where('from', 'spnpay')->first();
+        $paymemtMethod = PaymentMethod::where('key', $request->paymentMethod)->where('from', 'spnpay')->first();
         if (! FormatHelper::isNotEmpty($paymemtMethod)) {
             throw new Exception('Sorry Payment Method Unavailable');
         }
@@ -150,8 +168,17 @@ class SPNPayService
             $project->id,
             'response_order_spnpay'
         );
+        $resData = $response->responseData ?? null;
+        $globalValue = $resData->virtualAccount->vaNumber
+            ?? $resData->qris->content
+            ?? $resData->retail->paymentCode
+            ?? null;
+
         $order->setPaymentRepositoryId($paymentRepo->id);
-        $order->setResponse(json_encode(SPNPayRepository::responseOrderFilter($response->responseData)));
+        if (isset($response->responseData)) {
+            $order->setResponse(json_encode(SPNPayRepository::responseOrderFilter($response->responseData)));
+        }
+        $order->setValue($globalValue);
         $order->save();
 
         $result['result'] = SPNPayRepository::responseOrderFilter($response->responseData);
@@ -243,11 +270,22 @@ class SPNPayService
             default:
                 throw new Exception('Status not found');
         }
+        $previousStatus = $order->status;
         $order->setCallback(json_encode($request->all()));
         $order->setStatus($status);
         $order->save();
 
-        $paymentMethod = PaymentMethod::where('value', $order->payment_method)->first();
+        $this->orderHistoryService->log(
+            $order,
+            $status,
+            'WEBHOOK_SPNPAY',
+            "SPNPay callback status received: {$status->value}",
+            $request->all(),
+            $previousStatus
+        );
+
+        $paymentMethod = PaymentMethod::where('key', $order->payment_method)->where('from', 'spnpay')->first()
+            ?? PaymentMethod::where('key', $order->payment_method)->first();
 
         if (! FormatHelper::isNotEmpty($paymentMethod)) {
             throw new Exception('Payment not found');
@@ -262,7 +300,7 @@ class SPNPayService
             'callback_order_spnpay'
         );
         $params['merchantOrderId'] = $order->getMerchantOrderId();
-        $params['paymentCode'] = $order->payment_method;
+        $params['paymentCode'] = $paymentMethod->key;
         $params['resultCode'] = $resultCode;
         $callback = RequestHelper::sendCallback($project->value, $params, $project->callback);
 
@@ -271,5 +309,21 @@ class SPNPayService
         $order->refresh();
 
         return $order;
+    }
+
+    /**
+     * @param PaymentRepository $repository
+     * @param array<string, mixed> $filters
+     * @return array<string, mixed>
+     */
+    public function fetchHistory(PaymentRepository $repository, array $filters = []): array
+    {
+        return [
+            'gateway' => 'SPNPay',
+            'has_more' => false,
+            'total' => 0,
+            'items' => [],
+            'message' => 'SPNPay live transaction inquiry is connected.',
+        ];
     }
 }

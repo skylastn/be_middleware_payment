@@ -3,20 +3,16 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-
-use Illuminate\Http\Request;
 use App\Http\Helper\FormatHelper;
 use App\Http\Helper\LogHelper;
 use App\Http\Helper\ResponseHelper;
-use App\Jobs\SendMerchantCallback;
-use App\Model\Entity\Order;
-use App\Model\Entity\Project;
 use App\Services\Payment\OrderService;
 use App\Services\System\ProjectService;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Exception;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class OrderController extends Controller
 {
@@ -61,7 +57,12 @@ class OrderController extends Controller
 
     public function show(int|string $id): JsonResponse
     {
-        return ResponseHelper::successResponse(Order::query()->findOrFail($id));
+        $order = $this->service->getOrderById($id);
+        if (! $order) {
+            return ResponseHelper::failedResponse('Order Not Found', 'Order Not Found', 404);
+        }
+
+        return ResponseHelper::successResponse($order);
     }
 
     public function checkOrderStatus(Request $request): JsonResponse
@@ -119,27 +120,9 @@ class OrderController extends Controller
     public function resendCallback(int|string $id): JsonResponse
     {
         try {
-            /** @var Order $order */
-            $order = Order::query()->findOrFail($id);
-            $status = $order->getStatus();
-            if (! $status?->isSuccess()) {
-                throw new Exception('Only successful orders can resend callback.');
-            }
-
-            $project = $order->project ?: Project::query()->where('type', $order->type)->first();
-            if (! $project || ! $project->value || ! $project->callback) {
-                throw new Exception('Project callback configuration is incomplete.');
-            }
-
-            SendMerchantCallback::dispatch(
-                $project->value,
-                [
-                    'merchantOrderId' => $order->getMerchantOrderId(),
-                    'paymentCode' => $order->payment_method,
-                    'resultCode' => '00',
-                ],
-                $project->callback,
-            )->afterCommit();
+            DB::beginTransaction();
+            $order = $this->service->resendCallbackById($id);
+            DB::commit();
 
             return ResponseHelper::successResponse(null, 'Callback resent for '.$order->reference.'.');
         } catch (Exception $ex) {
@@ -149,6 +132,61 @@ class OrderController extends Controller
             LogHelper::sendErrorLog($ex);
 
             return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400, $ex->getLine());
+        }
+    }
+
+    public function setSuccessAdmin(int|string $id): JsonResponse
+    {
+        try {
+            DB::beginTransaction();
+            $updatedOrder = $this->service->setSuccessById($id);
+            DB::commit();
+
+            return ResponseHelper::successResponse($updatedOrder, 'Order status updated to SUCCESS and callback sent.');
+        } catch (Exception $ex) {
+            if (DB::transactionLevel() > 0) {
+                DB::rollback();
+            }
+            LogHelper::sendErrorLog($ex);
+
+            return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400, $ex->getLine(), $ex->getFile());
+        }
+    }
+
+    public function setSuccessMerchant(Request $request): JsonResponse
+    {
+        try {
+            DB::beginTransaction();
+
+            $project = $request->attributes->get('project') ?? $this->projectService->checkKey();
+            $reference = $request->input('reference') ?? $request->input('merchantOrderId');
+
+            if (! $reference) {
+                throw new Exception('reference or merchantOrderId parameter is required', 400);
+            }
+
+            $order = $this->service->detailByReferenceAndKey($reference, $project->type);
+            if (! $order) {
+                // Try searching with prefix {type}-{reference}
+                $order = $this->service->detailByReferenceAndKey($project->type.'-'.$reference, $project->type);
+            }
+
+            if (! $order) {
+                throw new Exception('Order Not Found', 404);
+            }
+
+            $updatedOrder = $this->service->markAsSuccessAndSendCallback($order, $project);
+
+            DB::commit();
+
+            return ResponseHelper::successResponse($updatedOrder, 'Order marked as SUCCESS and webhook callback sent.');
+        } catch (Exception $ex) {
+            if (DB::transactionLevel() > 0) {
+                DB::rollback();
+            }
+            LogHelper::sendErrorLog($ex);
+
+            return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400, $ex->getLine(), $ex->getFile());
         }
     }
 }

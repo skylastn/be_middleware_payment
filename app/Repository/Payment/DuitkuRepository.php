@@ -10,19 +10,14 @@ use GuzzleHttp\Exception\RequestException;
 
 class DuitkuRepository
 {
-    private Config $config;
-    private string $url;
-    public function __construct(Config $config)
+    public function createInvoice(array $params, Config $config): ?string
     {
-        $this->config = $config;
-        $apiUrl = (string) $this->config->getApiUrl();
-        $this->url = rtrim($apiUrl, '/') . '/webapi/api/merchant/v2/';
-    }
-    public function createInvoice(array $params): ?string
-    {
+        $apiUrl = (string) $config->getApiUrl();
+        $url = rtrim($apiUrl, '/') . '/webapi/api/merchant/v2/inquiry';
+
         try {
             $result = (new NetworkService(
-                $this->url . 'inquiry',
+                $url,
                 NetworkType::POST,
                 array(
                     'Content-Type' => 'application/json',
