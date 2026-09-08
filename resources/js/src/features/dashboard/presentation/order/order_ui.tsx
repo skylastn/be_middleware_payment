@@ -141,6 +141,16 @@ export function OrderPage({ mode, id }: OrderPageProps): React.JSX.Element {
                                     {record.value && <CopyButton text={record.value} />}
                                 </div>
                             </div>
+
+                            <div className="field full">
+                                <span className="label">Return URL (Redirect Destination)</span>
+                                <div className="input mono" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        {record.return_url || '-'}
+                                    </span>
+                                    {record.return_url && <CopyButton text={record.return_url} />}
+                                </div>
+                            </div>
                         </div>
 
                         <div className="panel" style={{ padding: '24px', marginBottom: '24px' }}>

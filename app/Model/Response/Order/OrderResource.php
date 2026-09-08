@@ -24,6 +24,7 @@ class OrderResource extends ResponseResource
             'value' => $this->value,
             'status' => $this->status instanceof OrderStatus ? $this->status->value : $this->status,
             'url' => $this->url,
+            'return_url' => $this->return_url,
             'notes' => $this->notes,
             'address' => $this->address,
             'phone' => $this->phone,

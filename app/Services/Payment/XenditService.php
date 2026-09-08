@@ -54,7 +54,7 @@ class XenditService
             throw new Exception('Payment Repository Not Found');
         }
         $secretKey = $paymentRepo->getValue()['xendit_secretkey'] ?? '';
-        $urlSuccess = $request->returnUrl ?? '';
+        $urlSuccess = $request->returnUrl ?? $request->return_url ?? '';
         // Xendit::setApiKey($secretKey);
         Configuration::setXenditKey($secretKey);
 
@@ -66,6 +66,7 @@ class XenditService
         $req['mode'] = $mode->value;
         $req['payment_method'] = '';
         $req['status'] = OrderStatus::PENDING->value;
+        $req['return_url'] = $urlSuccess ?: $project->callback;
 
         $expired = ($request->expiryPeriod ?? 0) * 60;
 

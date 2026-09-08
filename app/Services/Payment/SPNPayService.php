@@ -58,6 +58,7 @@ class SPNPayService
             $paymentUrl = env('PAYMENT_URL').'/home?token='.$token.'&reference='.$req['reference'];
         }
         $req['url'] = $paymentUrl;
+        $req['return_url'] = $request->returnUrl ?? $request->return_url ?? $project->callback;
         $req['notes'] = $request->productDetails;
         $req['address'] = $request->address;
         $req['phone'] = $request->phone;

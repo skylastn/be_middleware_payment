@@ -109,7 +109,8 @@ class DuitkuService
         $merchantUserInfo = ''; // optional
         $customerVaName = $request->firstName ?? ''; // display name on bank confirmation display
         $callbackUrl = $defaultUrl;
-        $returnUrl = $request->returnUrl ?? $defaultUrl;
+        $returnUrl = $request->returnUrl ?? $request->return_url ?? $defaultUrl;
+        $req['return_url'] = $returnUrl;
         $expiryPeriod = $request->expiryPeriod ?? 60; // set the expired time in minutes
 
         // Customer Detail

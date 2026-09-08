@@ -391,7 +391,7 @@ class PaymentService
             'customerVaName' => $customerName,
             'currency' => $currency,
             'mode' => $mode,
-            'returnUrl' => env('APP_URL', 'http://localhost:8000') . '/admin/payment-repositories',
+            'returnUrl' => $params['returnUrl'] ?? $params['return_url'] ?? (env('APP_URL', 'http://localhost:8000') . '/admin/payment-repositories'),
             'callbackUrl' => env('APP_URL', 'http://localhost:8000') . '/api/callback/' . $slug->value,
             'expiryPeriod' => 60,
             'version' => $version,

@@ -8,6 +8,7 @@ export interface OrderItem {
     value?: string | null;
     status: string;
     url?: string;
+    return_url?: string | null;
     notes?: string;
     address?: string;
     phone?: string;
