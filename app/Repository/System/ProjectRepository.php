@@ -21,6 +21,11 @@ class ProjectRepository extends BaseRepository
         return Project::where('type', $type)->first();
     }
 
+    public function firstOrCreate(array $attributes, array $values = []): Project
+    {
+        return Project::firstOrCreate($attributes, $values);
+    }
+
     public function latestPaginated(int $perPage = 10, ?string $search = null, ?string $slug = null): LengthAwarePaginator
     {
         return Project::query()
@@ -40,15 +45,20 @@ class ProjectRepository extends BaseRepository
 
     public function ensureLogTableExists(int|string $projectId): string
     {
-        $tableName = 'log__' . $projectId;
+        $tableName = 'z__log__' . $projectId;
         if (! Schema::hasTable($tableName)) {
-            Schema::create($tableName, function (Blueprint $table): void {
-                $table->increments('id');
-                $table->string('key');
-                $table->text('value');
-                $table->text('ip');
-                $table->timestamps();
-            });
+            $legacyTable = 'log__' . $projectId;
+            if (Schema::hasTable($legacyTable)) {
+                Schema::rename($legacyTable, $tableName);
+            } else {
+                Schema::create($tableName, function (Blueprint $table): void {
+                    $table->increments('id');
+                    $table->string('key');
+                    $table->text('value');
+                    $table->text('ip');
+                    $table->timestamps();
+                });
+            }
         }
 
         return $tableName;

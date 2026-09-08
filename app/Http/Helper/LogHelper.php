@@ -59,7 +59,11 @@ class LogHelper
                 $dataLog['value']           = json_encode(self::redactSensitiveData($error));
                 $dataLog['created_at']      = $dateNow;
                 $dataLog['updated_at']      = $dateNow;
-                DB::table('log__' . $idProject)->insert($dataLog);
+                try {
+                    DB::table('z__log__' . $idProject)->insert($dataLog);
+                } catch (\Exception) {
+                    DB::table('log__' . $idProject)->insert($dataLog);
+                }
             } catch (\Exception $e) {
                 Log::warning('Failed to insert error log to project table: ' . $e->getMessage());
             }
@@ -86,7 +90,11 @@ class LogHelper
                 $dataLog['value']           = is_string($sanitizedData) ? $sanitizedData : json_encode($sanitizedData);
                 $dataLog['created_at']      = $dateNow;
                 $dataLog['updated_at']      = $dateNow;
-                DB::table('log__' . $idProject)->insert($dataLog);
+                try {
+                    DB::table('z__log__' . $idProject)->insert($dataLog);
+                } catch (\Exception) {
+                    DB::table('log__' . $idProject)->insert($dataLog);
+                }
             } catch (\Exception $e) {
                 Log::warning('Failed to insert log to project table: ' . $e->getMessage());
             }

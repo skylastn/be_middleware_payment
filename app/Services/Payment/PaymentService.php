@@ -18,6 +18,7 @@ use App\Repository\Payment\PaymentMethodRepository;
 use App\Repository\Payment\PaymentRepositoryRepository;
 use App\Repository\System\ProjectRepository;
 use App\Repository\System\SettingRepository;
+use App\Services\System\ProjectService;
 use Exception;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
@@ -26,20 +27,6 @@ use Illuminate\Support\Facades\Storage;
 
 class PaymentService
 {
-    private SPNPayService $spnPayService;
-
-    private StripeService $stripeService;
-
-    private XenditService $xenditService;
-
-    private MidtransService $midtransService;
-
-    private DuitkuService $duitkuService;
-
-    private PaprikaService $paprikaService;
-
-    private OrderRepository $orders;
-
     private PaymentCategoryRepository $paymentCategories;
 
     private PaymentMethodRepository $paymentMethods;
@@ -50,23 +37,32 @@ class PaymentService
 
     private SettingRepository $settings;
 
-    private ProjectRepository $projects;
+    private ProjectService $projectService;
 
-    public function __construct()
+    public function __construct(
+        ?PaymentCategoryRepository $paymentCategories = null,
+        ?PaymentMethodRepository $paymentMethods = null,
+        ?PaymentGatewayRepository $paymentGateways = null,
+        ?PaymentRepositoryRepository $paymentRepositories = null,
+        ?SettingRepository $settings = null,
+        ?ProjectService $projectService = null
+    ) {
+        $this->paymentCategories = $paymentCategories ?? new PaymentCategoryRepository;
+        $this->paymentMethods = $paymentMethods ?? new PaymentMethodRepository;
+        $this->paymentGateways = $paymentGateways ?? new PaymentGatewayRepository;
+        $this->paymentRepositories = $paymentRepositories ?? new PaymentRepositoryRepository;
+        $this->settings = $settings ?? new SettingRepository;
+        $this->projectService = $projectService ?? new ProjectService;
+    }
+
+    public function getBankCodeMapByGatewayKey(string $gatewayKey): array
     {
-        $this->spnPayService = new SPNPayService;
-        $this->stripeService = new StripeService;
-        $this->xenditService = new XenditService;
-        $this->midtransService = new MidtransService;
-        $this->duitkuService = new DuitkuService;
-        $this->paprikaService = new PaprikaService;
-        $this->orders = new OrderRepository;
-        $this->paymentCategories = new PaymentCategoryRepository;
-        $this->paymentMethods = new PaymentMethodRepository;
-        $this->paymentGateways = new PaymentGatewayRepository;
-        $this->paymentRepositories = new PaymentRepositoryRepository;
-        $this->settings = new SettingRepository;
-        $this->projects = new ProjectRepository;
+        return $this->paymentMethods->getBankCodeMapByGatewayKey($gatewayKey);
+    }
+
+    public function getPaymentMethodByKeyAndGatewayKey(string $key, string $gatewayKey): ?PaymentMethod
+    {
+        return $this->paymentMethods->findByKeyAndGatewayKey($key, $gatewayKey);
     }
 
     public function getListPaymentCategory(): Collection
@@ -326,40 +322,8 @@ class PaymentService
         return $this->settings->delete($setting);
     }
 
-    public function createPayment(Request $request, Project $project): ?array
-    {
-        $order = $this->orders->latestByReference($request->reference, $project->type);
-        if (! FormatHelper::isNotEmpty($order)) {
-            throw new Exception('Order Not Found', 404);
-        }
-
-        return $this->processOrderPayment($request, $project, $order);
-    }
-
-    public function processOrderPayment(Request $request, Project $project, Order $order): ?array
-    {
-        $slug = $project->getSlug();
-
-        switch ($slug) {
-            // case ProjectSlug::XENDIT:
-            //     return $this->xenditService->order($request, $project);
-            // case ProjectSlug::MIDTRANS:
-            //     return $this->midtransService->orderMidtrans($request, $project);
-            case ProjectSlug::DUITKU:
-                return $this->duitkuService->createOrderPaymentDuitku($request, $project, $order);
-            case ProjectSlug::SPNPAY:
-                return $this->spnPayService->createOrderPaymentSPNPay($request, $project, $order);
-            case ProjectSlug::STRIPE:
-                return $this->stripeService->order($request, $project);
-            case ProjectSlug::PAPRIKA:
-                return $this->paprikaService->orderPaprika($request, $project);
-            default:
-                throw new Exception('Undefined Project');
-        }
-    }
-
     /**
-     * Test create order directly against the configured payment repository.
+     * Prepare test order request and project model for gateway execution.
      *
      * @param PaymentRepository $repository
      * @param array<string, mixed> $params
@@ -384,14 +348,14 @@ class PaymentService
         }
 
         // Find or create test merchant project
-        $project = Project::firstOrCreate(
+        $project = $this->projectService->firstOrCreate(
             ['type' => 'TEST'],
             [
                 'name' => 'System Test Project',
                 'slug' => $slug->value,
                 'key' => 'test_key',
                 'secure' => 'test_secure',
-                'callback' => env('APP_URL', 'http://localhost:8000') . '/api/callback/test',
+                'callback' => env('APP_URL', 'http://localhost:8000') . '/api/callback/' . $slug->value,
                 'value' => 'test_project_token_system',
             ]
         );
@@ -435,26 +399,16 @@ class PaymentService
 
         $simulatedRequest = new Request($requestData);
 
-        $result = match ($slug) {
-            ProjectSlug::DUITKU => $this->duitkuService->orderDuitku($simulatedRequest, $project),
-            ProjectSlug::MIDTRANS => $this->midtransService->orderMidtrans($simulatedRequest, $project),
-            ProjectSlug::XENDIT => $this->xenditService->order($simulatedRequest, $project),
-            ProjectSlug::SPNPAY => $this->spnPayService->createOrderSPNPay($simulatedRequest, $project),
-            ProjectSlug::STRIPE => $this->stripeService->order($simulatedRequest, $project),
-            ProjectSlug::PAPRIKA => $this->paprikaService->orderPaprika($simulatedRequest, $project),
-        };
-
         return [
-            'success' => true,
-            'gateway' => $repository->payment_gateway?->name ?? strtoupper($slug->value),
+            'request' => $simulatedRequest,
+            'project' => $project,
+            'slug' => $slug,
             'mode' => $mode,
-            'repository_id' => $repository->id,
-            'order_reference' => 'TEST-' . $orderNumber,
+            'order_number' => $orderNumber,
             'amount' => $amount,
-            'currency' => strtoupper($currency),
+            'currency' => $currency,
             'version' => $version,
-            'checkout_url' => $result['link'] ?? $result['url'] ?? $result['invoice_url'] ?? $result['paymentUrl'] ?? null,
-            'raw_result' => $result,
+            'gateway' => $repository->payment_gateway?->name ?? strtoupper($slug->value),
         ];
     }
 }

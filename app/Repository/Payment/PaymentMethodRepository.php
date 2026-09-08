@@ -107,4 +107,21 @@ class PaymentMethodRepository extends BaseRepository
             ->latest()
             ->paginate($perPage);
     }
+
+    public function getBankCodeMapByGatewayKey(string $gatewayKey): array
+    {
+        return $this->applyGatewayFilter(PaymentMethod::query(), null, $gatewayKey)
+            ->whereNotNull('bankCode')
+            ->where('bankCode', '!=', '')
+            ->whereNotNull('key')
+            ->pluck('bankCode', 'key')
+            ->toArray();
+    }
+
+    public function findByKeyAndGatewayKey(string $key, string $gatewayKey): ?PaymentMethod
+    {
+        return $this->applyGatewayFilter(PaymentMethod::query(), null, $gatewayKey)
+            ->where('key', $key)
+            ->first();
+    }
 }
