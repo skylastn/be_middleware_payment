@@ -393,6 +393,9 @@ class PaymentService
         $email = $params['email'] ?? 'test-buyer@example.com';
         $customerName = $params['name'] ?? 'Test Buyer';
         $paymentMethod = $params['paymentMethod'] ?? $params['payment_method'] ?? '';
+        if ($slug === ProjectSlug::PAPRIKA && $paymentMethod === '') {
+            $paymentMethod = 'qris';
+        }
         $mode = $repository->mode?->value ?? (string) $repository->mode;
         $orderNumber = 'TEST-' . strtoupper($slug->value) . '-' . time() . rand(100, 999);
         $version = isset($params['version']) && $params['version'] !== '' ? (string) $params['version'] : '1';
