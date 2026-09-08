@@ -26,7 +26,7 @@ class PaymentMethod extends Model
         'is_active' => 'boolean',
     ];
 
-    protected $appends = ['type', 'gateway'];
+    protected $appends = ['type'];
 
     // Keep eager-loaded relationships
     protected $with = ['category', 'payment_gateway'];
@@ -43,11 +43,6 @@ class PaymentMethod extends Model
     public function payment_gateway(): BelongsTo
     {
         return $this->belongsTo(PaymentGateway::class, 'payment_gateway_id', 'id');
-    }
-
-    public function gateway(): BelongsTo
-    {
-        return $this->payment_gateway();
     }
 
     // ------------------------------------------------------------
@@ -92,16 +87,6 @@ class PaymentMethod extends Model
     public function setPaymentGatewayId(?string $paymentGatewayId): void
     {
         $this->payment_gateway_id = $paymentGatewayId;
-    }
-
-    public function getGateway(): ?PaymentGateway
-    {
-        return $this->payment_gateway;
-    }
-
-    public function getGatewayAttribute(): ?PaymentGateway
-    {
-        return $this->getGateway();
     }
 
     public function getType(): ?string

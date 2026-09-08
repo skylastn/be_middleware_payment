@@ -98,8 +98,8 @@ class PaymentCategoryAndMethodTest extends TestCase
         $this->assertEquals('qris', $dq['category']['key']);
         $this->assertEquals('QRIS', $dq['category']['title']);
         $this->assertNotNull($dq['payment_gateway_id']);
-        $this->assertNotNull($dq['gateway']);
-        $this->assertEquals('duitku', $dq['gateway']['key']);
+        $this->assertNotNull($dq['payment_gateway']);
+        $this->assertEquals('duitku', $dq['payment_gateway']['key']);
     }
 
     public function test_admin_can_create_payment_method_with_category_id(): void
@@ -146,7 +146,7 @@ class PaymentCategoryAndMethodTest extends TestCase
 
         $response->assertStatus(200);
         $this->assertEquals($stripeGateway->id, $response->json('data.payment_gateway_id'));
-        $this->assertEquals('Stripe', $response->json('data.gateway.name'));
+        $this->assertEquals('Stripe', $response->json('data.payment_gateway.name'));
 
         $created = PaymentMethod::where('key', 'TEST_STRIPE_METHOD')->first();
         $this->assertNotNull($created);

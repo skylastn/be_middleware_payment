@@ -30,7 +30,6 @@ class PaymentMethodResource extends ResponseResource
             'type' => $this->category?->key ?? null,
             'payment_gateway_id' => $this->payment_gateway_id,
             'payment_gateway' => $this->payment_gateway ? new PaymentGatewayResource($this->payment_gateway) : null,
-            'gateway' => $this->payment_gateway ? new PaymentGatewayResource($this->payment_gateway) : null,
             'bankCode' => $this->bankCode,
             'image' => $this->image,
             'image_url' => $imageUrl,
