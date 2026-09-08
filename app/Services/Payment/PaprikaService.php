@@ -24,12 +24,6 @@ use InvalidArgumentException;
 use RuntimeException;
 
 class PaprikaService {
-    private const VA_BANK_CODE_MAP = [
-        'VA_PERMATA' => '013',
-        'VA_MAYBANK' => '016',
-        'VA_AGRAHA' => '037',
-    ];
-
     private PaymentRepositoryService $paymentRepositoryService;
     private RedisService $redisService;
     private OrderHistoryService $orderHistoryService;
@@ -39,6 +33,15 @@ class PaprikaService {
         $this->paymentRepositoryService = new PaymentRepositoryService;
         $this->redisService = new RedisService;
         $this->orderHistoryService = new OrderHistoryService;
+    }
+
+    private function getVABankCodeMap(): array
+    {
+        return PaymentMethod::where('from', 'paprika')
+            ->whereNotNull('bankCode')
+            ->whereNotNull('key')
+            ->pluck('bankCode', 'key')
+            ->toArray();
     }
 
     public function getPaymentRepo(string|PaymentModeType|null $mode, int|string|null $id): ?PaymentRepository
@@ -188,7 +191,8 @@ class PaprikaService {
                 return $this->createQris($request, $project);
             }
 
-            if(isset(self::VA_BANK_CODE_MAP[strtoupper($request->paymentMethod)])) {
+            $vaBankCodeMap = $this->getVABankCodeMap();
+            if(isset($vaBankCodeMap[strtoupper($request->paymentMethod)])) {
                 return $this->createVA($request, $project);
             }
 
@@ -343,7 +347,7 @@ class PaprikaService {
 
         $url = "$baseurl/api/snap/v1.0/transfer-va/create-va";
 
-        $bankCode = self::VA_BANK_CODE_MAP[$request->paymentMethod] ?? '';
+        $bankCode = $this->getVABankCodeMap()[strtoupper($request->paymentMethod)] ?? '';
 
         if (empty($bankCode)) {
             throw new RuntimeException('Unsupported VA payment method: ' . $request->paymentMethod);
