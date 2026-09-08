@@ -98,7 +98,7 @@ Routes -> Controllers -> Services -> Repositories -> Eloquent Models
 
 ## Pre-commit Checks
 
-- Run `npm run lint` if frontend files (resources/js/, resources/css/, vite.config.js) are modified.
+- Run `bun run lint` (or `npm run lint`) if frontend files (resources/js/, resources/css/, vite.config.js) are modified.
 - Run `composer validate --no-check-all --no-check-publish` if composer.json or composer.lock are modified.
 - Verify Dockerfile syntax with `docker build --check .` if Dockerfile is modified.
 

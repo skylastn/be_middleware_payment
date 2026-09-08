@@ -206,10 +206,11 @@ class ExampleTest extends TestCase
             $this->assertSame(10, strlen($project->key));
             $this->assertSame(20, strlen($project->secure));
             $this->assertSame(60, strlen($project->value));
-            $this->assertTrue(Schema::hasTable('log__'.$project->id));
+            $this->assertTrue(Schema::hasTable('z__log__'.$project->id));
         } finally {
             $project = Project::query()->where('type', $type)->first();
             if ($project) {
+                Schema::dropIfExists('z__log__'.$project->id);
                 Schema::dropIfExists('log__'.$project->id);
                 $project->delete();
             }
@@ -236,8 +237,9 @@ class ExampleTest extends TestCase
         ]);
 
         try {
+            Schema::dropIfExists('z__log__'.$project->id);
             Schema::dropIfExists('log__'.$project->id);
-            $this->assertFalse(Schema::hasTable('log__'.$project->id));
+            $this->assertFalse(Schema::hasTable('z__log__'.$project->id));
 
             Sanctum::actingAs($admin);
 
@@ -245,9 +247,10 @@ class ExampleTest extends TestCase
                 ->assertStatus(200)
                 ->assertJsonPath('status', true);
 
-            $this->assertTrue(Schema::hasTable('log__'.$project->id));
-            $this->assertContains('log__'.$project->id, $response->json('data.tables'));
+            $this->assertTrue(Schema::hasTable('z__log__'.$project->id));
+            $this->assertContains('z__log__'.$project->id, $response->json('data.tables'));
         } finally {
+            Schema::dropIfExists('z__log__'.$project->id);
             Schema::dropIfExists('log__'.$project->id);
             $project->delete();
         }

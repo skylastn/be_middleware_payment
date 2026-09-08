@@ -10,7 +10,7 @@ services:
     # processes. This prevents queue:work from dying after long uptime, Octane max-requests
     # recycling, OOM kills, or crashes (common problem with plain `command1 & command2 & wait`).
     #
-    # The Dockerfile uses multi-stage build: a node stage builds the admin React / backoffice
+    # The Dockerfile uses multi-stage build: a bun stage builds the admin React / backoffice
     # (resources/js/backoffice.jsx via Vite) and the result is copied into the final image.
     # So `docker compose build` always produces a complete image with up-to-date admin UI.
     #

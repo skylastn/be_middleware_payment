@@ -50,6 +50,7 @@ class ProjectLogsTest extends TestCase
     protected function tearDown(): void
     {
         if (isset($this->project) && $this->project->exists) {
+            Schema::dropIfExists('z__log__' . $this->project->id);
             Schema::dropIfExists('log__' . $this->project->id);
             $this->project->forceDelete();
         }

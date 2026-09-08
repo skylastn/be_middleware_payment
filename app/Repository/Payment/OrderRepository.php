@@ -54,6 +54,24 @@ class OrderRepository extends BaseRepository
         return $this->find($id, $with);
     }
 
+    public function createAndFind(array $data): Order
+    {
+        return Order::createAndFind($data);
+    }
+
+    public function findOrFailCustom(int|string $id): Order
+    {
+        return Order::findOrFailCustom($id);
+    }
+
+    public function findRecentByReference(string $reference, string $fromDate, string $toDate): ?Order
+    {
+        return Order::where('reference', $reference)
+            ->whereBetween('created_at', [$fromDate, $toDate])
+            ->orderBy('id', 'desc')
+            ->first();
+    }
+
     protected function modelClass(): string
     {
         return Order::class;

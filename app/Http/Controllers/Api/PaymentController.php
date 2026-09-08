@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\ProjectSlug;
 use App\Http\Controllers\Controller;
+use App\Http\Helper\FormatHelper;
 use App\Http\Helper\LogHelper;
 use App\Http\Helper\ResponseHelper;
 use App\Model\Request\Payment\CreatePaymentRequest;
@@ -12,7 +14,14 @@ use App\Model\Request\Payment\PaymentMethod\CreatePaymentMethodRequest;
 use App\Model\Request\Payment\PaymentRepository\CreatePaymentRepositoryRequest;
 use App\Model\Request\Payment\Setting\CreateSettingRequest;
 use App\Model\Response\Payment\PaymentMethod\PaymentMethodResource;
+use App\Services\Payment\DuitkuService;
+use App\Services\Payment\MidtransService;
+use App\Services\Payment\OrderService;
+use App\Services\Payment\PaprikaService;
 use App\Services\Payment\PaymentService;
+use App\Services\Payment\SPNPayService;
+use App\Services\Payment\StripeService;
+use App\Services\Payment\XenditService;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -22,10 +31,32 @@ use Illuminate\Validation\ValidationException;
 class PaymentController extends Controller
 {
     private PaymentService $paymentService;
+    private OrderService $orderService;
+    private DuitkuService $duitkuService;
+    private MidtransService $midtransService;
+    private XenditService $xenditService;
+    private SPNPayService $spnPayService;
+    private StripeService $stripeService;
+    private PaprikaService $paprikaService;
 
-    public function __construct()
-    {
-        $this->paymentService = new PaymentService();
+    public function __construct(
+        ?PaymentService $paymentService = null,
+        ?OrderService $orderService = null,
+        ?DuitkuService $duitkuService = null,
+        ?MidtransService $midtransService = null,
+        ?XenditService $xenditService = null,
+        ?SPNPayService $spnPayService = null,
+        ?StripeService $stripeService = null,
+        ?PaprikaService $paprikaService = null
+    ) {
+        $this->paymentService = $paymentService ?? new PaymentService();
+        $this->orderService = $orderService ?? new OrderService();
+        $this->duitkuService = $duitkuService ?? new DuitkuService();
+        $this->midtransService = $midtransService ?? new MidtransService();
+        $this->xenditService = $xenditService ?? new XenditService();
+        $this->spnPayService = $spnPayService ?? new SPNPayService();
+        $this->stripeService = $stripeService ?? new StripeService();
+        $this->paprikaService = $paprikaService ?? new PaprikaService();
     }
 
     public function getPaymentCategory(Request $request): JsonResponse
@@ -40,7 +71,7 @@ class PaymentController extends Controller
     public function getPaymentMethod(Request $request): JsonResponse
     {
         if (! $request->has('page') && ! $request->has('search') && ! $request->has('per_page') && ! $request->has('perPage') && ! auth('sanctum')->check()) {
-            return ResponseHelper::successResponse($this->paymentService->getListPaymentMethod($request));
+            return ResponseHelper::successResponse($this->paymentService->getListPaymentMethod($request, true));
         }
 
         return ResponseHelper::formatPagination($this->paymentService->getPaginatedPaymentMethod($request));
@@ -49,8 +80,10 @@ class PaymentController extends Controller
     public function getDetailPaymentMethod(Request $request): JsonResponse
     {
         $key = $request->query('key', $request->query('value'));
-        $from = $request->query('from');
-        $result = $this->paymentService->getDetailPaymentMethod($key, $from);
+        $paymentGatewayId = $request->query('payment_gateway_id', $request->query('paymentGatewayId'));
+        $paymentGatewayKey = $request->query('payment_gateway_key', $request->query('paymentGatewayKey', $request->query('from')));
+        $onlyActive = auth('sanctum')->check() ? null : true;
+        $result = $this->paymentService->getDetailPaymentMethod($key, $paymentGatewayId, $onlyActive, $paymentGatewayKey);
 
         return ResponseHelper::successResponse($result ? new PaymentMethodResource($result) : null);
     }
@@ -60,7 +93,19 @@ class PaymentController extends Controller
         try {
             DB::beginTransaction();
             $project = $request->attributes->get('project');
-            $result = $this->paymentService->createPayment($request, $project);
+            $order = $this->orderService->detailByReferenceAndKey($request->reference, $project->type);
+            if (! FormatHelper::isNotEmpty($order)) {
+                throw new Exception('Order Not Found', 404);
+            }
+
+            $result = match ($project->getSlug()) {
+                ProjectSlug::DUITKU => $this->duitkuService->createOrderPaymentDuitku($request, $project, $order),
+                ProjectSlug::SPNPAY => $this->spnPayService->createOrderPaymentSPNPay($request, $project, $order),
+                ProjectSlug::STRIPE => $this->stripeService->order($request, $project),
+                ProjectSlug::PAPRIKA => $this->paprikaService->orderPaprika($request, $project),
+                default => throw new Exception('Undefined Project'),
+            };
+
             DB::commit();
 
             return ResponseHelper::successResponse($result);
@@ -299,10 +344,35 @@ class PaymentController extends Controller
                 return ResponseHelper::failedResponse('Payment Repository Not Found', 'Not Found', 404);
             }
 
-            $result = $this->paymentService->testCreateOrder($repository, $request->all());
+            $testData = $this->paymentService->testCreateOrder($repository, $request->all());
+            $simulatedRequest = $testData['request'];
+            $project = $testData['project'];
+            $slug = $testData['slug'];
+
+            $result = match ($slug) {
+                ProjectSlug::DUITKU => $this->duitkuService->orderDuitku($simulatedRequest, $project),
+                ProjectSlug::MIDTRANS => $this->midtransService->orderMidtrans($simulatedRequest, $project),
+                ProjectSlug::XENDIT => $this->xenditService->order($simulatedRequest, $project),
+                ProjectSlug::SPNPAY => $this->spnPayService->createOrderSPNPay($simulatedRequest, $project),
+                ProjectSlug::STRIPE => $this->stripeService->order($simulatedRequest, $project),
+                ProjectSlug::PAPRIKA => $this->paprikaService->orderPaprika($simulatedRequest, $project),
+                default => throw new Exception('Undefined Project'),
+            };
+
             DB::commit();
 
-            return ResponseHelper::successResponse($result, 'Test order created successfully on gateway.');
+            return ResponseHelper::successResponse([
+                'success' => true,
+                'gateway' => $testData['gateway'],
+                'mode' => $testData['mode'],
+                'repository_id' => $repository->id,
+                'order_reference' => 'TEST-' . $testData['order_number'],
+                'amount' => $testData['amount'],
+                'currency' => strtoupper($testData['currency']),
+                'version' => $testData['version'],
+                'checkout_url' => $result['link'] ?? $result['url'] ?? $result['invoice_url'] ?? $result['paymentUrl'] ?? null,
+                'raw_result' => $result,
+            ], 'Test order created successfully on gateway.');
         } catch (Exception $ex) {
             if (DB::transactionLevel() > 0) {
                 DB::rollback();

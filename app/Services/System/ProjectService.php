@@ -49,6 +49,16 @@ class ProjectService
         return $this->projects->find($id);
     }
 
+    public function getByType(string $type): ?Project
+    {
+        return $this->projects->findByType($type);
+    }
+
+    public function firstOrCreate(array $attributes, array $values = []): Project
+    {
+        return $this->projects->firstOrCreate($attributes, $values);
+    }
+
     public function create(Request $request): Project
     {
         $payload = $this->payload($request);
@@ -176,7 +186,7 @@ class ProjectService
 
     private function logTableName(Project $project): string
     {
-        return 'log__'.$project->id;
+        return 'z__log__'.$project->id;
     }
 
     /**

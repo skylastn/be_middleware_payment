@@ -180,7 +180,7 @@ export function ProjectLogPage({ projectId }: ProjectLogPageProps): React.JSX.El
                     <StatCard
                         label="Total Log Records"
                         value={total}
-                        note={`Indexed in log__${projectId}`}
+                        note={`Indexed in z__log__${projectId}`}
                         tone="blue"
                     />
 
@@ -457,7 +457,7 @@ export function ProjectLogPage({ projectId }: ProjectLogPageProps): React.JSX.El
             <ModalDialog
                 isOpen={isClearModalOpen}
                 title="Clear All Project Logs?"
-                description={`This will permanently truncate table log__${projectId} and delete all ${total.toLocaleString()} log records for "${project?.name || `Project #${projectId}`}". This action cannot be undone.`}
+                description={`This will permanently truncate table z__log__${projectId} and delete all ${total.toLocaleString()} log records for "${project?.name || `Project #${projectId}`}". This action cannot be undone.`}
                 confirmText={clearing ? 'Clearing Logs...' : 'Yes, Delete All Logs'}
                 cancelText="Cancel"
                 confirmTone="danger"

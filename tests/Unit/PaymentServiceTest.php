@@ -84,8 +84,6 @@ class PaymentServiceTest extends TestCase
 
     public function test_test_create_order_with_version_1(): void
     {
-        $this->fakePaprikaApis();
-
         $result = $this->paymentService->testCreateOrder($this->repo, [
             'amount' => 15000,
             'currency' => 'IDR',
@@ -94,19 +92,18 @@ class PaymentServiceTest extends TestCase
             'version' => '1',
         ]);
 
-        $this->assertTrue($result['success']);
+        $this->assertInstanceOf(\Illuminate\Http\Request::class, $result['request']);
+        $this->assertInstanceOf(Project::class, $result['project']);
+        $this->assertEquals(\App\Enums\ProjectSlug::PAPRIKA, $result['slug']);
         $this->assertEquals('Paprika Gateway', $result['gateway']);
         $this->assertEquals('1', $result['version']);
-        $this->assertEquals('qr://fake-qr-code-test', $result['checkout_url']);
+        $this->assertEquals(15000, $result['amount']);
+        $this->assertEquals('15000', $result['request']->paymentAmount);
+        $this->assertEquals('qris', $result['request']->paymentMethod);
     }
 
     public function test_test_create_order_with_version_2(): void
     {
-        $this->fakePaprikaApis();
-        Redis::shouldReceive('incr')->andReturn(1);
-        Redis::shouldReceive('expire')->andReturn(true);
-        Redis::shouldReceive('setex')->once()->andReturn(true);
-
         $result = $this->paymentService->testCreateOrder($this->repo, [
             'amount' => 20000,
             'currency' => 'IDR',
@@ -115,9 +112,12 @@ class PaymentServiceTest extends TestCase
             'version' => '2',
         ]);
 
-        $this->assertTrue($result['success']);
+        $this->assertInstanceOf(\Illuminate\Http\Request::class, $result['request']);
+        $this->assertInstanceOf(Project::class, $result['project']);
+        $this->assertEquals(\App\Enums\ProjectSlug::PAPRIKA, $result['slug']);
         $this->assertEquals('Paprika Gateway', $result['gateway']);
         $this->assertEquals('2', $result['version']);
-        $this->assertStringContainsString('/detailpayment?token=', $result['checkout_url']);
+        $this->assertEquals(20000, $result['amount']);
+        $this->assertEquals('2', $result['request']->version);
     }
 }

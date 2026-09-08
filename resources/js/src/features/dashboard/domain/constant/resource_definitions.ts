@@ -76,14 +76,14 @@ export const resourceDefinitions: Record<ResourceKey, ResourceDefinition> = {
     'payment-methods': {
         label: 'Payment Methods',
         singular: 'Payment Method',
-        columns: ['key', 'name', 'type', 'from', 'bankCode', 'value'],
+        columns: ['key', 'name', 'type', 'payment_gateway_id', 'bankCode', 'is_active'],
         fields: {
             key: { type: 'text', required: true },
             name: { type: 'text', required: true },
             type: { type: 'text', required: true },
-            from: { type: 'text', required: true },
+            payment_gateway_id: { label: 'Payment Gateway', type: 'select', required: true },
             bankCode: { label: 'Bank Code', type: 'text' },
-            value: { type: 'text' },
+            is_active: { label: 'Active in Client', type: 'boolean' },
         },
         endpoints: {
             list: '/api/admin/payment-methods',

@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Model\Entity\PaymentCategory;
+use App\Model\Entity\PaymentGateway;
 use App\Model\Entity\PaymentMethod;
 use Illuminate\Database\Seeder;
 
@@ -128,13 +129,28 @@ class PaymentMethodSeeder extends Seeder
             ],
         ];
 
+        $gateways = PaymentGateway::all()->keyBy('key');
+
         foreach ($methods as $method) {
             $categoryId = $categories->get($method['category_key'])?->id;
+            $gatewayKey = $method['from'];
+            $gateway = $gateways->get($gatewayKey);
+
+            if (! $gateway) {
+                $gateway = PaymentGateway::firstOrCreate(
+                    ['key' => $gatewayKey],
+                    [
+                        'name' => ucfirst($gatewayKey),
+                        'description' => ucfirst($gatewayKey) . ' Gateway',
+                    ]
+                );
+                $gateways->put($gatewayKey, $gateway);
+            }
 
             PaymentMethod::updateOrCreate(
                 [
                     'key' => $method['key'],
-                    'from' => $method['from'],
+                    'payment_gateway_id' => $gateway->id,
                 ],
                 [
                     'name' => $method['name'],

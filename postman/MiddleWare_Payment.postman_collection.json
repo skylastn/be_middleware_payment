@@ -597,6 +597,110 @@
           "response": []
         },
         {
+          "name": "Get Project Logs",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{paymentBearerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{url_payment}}admin/projects/:id/logs?page=1&per_page=20",
+              "host": [
+                "{{url_payment}}admin"
+              ],
+              "path": [
+                "projects",
+                ":id",
+                "logs"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "per_page",
+                  "value": "20"
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "key",
+                  "value": "",
+                  "disabled": true
+                }
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Fetch dedicated project transaction and event logs with pagination and filters."
+          },
+          "response": []
+        },
+        {
+          "name": "Clear Project Logs",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{paymentBearerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{url_payment}}admin/projects/:id/logs",
+              "host": [
+                "{{url_payment}}admin"
+              ],
+              "path": [
+                "projects",
+                ":id",
+                "logs"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Truncate log table for specified project."
+          },
+          "response": []
+        },
+        {
           "name": "Create Project",
           "request": {
             "auth": {
@@ -1456,7 +1560,7 @@
               }
             ],
             "url": {
-              "raw": "{{url_payment}}payment/getPaymentMethod?categoriesKey[]=virtual-account&from=spnpay",
+              "raw": "{{url_payment}}payment/getPaymentMethod?categoriesKey[]=virtual-account&payment_gateway_key=spnpay",
               "host": [
                 "{{url_payment}}payment"
               ],
@@ -1469,7 +1573,7 @@
                   "value": "virtual-account"
                 },
                 {
-                  "key": "from",
+                  "key": "payment_gateway_key",
                   "value": "spnpay"
                 }
               ]
@@ -1489,7 +1593,7 @@
               }
             ],
             "url": {
-              "raw": "{{url_payment}}payment/getDetailPaymentMethod?key=BC&from=duitku",
+              "raw": "{{url_payment}}payment/getDetailPaymentMethod?key=BC&payment_gateway_key=duitku",
               "host": [
                 "{{url_payment}}payment"
               ],
@@ -1502,7 +1606,7 @@
                   "value": "BC"
                 },
                 {
-                  "key": "from",
+                  "key": "payment_gateway_key",
                   "value": "duitku"
                 }
               ]
@@ -1538,7 +1642,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"key\": \"VA_BCA\",\n    \"name\": \"BCA Virtual Account\",\n    \"type\": \"VA\",\n    \"from\": \"duitku\",\n    \"bankCode\": \"BCA\",\n    \"value\": \"BC\"\n}",
+              "raw": "{\n    \"key\": \"VA_BCA\",\n    \"name\": \"BCA Virtual Account\",\n    \"category_id\": 1,\n    \"payment_gateway_id\": \"{{payment_gateway_id}}\",\n    \"bankCode\": \"bca\",\n    \"is_active\": true\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1586,7 +1690,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"key\": \"VA_BCA\",\n    \"name\": \"BCA Virtual Account (Updated)\",\n    \"type\": \"VA\",\n    \"from\": \"duitku\",\n    \"bankCode\": \"BCA\",\n    \"value\": \"BC\"\n}",
+              "raw": "{\n    \"key\": \"VA_BCA\",\n    \"name\": \"BCA Virtual Account (Updated)\",\n    \"category_id\": 1,\n    \"payment_gateway_id\": \"{{payment_gateway_id}}\",\n    \"bankCode\": \"bca\",\n    \"is_active\": true\n}",
               "options": {
                 "raw": {
                   "language": "json"

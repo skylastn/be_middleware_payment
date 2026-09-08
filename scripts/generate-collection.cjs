@@ -776,12 +776,12 @@ const updatedCollection = {
                         method: 'GET',
                         header: [{ key: 'Accept', value: 'application/json', type: 'text' }],
                         url: {
-                            raw: '{{url_payment}}payment/getPaymentMethod?categoriesKey[]=virtual-account&from=spnpay',
+                            raw: '{{url_payment}}payment/getPaymentMethod?categoriesKey[]=virtual-account&payment_gateway_key=spnpay',
                             host: ['{{url_payment}}payment'],
                             path: ['getPaymentMethod'],
                             query: [
                                 { key: 'categoriesKey[]', value: 'virtual-account' },
-                                { key: 'from', value: 'spnpay' },
+                                { key: 'payment_gateway_key', value: 'spnpay' },
                             ],
                         },
                     },
@@ -793,12 +793,12 @@ const updatedCollection = {
                         method: 'GET',
                         header: [{ key: 'Accept', value: 'application/json', type: 'text' }],
                         url: {
-                            raw: '{{url_payment}}payment/getDetailPaymentMethod?key=BC&from=duitku',
+                            raw: '{{url_payment}}payment/getDetailPaymentMethod?key=BC&payment_gateway_key=duitku',
                             host: ['{{url_payment}}payment'],
                             path: ['getDetailPaymentMethod'],
                             query: [
                                 { key: 'key', value: 'BC' },
-                                { key: 'from', value: 'duitku' },
+                                { key: 'payment_gateway_key', value: 'duitku' },
                             ],
                         },
                     },
@@ -815,7 +815,7 @@ const updatedCollection = {
                         ],
                         body: {
                             mode: 'raw',
-                            raw: '{\n    "key": "VA_BCA",\n    "name": "BCA Virtual Account",\n    "type": "VA",\n    "from": "duitku",\n    "bankCode": "BCA",\n    "value": "BC"\n}',
+                            raw: '{\n    "key": "VA_BCA",\n    "name": "BCA Virtual Account",\n    "category_id": 1,\n    "payment_gateway_id": "{{payment_gateway_id}}",\n    "bankCode": "bca",\n    "is_active": true\n}',
                             options: { raw: { language: 'json' } },
                         },
                         url: {
@@ -837,7 +837,7 @@ const updatedCollection = {
                         ],
                         body: {
                             mode: 'raw',
-                            raw: '{\n    "key": "VA_BCA",\n    "name": "BCA Virtual Account (Updated)",\n    "type": "VA",\n    "from": "duitku",\n    "bankCode": "BCA",\n    "value": "BC"\n}',
+                            raw: '{\n    "key": "VA_BCA",\n    "name": "BCA Virtual Account (Updated)",\n    "category_id": 1,\n    "payment_gateway_id": "{{payment_gateway_id}}",\n    "bankCode": "bca",\n    "is_active": true\n}',
                             options: { raw: { language: 'json' } },
                         },
                         url: {

@@ -60,6 +60,7 @@ The middleware unifies multiple payment gateways behind standard order and callb
 | **Xendit** | ✅ `Supported` (Invoice Checkout) | 🔄 `Via XenInvoice API` (Multi-channel) | XenInvoice, Major Bank VAs, QRIS, DANA, OVO, LinkAja, Cards | [📖 **Xendit Guide**](docs/gateways/xendit.md) |
 | **SPNPay** | ✅ `Supported` (Payment Portal URL) | ✅ `Supported` (Direct ClosedAmount) | ClosedAmount QRIS, Virtual Account, Direct Online Debit | [📖 **SPNPay Guide**](docs/gateways/spnpay.md) |
 | **Stripe** | ✅ `Supported` (Hosted Checkout) | ✅ `Supported` (PaymentIntent + SDK) | Credit/Debit Cards (Global), Apple Pay, Google Pay, FPX, 135+ Currencies | [📖 **Stripe Guide**](docs/gateways/stripe.md) |
+| **Paprika** | 🔄 `Via Hosted / Portal` | ✅ `Supported` (SNAP 1.0 QR & VA) | Dynamic QRIS, Permata VA, Maybank VA, Artha Graha VA | [📖 **Paprika Guide**](docs/gateways/paprika.md) |
 
 > [!TIP]
 > **Select the Integration Mode That Fits Your Product:**
@@ -72,7 +73,7 @@ The middleware unifies multiple payment gateways behind standard order and callb
 
 ```bash
 # 1. Install dependencies
-composer install && npm install
+composer install && bun install
 
 # 2. Setup Environment
 cp .env.example .env && php artisan key:generate
@@ -81,7 +82,7 @@ cp .env.example .env && php artisan key:generate
 php artisan migrate && make initSeeder
 
 # 4. Build Frontend & Start Server
-npm run build && make run
+bun run build && make run
 ```
 
 > [!NOTE]
@@ -121,7 +122,7 @@ Routes -> Controllers (Api) -> Services (Strategy Router) -> Repositories -> Elo
   - `GET /api/client/order/checkOrderStatus` — Inquire payment status for client checkout.
   - `POST /api/client/order/createPayment` — Create/process payment method transaction for client checkout.
   - `GET /api/client/payment/getPaymentCategory` — Retrieve payment categories for client UI.
-  - `GET /api/client/payment/getPaymentMethod` — Retrieve payment methods for client UI.
+  - `GET /api/client/payment/getPaymentMethod` — Retrieve active payment methods for client UI (supports `payment_gateway_key`, `payment_gateway_id`).
   - `GET /api/client/payment/getDetailPaymentMethod` — Get details for a specific payment method.
 - **Order Management (Server-to-Server - Protected by Merchant Project Token):**
   - `POST /api/order/create` — Create a new payment order (auto-routed to the configured gateway, supports `version` parameter for tokenized checkout).
@@ -133,8 +134,8 @@ Routes -> Controllers (Api) -> Services (Strategy Router) -> Repositories -> Elo
 - **Payment Discovery (Server-to-Server / Public):**
   - `POST /api/payment/createPayment` — Create payment transaction (Protected by Merchant Project Token).
   - `GET /api/payment/getPaymentCategory` — Retrieve active payment categories.
-  - `GET /api/payment/getPaymentMethod` — Retrieve active payment methods.
-  - `GET /api/payment/getDetailPaymentMethod` — Get details for a specific payment method.
+  - `GET /api/payment/getPaymentMethod` — Retrieve active payment methods (supports `categoriesKey[]`, `payment_gateway_key`, `payment_gateway_id`).
+  - `GET /api/payment/getDetailPaymentMethod` — Get details for a specific payment method (supports `key`, `payment_gateway_key`, `payment_gateway_id`).
 - **Gateway Webhooks:**
   - `POST /api/callback/duitku` — Webhook handler for Duitku.
   - `POST /api/callback/midtrans` — Webhook handler for Midtrans.
@@ -154,10 +155,10 @@ Run automated quality and unit tests:
 
 ```bash
 # Lint frontend TypeScript/React
-npm run lint
+bun run lint
 
 # Build frontend bundle
-npm run build
+bun run build
 
 # Run PHPUnit Test Suite
 php artisan test

@@ -16,6 +16,11 @@ class ProductionMigrationCompatibilityTest extends TestCase
     public function test_migration_compatibility_with_db1_state(): void
     {
         // Recreate legacy DB 1 state
+        if (! Schema::hasColumn('payment_methods', 'from')) {
+            Schema::table('payment_methods', function (Blueprint $table) {
+                $table->string('from')->nullable();
+            });
+        }
         if (! Schema::hasColumn('payment_methods', 'type')) {
             Schema::table('payment_methods', function (Blueprint $table) {
                 $table->string('type')->nullable();
@@ -79,11 +84,19 @@ class ProductionMigrationCompatibilityTest extends TestCase
         $this->assertEquals($qrisCat->id, PaymentMethod::find(29)->category_id);
         $this->assertEquals($vaCat->id, PaymentMethod::find(35)->category_id);
         $this->assertEquals($retailCat->id, PaymentMethod::find(36)->category_id);
+
+        $latestMigration = require database_path('migrations/2026_09_08_000001_update_payment_methods_replace_from_with_payment_gateway_id.php');
+        $latestMigration->up();
     }
 
     public function test_migration_compatibility_with_db2_state(): void
     {
         // Recreate legacy DB 2 state (empty categories, 6 methods with type)
+        if (! Schema::hasColumn('payment_methods', 'from')) {
+            Schema::table('payment_methods', function (Blueprint $table) {
+                $table->string('from')->nullable();
+            });
+        }
         if (! Schema::hasColumn('payment_methods', 'type')) {
             Schema::table('payment_methods', function (Blueprint $table) {
                 $table->string('type')->nullable();
@@ -128,8 +141,22 @@ class ProductionMigrationCompatibilityTest extends TestCase
         $this->assertEquals($vaCat->id, PaymentMethod::find(5)->category_id);
         $this->assertEquals($qrisCat->id, PaymentMethod::find(6)->category_id);
 
+        $latestMigration = require database_path('migrations/2026_09_08_000001_update_payment_methods_replace_from_with_payment_gateway_id.php');
+        $latestMigration->up();
+
         // Re-seed standard seeders for subsequent tests
         $this->seed(PaymentCategorySeeder::class);
         $this->seed(PaymentMethodSeeder::class);
+    }
+
+    protected function tearDown(): void
+    {
+        if (Schema::hasColumn('payment_methods', 'from')) {
+            Schema::table('payment_methods', function (Blueprint $table) {
+                $table->dropColumn('from');
+            });
+        }
+
+        parent::tearDown();
     }
 }

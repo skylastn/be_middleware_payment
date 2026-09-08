@@ -3,7 +3,6 @@
 namespace App\Services\Payment;
 
 use App\Enums\OrderStatus;
-use App\Enums\ProjectSlug;
 use App\Http\Helper\FormatHelper;
 use App\Jobs\SendMerchantCallback;
 use App\Jobs\SendNotificationJob;
@@ -14,7 +13,6 @@ use App\Services\System\ProjectService;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
-use stdClass;
 
 class OrderService
 {
@@ -24,29 +22,29 @@ class OrderService
 
     private OrderHistoryService $orderHistoryService;
 
-    private XenditService $xenditService;
+    public function __construct(
+        ?ProjectService $projectService = null,
+        ?OrderRepository $orders = null,
+        ?OrderHistoryService $orderHistoryService = null
+    ) {
+        $this->projectService = $projectService ?? new ProjectService;
+        $this->orders = $orders ?? new OrderRepository;
+        $this->orderHistoryService = $orderHistoryService ?? new OrderHistoryService;
+    }
 
-    private DuitkuService $duitkuService;
-
-    private MidtransService $midtransService;
-
-    private SPNPayService $spnPayService;
-
-    private StripeService $stripeService;
-
-    private PaprikaService $paprikaService;
-
-    public function __construct()
+    public function createAndFind(array $data): Order
     {
-        $this->projectService = new ProjectService;
-        $this->orders = new OrderRepository;
-        $this->orderHistoryService = new OrderHistoryService;
-        $this->xenditService = new XenditService;
-        $this->duitkuService = new DuitkuService;
-        $this->midtransService = new MidtransService;
-        $this->spnPayService = new SPNPayService;
-        $this->stripeService = new StripeService;
-        $this->paprikaService = new PaprikaService;
+        return $this->orders->createAndFind($data);
+    }
+
+    public function findOrFailCustom(int|string $id): Order
+    {
+        return $this->orders->findOrFailCustom($id);
+    }
+
+    public function findRecentByReference(string $reference, string $fromDate, string $toDate): ?Order
+    {
+        return $this->orders->findRecentByReference($reference, $fromDate, $toDate);
     }
 
     public function getListOrder(Request $request): LengthAwarePaginator
@@ -80,111 +78,66 @@ class OrderService
         return $this->orders->latestByReference($reference, $projectType);
     }
 
-    public function checkOrderStatus(string $reference): ?stdClass
-    {
-        $project = $this->projectService->checkKey();
-        $order = $this->detailByReferenceAndKey($reference, $project->type);
-        if (! FormatHelper::isNotEmpty($order)) {
-            throw new Exception('Order Not Found');
-        }
-        $slug = $project->getSlug();
-        $result = null;
-        switch ($slug) {
-            case ProjectSlug::DUITKU:
-                $result = $this->duitkuService->checkStatus($order);
-                break;
-            case ProjectSlug::STRIPE:
-                $result = $this->stripeService->checkStatus($order);
-                break;
-            default:
-                // $response['message']    = "Undefined Project";
-                throw new Exception('Undefined Project');
-                break;
-        }
-
-        return $result;
-    }
-
-    public function create(Request $request): ?array
-    {
-        $project = $this->projectService->checkKey();
-        if ($project->getSlug() == ProjectSlug::XENDIT) {
-            return $this->xenditService->order($request, $project);
-        }
-        if ($project->getSlug() == ProjectSlug::MIDTRANS) {
-            return $this->midtransService->orderMidtrans($request, $project);
-        }
-        if ($project->slug == ProjectSlug::DUITKU) {
-            return $this->duitkuService->orderDuitku($request, $project);
-        }
-        if ($project->slug == ProjectSlug::SPNPAY) {
-            return $this->spnPayService->createOrderSPNPay($request, $project);
-        }
-        if ($project->slug == ProjectSlug::STRIPE) {
-            return $this->stripeService->order($request, $project);
-        }
-        if ($project->slug == ProjectSlug::PAPRIKA) {
-            return $this->paprikaService->orderPaprika($request, $project);
-        }
-        throw new Exception('Undefined Project');
-    }
-
-    public function confirmStripe(Request $request): ?array
-    {
-        $project = $this->projectService->checkKey();
-        if ($project->getSlug() == ProjectSlug::STRIPE) {
-            return $this->stripeService->confirmCardPayment($request, $project);
-        }
-        throw new Exception('Stripe confirm only supported for Stripe projects');
-    }
-
     public function getOrderById(int|string $id): ?Order
     {
         return $this->orders->findById($id, ['histories']);
     }
 
-    public function resendCallbackById(int|string $id): Order
+    public function deleteOrder(int|string $id): bool
     {
         $order = $this->orders->findById($id);
         if (! $order) {
             throw new Exception('Order Not Found', 404);
         }
 
-        $status = $order->getStatus();
-        if (! $status?->isSuccess()) {
-            throw new Exception('Only successful orders can resend callback.');
-        }
-
-        $project = $order->project ?: Project::where('type', $order->type)->first();
-        if (! $project || ! $project->value || ! $project->callback) {
-            throw new Exception('Project callback configuration is incomplete.');
-        }
-
-        SendMerchantCallback::dispatch(
-            $project->value,
-            [
-                'merchantOrderId' => $order->getMerchantOrderId(),
-                'paymentCode' => $order->payment_method,
-                'resultCode' => '00',
-            ],
-            $project->callback,
-        )->afterCommit();
-
-        return $order;
+        return $this->orders->delete($order);
     }
 
-    public function setSuccessById(int|string $id): Order
+    private function extractCallbackParams(Order $order): array
     {
-        $order = $this->orders->findById($id, ['histories']);
-        if (! $order) {
-            throw new Exception('Order Not Found', 404);
+        $payload = is_array($order->callback)
+            ? $order->callback
+            : json_decode((string) $order->callback, true);
+
+        if (! empty($payload) && is_array($payload)) {
+            return $payload;
         }
 
-        return $this->markAsSuccessAndSendCallback($order);
+        $requestData = is_array($order->request)
+            ? $order->request
+            : json_decode((string) $order->request, true);
+
+        return [
+            'merchantOrderId' => $order->getMerchantOrderId() ?: $order->reference,
+            'reference' => $order->reference,
+            'amount' => (int) ($requestData['paymentAmount'] ?? $requestData['amount'] ?? 0),
+            'status' => OrderStatus::SUCCESS->value,
+            'resultCode' => '00',
+        ];
     }
 
-    public function markAsSuccessAndSendCallback(Order $order, ?Project $project = null, string $source = 'MANUAL_OVERRIDE'): Order
+    public function setSuccessMerchant(Request $request): ?Order
     {
+        $project = $this->projectService->checkKey();
+        $order = $this->detailByReferenceAndKey($request->reference, $project->type);
+        if (! FormatHelper::isNotEmpty($order)) {
+            throw new Exception('Order Not Found');
+        }
+
+        $reference = $order->getReference();
+        $split = explode('-', $reference);
+        $project ??= $order->project ?: $this->projectService->getByType($order->type);
+        if (! FormatHelper::isNotEmpty($project)) {
+            throw new Exception('Project Not Found');
+        }
+
+        $order = $this->findOrFailCustom($order->getId());
+
+        $currentStatus = $order->getStatus();
+        if ($currentStatus !== null && $currentStatus->isSuccess()) {
+            return $order;
+        }
+
         $previousStatus = $order->status;
         $order->setStatus(OrderStatus::SUCCESS);
         $order->save();
@@ -192,30 +145,18 @@ class OrderService
         $this->orderHistoryService->log(
             $order,
             OrderStatus::SUCCESS,
-            $source,
-            'Status marked as SUCCESS and callback dispatched to merchant.',
-            ['updated_by' => auth('sanctum')->user()?->email ?? 'API'],
+            'SET_SUCCESS_MERCHANT',
+            'Order status manually marked as SUCCESS by merchant request',
+            $request->all(),
             $previousStatus
         );
 
-        $project ??= $order->project ?: Project::where('type', $order->type)->first();
-        if ($project && $project->value && $project->callback) {
-            SendMerchantCallback::dispatch(
-                $project->value,
-                [
-                    'merchantOrderId' => $order->getMerchantOrderId(),
-                    'paymentCode' => $order->payment_method ?: '',
-                    'resultCode' => '00',
-                ],
-                $project->callback,
-            )->afterCommit();
-        }
+        $params = $this->extractCallbackParams($order);
+        $params['status'] = OrderStatus::SUCCESS->value;
+        $params['resultCode'] = '00';
 
-        if (FormatHelper::isNotEmpty($order->reference)) {
-            SendNotificationJob::dispatch($order->reference);
-        }
-
-        $order->refresh();
+        SendMerchantCallback::dispatch($project->value, $params, $project->callback);
+        SendNotificationJob::dispatch($reference);
 
         return $order;
     }

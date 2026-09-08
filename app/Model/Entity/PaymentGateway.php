@@ -5,6 +5,7 @@ namespace App\Model\Entity;
 use App\Traits\BaseModelTrait;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class PaymentGateway extends Model
@@ -22,6 +23,15 @@ class PaymentGateway extends Model
     protected $casts = [
         'id' => 'string',
     ];
+
+    // ------------------------------------------------------------
+    // Relationships
+    // ------------------------------------------------------------
+
+    public function paymentMethods(): HasMany
+    {
+        return $this->hasMany(PaymentMethod::class, 'payment_gateway_id', 'id');
+    }
 
     // ------------------------------------------------------------
     // Getter & Setter Methods (Explicit style)

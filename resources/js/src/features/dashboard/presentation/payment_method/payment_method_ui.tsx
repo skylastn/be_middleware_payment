@@ -26,6 +26,10 @@ export function PaymentMethodPage({ mode, id }: PaymentMethodPageProps): React.J
         error,
         searchTerm,
         setSearchTerm,
+        filterGateway,
+        setFilterGateway,
+        filterStatus,
+        setFilterStatus,
         page,
         perPage,
         setPerPage,
@@ -36,6 +40,7 @@ export function PaymentMethodPage({ mode, id }: PaymentMethodPageProps): React.J
         handleImageUpload,
         handleClearImage,
         handleFormSubmit,
+        handleToggleActive,
         handleDelete,
         loadList,
     } = usePaymentMethodLogic({ mode, id });
@@ -103,30 +108,19 @@ export function PaymentMethodPage({ mode, id }: PaymentMethodPageProps): React.J
                         </label>
 
                         <label className="field">
-                            <span className="label">Gateway Provider (From) *</span>
+                            <span className="label">Payment Gateway *</span>
                             <select
                                 className="input"
                                 required
-                                value={form.from || ''}
-                                onChange={(e) => setForm({ ...form, from: e.target.value })}
+                                value={form.payment_gateway_id || ''}
+                                onChange={(e) => setForm({ ...form, payment_gateway_id: e.target.value })}
                             >
-                                <option value="">-- Select Gateway Provider --</option>
-                                {gateways.length > 0 ? (
-                                    gateways.map((gw) => (
-                                        <option key={gw.id || gw.key} value={gw.key}>
-                                            {gw.name} ({gw.key})
-                                        </option>
-                                    ))
-                                ) : (
-                                    <>
-                                        <option value="duitku">Duitku (duitku)</option>
-                                        <option value="midtrans">Midtrans (midtrans)</option>
-                                        <option value="xendit">Xendit (xendit)</option>
-                                        <option value="spnpay">SPNPay (spnpay)</option>
-                                        <option value="stripe">Stripe (stripe)</option>
-                                        <option value="paprika">Paprika (paprika)</option>
-                                    </>
-                                )}
+                                <option value="">-- Select Payment Gateway --</option>
+                                {gateways.map((gw) => (
+                                    <option key={gw.id || gw.key} value={gw.id}>
+                                        {gw.name} ({gw.key})
+                                    </option>
+                                ))}
                             </select>
                         </label>
 
@@ -201,6 +195,21 @@ export function PaymentMethodPage({ mode, id }: PaymentMethodPageProps): React.J
                             </div>
                         </div>
 
+                        <label className="field full" style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+                            <input
+                                type="checkbox"
+                                checked={Boolean(form.is_active)}
+                                onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
+                                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                            />
+                            <div>
+                                <strong style={{ display: 'block' }}>Active in Client</strong>
+                                <span className="muted" style={{ fontSize: '12px' }}>
+                                    When enabled, this payment channel is visible and selectable by client applications.
+                                </span>
+                            </div>
+                        </label>
+
                         <div className="field full" style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
                             <button className="button primary" type="submit" disabled={saving}>
                                 {saving ? 'Saving...' : isEdit ? 'Update Method' : 'Create Method'}
@@ -266,13 +275,26 @@ export function PaymentMethodPage({ mode, id }: PaymentMethodPageProps): React.J
                         </div>
 
                         <div className="field">
-                            <span className="label">Gateway Provider (From)</span>
-                            <div><span className="badge success">{record.from}</span></div>
+                            <span className="label">Payment Gateway</span>
+                            <div>
+                                <span className="badge success">
+                                    {record.gateway?.name ? `${record.gateway.name} (${record.gateway.key})` : '-'}
+                                </span>
+                            </div>
                         </div>
 
                         <div className="field">
                             <span className="label">Bank Code</span>
                             <div className="input mono">{record.bankCode || '-'}</div>
+                        </div>
+
+                        <div className="field">
+                            <span className="label">Client Visibility</span>
+                            <div>
+                                <span className={`badge ${record.is_active !== false ? 'success' : 'danger'}`}>
+                                    {record.is_active !== false ? 'Active (Shown to Client)' : 'Inactive (Hidden)'}
+                                </span>
+                            </div>
                         </div>
 
                         <div className="field full">
@@ -343,7 +365,7 @@ export function PaymentMethodPage({ mode, id }: PaymentMethodPageProps): React.J
                         <input
                             className="search-input"
                             type="text"
-                            placeholder="Search methods (name, key, code, from)..."
+                            placeholder="Search methods (name, key, code, gateway)..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
@@ -357,6 +379,27 @@ export function PaymentMethodPage({ mode, id }: PaymentMethodPageProps): React.J
                     <div className="filter-group">
                         <select
                             className="filter-select"
+                            value={filterGateway}
+                            onChange={(e) => setFilterGateway(e.target.value)}
+                        >
+                            <option value="all">All Gateways</option>
+                            {gateways.map((gw) => (
+                                <option key={gw.id} value={gw.id}>
+                                    {gw.name}
+                                </option>
+                            ))}
+                        </select>
+                        <select
+                            className="filter-select"
+                            value={filterStatus}
+                            onChange={(e) => setFilterStatus(e.target.value)}
+                        >
+                            <option value="all">All Status</option>
+                            <option value="active">Active in Client</option>
+                            <option value="inactive">Hidden from Client</option>
+                        </select>
+                        <select
+                            className="filter-select"
                             value={perPage}
                             onChange={(e) => setPerPage(Number(e.target.value))}
                         >
@@ -368,9 +411,9 @@ export function PaymentMethodPage({ mode, id }: PaymentMethodPageProps): React.J
                     </div>
                 </div>
 
-                <DataTable columns={['Key', 'Name', 'Category', 'From', 'Bank Code', 'Actions']}>
+                <DataTable columns={['Key', 'Name', 'Category', 'Gateway', 'Bank Code', 'Client Visibility', 'Actions']}>
                     {loading ? (
-                        <SkeletonTableRows rows={perPage > 15 ? 10 : 6} columns={6} />
+                        <SkeletonTableRows rows={perPage > 15 ? 10 : 6} columns={7} />
                     ) : records.length > 0 ? (
                         records.map((row: any) => {
                             const primaryKey = row.id || row.key;
@@ -411,8 +454,19 @@ export function PaymentMethodPage({ mode, id }: PaymentMethodPageProps): React.J
                                             {row.category?.title ? `${row.category.title} (${row.category.key})` : (row.type || '-')}
                                         </span>
                                     </td>
-                                    <td><span className="badge success">{row.from || '-'}</span></td>
+                                    <td><span className="badge success">{row.gateway?.name || '-'}</span></td>
                                     <td>{row.bankCode || '-'}</td>
+                                    <td>
+                                        <button
+                                            type="button"
+                                            className={`badge ${row.is_active !== false ? 'success' : 'danger'}`}
+                                            style={{ cursor: 'pointer', border: 'none' }}
+                                            title="Click to toggle client visibility"
+                                            onClick={() => handleToggleActive(primaryKey, row.is_active !== false)}
+                                        >
+                                            {row.is_active !== false ? 'Active' : 'Hidden'}
+                                        </button>
+                                    </td>
                                     <td>
                                         <div className="actions">
                                             <button

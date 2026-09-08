@@ -2,15 +2,15 @@
 # Stage 1: Build the Admin React (Vite + React)
 # This is the "admin react" / backoffice UI.
 # ============================================
-FROM node:24 AS frontend-builder
+FROM oven/bun:1-alpine AS frontend-builder
 
 WORKDIR /app
 
-# Copy only package files first for better layer caching
-COPY package*.json tsconfig*.json ./
+# Copy package and lock files for layer caching
+COPY package.json bun.lock* tsconfig*.json ./
 
-# Install deps (use --force to match the existing pos-build behavior)
-RUN npm ci --force
+# Install frontend dependencies using Bun
+RUN bun install --frozen-lockfile
 
 # Copy the frontend source needed for the build
 COPY resources/js ./resources/js
@@ -19,7 +19,7 @@ COPY vite.config.js ./
 COPY public ./public
 
 # Build the React admin assets -> public/build
-RUN npm run build
+RUN bun run build
 
 # ============================================
 # Stage 2: PHP / Laravel runtime (FrankenPHP + Octane + Queue)

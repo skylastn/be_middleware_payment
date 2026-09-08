@@ -23,10 +23,11 @@ export function usePaymentMethodLogic({ mode, id }: UsePaymentMethodLogicProps) 
         key: '',
         name: '',
         category_id: '',
-        from: 'duitku',
+        payment_gateway_id: '',
         bankCode: '',
         image: '',
         image_url: '',
+        is_active: true,
     });
     const [loading, setLoading] = useState<boolean>(true);
     const [saving, setSaving] = useState<boolean>(false);
@@ -34,6 +35,8 @@ export function usePaymentMethodLogic({ mode, id }: UsePaymentMethodLogicProps) 
 
     // Filter states
     const [searchTerm, setSearchTerm] = useState<string>('');
+    const [filterGateway, setFilterGateway] = useState<string>('all');
+    const [filterStatus, setFilterStatus] = useState<string>('all');
     const [page, setPage] = useState<number>(1);
     const [perPage, setPerPage] = useState<number>(10);
 
@@ -63,6 +66,8 @@ export function usePaymentMethodLogic({ mode, id }: UsePaymentMethodLogicProps) 
                 page: pageNum,
                 per_page: perPage,
                 search: searchTerm.trim() || undefined,
+                payment_gateway_id: filterGateway !== 'all' ? filterGateway : undefined,
+                is_active: filterStatus === 'active' ? true : (filterStatus === 'inactive' ? false : undefined),
             });
             setPayload(res);
             setPage(pageNum);
@@ -85,10 +90,11 @@ export function usePaymentMethodLogic({ mode, id }: UsePaymentMethodLogicProps) 
                     key: itemData.key || '',
                     name: itemData.name || '',
                     category_id: itemData.category_id || itemData.category?.id || '',
-                    from: itemData.from || 'duitku',
+                    payment_gateway_id: itemData.payment_gateway_id || itemData.gateway?.id || itemData.payment_gateway?.id || '',
                     bankCode: itemData.bankCode || '',
                     image: itemData.image || '',
                     image_url: itemData.image_url || '',
+                    is_active: itemData.is_active !== undefined ? Boolean(itemData.is_active) : true,
                 });
             }
         } catch (err: any) {
@@ -100,6 +106,7 @@ export function usePaymentMethodLogic({ mode, id }: UsePaymentMethodLogicProps) 
 
     useEffect(() => {
         if (mode === 'resource-index') {
+            loadGateways();
             loadList(1);
         } else if (mode === 'resource-edit' || mode === 'resource-show') {
             loadCategories();
@@ -110,7 +117,7 @@ export function usePaymentMethodLogic({ mode, id }: UsePaymentMethodLogicProps) 
             loadGateways();
             setLoading(false);
         }
-    }, [mode, id, perPage]);
+    }, [mode, id, perPage, filterGateway, filterStatus]);
 
     const handleSearchSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -152,9 +159,10 @@ export function usePaymentMethodLogic({ mode, id }: UsePaymentMethodLogicProps) 
             const submitData = {
                 key: form.key,
                 name: form.name,
-                from: form.from,
+                payment_gateway_id: form.payment_gateway_id || null,
                 bankCode: form.bankCode || '',
                 image: form.image || null,
+                is_active: Boolean(form.is_active),
                 category_id: form.category_id ? Number(form.category_id) : null,
             };
             if (isEdit && id) {
@@ -167,6 +175,17 @@ export function usePaymentMethodLogic({ mode, id }: UsePaymentMethodLogicProps) 
             setError(err?.message || 'Failed to save payment method.');
         } finally {
             setSaving(false);
+        }
+    };
+
+    const handleToggleActive = async (methodId: string | number, currentActive: boolean) => {
+        try {
+            await paymentMethodService.updatePaymentMethod(methodId, {
+                is_active: !currentActive,
+            });
+            loadList(page);
+        } catch (err: any) {
+            setError(err?.message || 'Failed to update payment method status.');
         }
     };
 
@@ -199,6 +218,10 @@ export function usePaymentMethodLogic({ mode, id }: UsePaymentMethodLogicProps) 
         error,
         searchTerm,
         setSearchTerm,
+        filterGateway,
+        setFilterGateway,
+        filterStatus,
+        setFilterStatus,
         page,
         perPage,
         setPerPage,
@@ -211,6 +234,7 @@ export function usePaymentMethodLogic({ mode, id }: UsePaymentMethodLogicProps) 
         handleImageUpload,
         handleClearImage,
         handleFormSubmit,
+        handleToggleActive,
         handleDelete,
     };
 }

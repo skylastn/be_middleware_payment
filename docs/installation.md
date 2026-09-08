@@ -30,7 +30,7 @@ cd be_middleware_payment
 composer install
 
 # Install Frontend dependencies
-npm install
+bun install
 ```
 
 ### 2. Environment Configuration
@@ -93,7 +93,7 @@ make initSeeder
 
 ```bash
 # Build React Backoffice UI bundle
-npm run build
+bun run build
 
 # Start local server (Port 2000)
 make run
