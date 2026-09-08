@@ -19,10 +19,8 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
 
       - name: Run Postman Sync Script
         env:
@@ -33,4 +31,4 @@ jobs:
             echo "⚠️ Warning: POSTMAN_API_KEY secret is not configured. Skipping Postman cloud sync."
             exit 0
           fi
-          node scripts/sync-postman.cjs
+          bun scripts/sync-postman.cjs

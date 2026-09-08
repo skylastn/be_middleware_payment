@@ -32,7 +32,7 @@ deployLocalDocker:
 	make running
 
 deploy:
-	# Builds frontend assets (admin React / backoffice) using a throwaway node container.
+	# Builds frontend assets (admin React / backoffice) using a throwaway bun container.
 	# Note: The main Docker image build (via deploy.sh / make deployLocalDocker / docker compose build)
 	# now includes the admin React build automatically via multi-stage (see Dockerfile).
 	# This target is still useful for:

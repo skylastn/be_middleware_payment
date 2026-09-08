@@ -73,7 +73,7 @@ The middleware unifies multiple payment gateways behind standard order and callb
 
 ```bash
 # 1. Install dependencies
-composer install && npm install
+composer install && bun install
 
 # 2. Setup Environment
 cp .env.example .env && php artisan key:generate
@@ -82,7 +82,7 @@ cp .env.example .env && php artisan key:generate
 php artisan migrate && make initSeeder
 
 # 4. Build Frontend & Start Server
-npm run build && make run
+bun run build && make run
 ```
 
 > [!NOTE]
@@ -155,10 +155,10 @@ Run automated quality and unit tests:
 
 ```bash
 # Lint frontend TypeScript/React
-npm run lint
+bun run lint
 
 # Build frontend bundle
-npm run build
+bun run build
 
 # Run PHPUnit Test Suite
 php artisan test
