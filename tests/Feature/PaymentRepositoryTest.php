@@ -118,6 +118,6 @@ class PaymentRepositoryTest extends TestCase
         $response->assertJsonPath('status', true);
         $response->assertJsonPath('data.success', true);
         $response->assertJsonPath('data.version', '2');
-        $this->assertStringContainsString('/home?token=', $response->json('data.checkout_url'));
+        $this->assertStringContainsString('/detailpayment?token=', $response->json('data.checkout_url'));
     }
 }

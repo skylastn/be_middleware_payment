@@ -90,6 +90,27 @@ class PaymentMethodSeeder extends Seeder
                 'from' => 'duitku',
                 'bankCode' => 'cimb',
             ],
+            [
+                'key' => 'VA_PERMATA',
+                'name' => 'Paprika Permata VA',
+                'category_key' => 'va',
+                'from' => 'paprika',
+                'bankCode' => '013',
+            ],
+            [
+                'key' => 'VA_MAYBANK',
+                'name' => 'Paprika Maybank VA',
+                'category_key' => 'va',
+                'from' => 'paprika',
+                'bankCode' => '016',
+            ],
+            [
+                'key' => 'VA_AGRAHA',
+                'name' => 'Paprika Artha Graha VA',
+                'category_key' => 'va',
+                'from' => 'paprika',
+                'bankCode' => '037',
+            ],
 
             // Credit Card Channels (category: cc)
             [
