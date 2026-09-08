@@ -56,6 +56,14 @@ class PaymentRepoSeeder extends Seeder
             ]
         );
 
+        $paprika = PaymentGateway::firstOrCreate(
+            ['key' => 'paprika'],
+            [
+                'name' => 'Paprika',
+                'description' => 'Paprika',
+            ]
+        );
+
         // --- Payment Repositories ---
         foreach (PaymentModeType::cases() as $mode) {
 

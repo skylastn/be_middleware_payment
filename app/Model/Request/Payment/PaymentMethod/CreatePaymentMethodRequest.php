@@ -12,9 +12,10 @@ class CreatePaymentMethodRequest extends BaseRequest
             'key' => ['required', 'string', 'max:50'],
             'name' => ['required', 'string', 'max:255'],
             'category_id' => ['nullable', 'integer', 'exists:payment_categories,id'],
-            'from' => ['nullable', 'string', 'max:50'],
+            'payment_gateway_id' => ['required', 'string', 'exists:payment_gateways,id'],
             'bankCode' => ['nullable', 'string', 'max:50'],
             'image' => ['nullable', 'string'],
+            'is_active' => ['nullable', 'boolean'],
         ];
     }
 }

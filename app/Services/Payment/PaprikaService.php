@@ -354,7 +354,9 @@ class PaprikaService {
         }
 
         $payerIssuer = $request->input('additionalInfo.payerIssuer', '');
-        $paymentMethod = PaymentMethod::where('key', $payerIssuer)->where('from', 'paprika')->first();
+        $paymentMethod = PaymentMethod::where('key', $payerIssuer)
+            ->whereHas('payment_gateway', fn ($q) => $q->where('key', 'paprika'))
+            ->first();
         if (FormatHelper::isNotEmpty($paymentMethod)) {
             $order->setPaymentMethod($paymentMethod->key);
         }

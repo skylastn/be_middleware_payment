@@ -11,6 +11,7 @@ use App\Http\Helper\RequestHelper;
 use App\Jobs\SendMerchantCallback;
 use App\Jobs\SendNotificationJob;
 use App\Model\Entity\Order;
+use App\Model\Entity\PaymentGateway;
 use App\Model\Entity\PaymentMethod;
 use App\Model\Entity\PaymentRepository;
 use App\Model\Entity\Project;
@@ -350,7 +351,9 @@ class DuitkuService
         $previousStatus = $order->status;
         $order->setCallback(json_encode($request->all()));
         $order->setStatus($status);
-        $paymentMethod = PaymentMethod::where('key', $request->paymentCode)->where('from', 'duitku')->first();
+        $paymentMethod = PaymentMethod::where('key', $request->paymentCode)
+            ->whereHas('payment_gateway', fn ($q) => $q->where('key', 'duitku'))
+            ->first();
 
         if (! FormatHelper::isNotEmpty($paymentMethod)) {
             throw new Exception('Payment not found : ' . $request->paymentCode);
@@ -399,7 +402,8 @@ class DuitkuService
 
         // header('Content-Type: application/json');
 
-        $payments = PaymentMethod::where('from', 'duitku')->get();
+        $payments = PaymentMethod::whereHas('payment_gateway', fn ($q) => $q->where('key', 'duitku'))->get();
+        $duitkuGatewayId = PaymentGateway::where('key', 'duitku')->value('id');
         $temps = [];
         foreach ($paymentsDuitku->paymentFee as $duitku) {
             // return $payment->key;
@@ -420,8 +424,7 @@ class DuitkuService
                 $temps[] = PaymentMethod::create([
                     'key' => $duitku->paymentMethod,
                     'name' => $duitku->paymentName,
-                    'type' => '',
-                    'from' => 'duitku',
+                    'payment_gateway_id' => $duitkuGatewayId,
                 ]);
             }
         }

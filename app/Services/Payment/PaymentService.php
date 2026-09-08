@@ -112,24 +112,28 @@ class PaymentService
         return $this->paymentCategories->delete($category);
     }
 
-    public function getListPaymentMethod(Request $request): Collection
+    public function getListPaymentMethod(Request $request, ?bool $onlyActive = null): Collection
     {
-        return $this->paymentMethods->filtered($request->categoriesKey, $request->from);
+        $gatewayId = $request->query('payment_gateway_id', $request->query('from'));
+        $isActive = $onlyActive ?? ($request->has('is_active') ? $request->boolean('is_active') : null);
+
+        return $this->paymentMethods->filtered($request->categoriesKey, $gatewayId, $isActive);
     }
 
     public function getPaginatedPaymentMethod(Request $request): LengthAwarePaginator
     {
         $perPage = (int) ($request->query('per_page', $request->query('perPage', 10)));
         $search = $request->query('search');
-        $from = $request->query('from');
+        $gatewayId = $request->query('payment_gateway_id', $request->query('from'));
         $categoriesKey = $request->query('categoriesKey');
+        $isActive = $request->has('is_active') && $request->query('is_active') !== 'all' ? $request->boolean('is_active') : null;
 
-        return $this->paymentMethods->latestPaginated($perPage, $search, $from, $categoriesKey);
+        return $this->paymentMethods->latestPaginated($perPage, $search, $gatewayId, $categoriesKey, $isActive);
     }
 
-    public function getDetailPaymentMethod(?string $key, ?string $from = null): ?PaymentMethod
+    public function getDetailPaymentMethod(?string $key, ?string $paymentGatewayId = null, ?bool $onlyActive = null): ?PaymentMethod
     {
-        return $this->paymentMethods->detail($key, $from);
+        return $this->paymentMethods->detail($key, $paymentGatewayId, $onlyActive);
     }
 
     public function getPaymentMethodById(int|string $id): ?PaymentMethod
@@ -170,7 +174,15 @@ class PaymentService
     {
         $data = $this->processPaymentMethodImage($data);
         $data['bankCode'] = $data['bankCode'] ?? '';
-        return $this->paymentMethods->create($data)->load('category');
+        if (empty($data['payment_gateway_id']) && ! empty($data['from'])) {
+            $data['payment_gateway_id'] = PaymentGateway::where('key', $data['from'])->value('id');
+        }
+        unset($data['from']);
+        if (! array_key_exists('is_active', $data) || $data['is_active'] === null) {
+            $data['is_active'] = true;
+        }
+
+        return $this->paymentMethods->create($data)->load(['category', 'payment_gateway']);
     }
 
     public function updatePaymentMethod(int|string $id, array $data): PaymentMethod
@@ -184,8 +196,15 @@ class PaymentService
         if (array_key_exists('bankCode', $data) && $data['bankCode'] === null) {
             $data['bankCode'] = '';
         }
+        if (empty($data['payment_gateway_id']) && ! empty($data['from'])) {
+            $data['payment_gateway_id'] = PaymentGateway::where('key', $data['from'])->value('id');
+        }
+        unset($data['from']);
+        if (array_key_exists('is_active', $data) && $data['is_active'] !== null) {
+            $data['is_active'] = (bool) $data['is_active'];
+        }
 
-        return $this->paymentMethods->update($method, $data)->load('category');
+        return $this->paymentMethods->update($method, $data)->load(['category', 'payment_gateway']);
     }
 
     public function deletePaymentMethod(int|string $id): bool

@@ -14,13 +14,22 @@ class PaymentMethod extends Model
         'key',
         'name',
         'category_id',
-        'from',
+        'payment_gateway_id',
         'bankCode',
         'image',
+        'is_active',
     ];
 
-    // Keep the original eager-loaded relationships.
-    protected $with = ['category'];
+    protected $casts = [
+        'category_id' => 'integer',
+        'payment_gateway_id' => 'string',
+        'is_active' => 'boolean',
+    ];
+
+    protected $appends = ['type', 'gateway'];
+
+    // Keep eager-loaded relationships
+    protected $with = ['category', 'payment_gateway'];
 
     // ------------------------------------------------------------
     // Relationships
@@ -29,6 +38,16 @@ class PaymentMethod extends Model
     public function category(): BelongsTo
     {
         return $this->belongsTo(PaymentCategory::class, 'category_id', 'id');
+    }
+
+    public function payment_gateway(): BelongsTo
+    {
+        return $this->belongsTo(PaymentGateway::class, 'payment_gateway_id', 'id');
+    }
+
+    public function gateway(): BelongsTo
+    {
+        return $this->payment_gateway();
     }
 
     // ------------------------------------------------------------
@@ -65,19 +84,34 @@ class PaymentMethod extends Model
         $this->category_id = $categoryId;
     }
 
+    public function getPaymentGatewayId(): ?string
+    {
+        return $this->payment_gateway_id;
+    }
+
+    public function setPaymentGatewayId(?string $paymentGatewayId): void
+    {
+        $this->payment_gateway_id = $paymentGatewayId;
+    }
+
+    public function getGateway(): ?PaymentGateway
+    {
+        return $this->payment_gateway;
+    }
+
+    public function getGatewayAttribute(): ?PaymentGateway
+    {
+        return $this->getGateway();
+    }
+
     public function getType(): ?string
     {
         return $this->category?->key;
     }
 
-    public function getFrom(): ?string
+    public function getTypeAttribute(): ?string
     {
-        return $this->from;
-    }
-
-    public function setFrom(?string $from): void
-    {
-        $this->from = $from;
+        return $this->getType();
     }
 
     public function getBankCode(): ?string
@@ -98,5 +132,15 @@ class PaymentMethod extends Model
     public function setImage(?string $image): void
     {
         $this->image = $image;
+    }
+
+    public function getIsActive(): bool
+    {
+        return (bool) ($this->is_active ?? true);
+    }
+
+    public function setIsActive(bool $isActive): void
+    {
+        $this->is_active = $isActive;
     }
 }

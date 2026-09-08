@@ -40,7 +40,7 @@ class PaymentController extends Controller
     public function getPaymentMethod(Request $request): JsonResponse
     {
         if (! $request->has('page') && ! $request->has('search') && ! $request->has('per_page') && ! $request->has('perPage') && ! auth('sanctum')->check()) {
-            return ResponseHelper::successResponse($this->paymentService->getListPaymentMethod($request));
+            return ResponseHelper::successResponse($this->paymentService->getListPaymentMethod($request, true));
         }
 
         return ResponseHelper::formatPagination($this->paymentService->getPaginatedPaymentMethod($request));
@@ -49,8 +49,9 @@ class PaymentController extends Controller
     public function getDetailPaymentMethod(Request $request): JsonResponse
     {
         $key = $request->query('key', $request->query('value'));
-        $from = $request->query('from');
-        $result = $this->paymentService->getDetailPaymentMethod($key, $from);
+        $paymentGatewayId = $request->query('payment_gateway_id', $request->query('from'));
+        $onlyActive = auth('sanctum')->check() ? null : true;
+        $result = $this->paymentService->getDetailPaymentMethod($key, $paymentGatewayId, $onlyActive);
 
         return ResponseHelper::successResponse($result ? new PaymentMethodResource($result) : null);
     }

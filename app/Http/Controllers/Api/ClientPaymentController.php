@@ -86,7 +86,7 @@ class ClientPaymentController extends Controller
 
     public function getPaymentMethod(Request $request): JsonResponse
     {
-        $result = $this->paymentService->getListPaymentMethod($request);
+        $result = $this->paymentService->getListPaymentMethod($request, true);
 
         return ResponseHelper::successResponse(PaymentMethodResource::collection($result));
     }
@@ -94,8 +94,8 @@ class ClientPaymentController extends Controller
     public function getDetailPaymentMethod(Request $request): JsonResponse
     {
         $key = $request->query('key', $request->query('value'));
-        $from = $request->query('from');
-        $result = $this->paymentService->getDetailPaymentMethod($key, $from);
+        $paymentGatewayId = $request->query('payment_gateway_id', $request->query('from'));
+        $result = $this->paymentService->getDetailPaymentMethod($key, $paymentGatewayId, true);
 
         return ResponseHelper::successResponse($result ? new PaymentMethodResource($result) : null);
     }

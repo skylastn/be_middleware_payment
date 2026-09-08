@@ -7,7 +7,7 @@ export type ResourceKey =
     | 'payment-categories'
     | 'settings';
 
-export type FieldType = 'text' | 'select' | 'textarea' | 'json';
+export type FieldType = 'text' | 'select' | 'textarea' | 'json' | 'boolean';
 
 export interface FieldDefinition {
     label?: string;
