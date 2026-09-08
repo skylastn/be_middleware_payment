@@ -16,26 +16,31 @@ class PaymentMethodRepository extends BaseRepository
         return PaymentMethod::class;
     }
 
-    private function applyGatewayFilter(Builder $query, ?string $paymentGatewayId): Builder
+    private function applyGatewayFilter(Builder $query, ?string $paymentGatewayId, ?string $paymentGatewayKey = null): Builder
     {
-        if (! $paymentGatewayId) {
-            return $query;
+        if ($paymentGatewayId) {
+            if (Str::isUuid($paymentGatewayId)) {
+                $query->where('payment_gateway_id', $paymentGatewayId);
+            } else {
+                $query->where(function ($q) use ($paymentGatewayId) {
+                    $q->where('payment_gateway_id', $paymentGatewayId)
+                        ->orWhereHas('payment_gateway', fn ($gw) => $gw->where('key', $paymentGatewayId));
+                });
+            }
         }
 
-        if (Str::isUuid($paymentGatewayId)) {
-            return $query->where('payment_gateway_id', $paymentGatewayId);
+        if ($paymentGatewayKey) {
+            $query->whereHas('payment_gateway', fn ($gw) => $gw->where('key', $paymentGatewayKey));
         }
 
-        return $query->where(function ($q) use ($paymentGatewayId) {
-            $q->where('payment_gateway_id', $paymentGatewayId)
-                ->orWhereHas('payment_gateway', fn ($gw) => $gw->where('key', $paymentGatewayId));
-        });
+        return $query;
     }
 
     public function filtered(
         array|string|null $categoriesKey = null,
         ?string $paymentGatewayId = null,
-        ?bool $isActive = null
+        ?bool $isActive = null,
+        ?string $paymentGatewayKey = null
     ): Collection {
         $categoriesKey = is_string($categoriesKey) ? [$categoriesKey] : $categoriesKey;
 
@@ -48,16 +53,20 @@ class PaymentMethodRepository extends BaseRepository
             })
             ->when($isActive !== null, fn ($query) => $query->where('is_active', $isActive));
 
-        return $this->applyGatewayFilter($query, $paymentGatewayId)->get();
+        return $this->applyGatewayFilter($query, $paymentGatewayId, $paymentGatewayKey)->get();
     }
 
-    public function detail(?string $key, ?string $paymentGatewayId = null, ?bool $isActive = null): ?PaymentMethod
-    {
+    public function detail(
+        ?string $key,
+        ?string $paymentGatewayId = null,
+        ?bool $isActive = null,
+        ?string $paymentGatewayKey = null
+    ): ?PaymentMethod {
         $query = PaymentMethod::with(['category', 'payment_gateway'])
             ->when($key, fn ($query) => $query->where('key', $key))
             ->when($isActive !== null, fn ($query) => $query->where('is_active', $isActive));
 
-        return $this->applyGatewayFilter($query, $paymentGatewayId)->first();
+        return $this->applyGatewayFilter($query, $paymentGatewayId, $paymentGatewayKey)->first();
     }
 
     public function latestPaginated(
@@ -65,7 +74,8 @@ class PaymentMethodRepository extends BaseRepository
         ?string $search = null,
         ?string $paymentGatewayId = null,
         array|string|null $categoriesKey = null,
-        ?bool $isActive = null
+        ?bool $isActive = null,
+        ?string $paymentGatewayKey = null
     ): LengthAwarePaginator {
         $categoriesKey = is_string($categoriesKey) ? [$categoriesKey] : $categoriesKey;
 
@@ -93,7 +103,7 @@ class PaymentMethodRepository extends BaseRepository
             })
             ->when($isActive !== null, fn ($query) => $query->where('is_active', $isActive));
 
-        return $this->applyGatewayFilter($query, $paymentGatewayId)
+        return $this->applyGatewayFilter($query, $paymentGatewayId, $paymentGatewayKey)
             ->latest()
             ->paginate($perPage);
     }

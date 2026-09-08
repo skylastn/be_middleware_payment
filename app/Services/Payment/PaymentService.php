@@ -114,26 +114,28 @@ class PaymentService
 
     public function getListPaymentMethod(Request $request, ?bool $onlyActive = null): Collection
     {
-        $gatewayId = $request->query('payment_gateway_id', $request->query('from'));
+        $gatewayId = $request->query('payment_gateway_id', $request->query('paymentGatewayId'));
+        $gatewayKey = $request->query('payment_gateway_key', $request->query('paymentGatewayKey', $request->query('from')));
         $isActive = $onlyActive ?? ($request->has('is_active') ? $request->boolean('is_active') : null);
 
-        return $this->paymentMethods->filtered($request->categoriesKey, $gatewayId, $isActive);
+        return $this->paymentMethods->filtered($request->categoriesKey, $gatewayId, $isActive, $gatewayKey);
     }
 
     public function getPaginatedPaymentMethod(Request $request): LengthAwarePaginator
     {
         $perPage = (int) ($request->query('per_page', $request->query('perPage', 10)));
         $search = $request->query('search');
-        $gatewayId = $request->query('payment_gateway_id', $request->query('from'));
+        $gatewayId = $request->query('payment_gateway_id', $request->query('paymentGatewayId'));
+        $gatewayKey = $request->query('payment_gateway_key', $request->query('paymentGatewayKey', $request->query('from')));
         $categoriesKey = $request->query('categoriesKey');
         $isActive = $request->has('is_active') && $request->query('is_active') !== 'all' ? $request->boolean('is_active') : null;
 
-        return $this->paymentMethods->latestPaginated($perPage, $search, $gatewayId, $categoriesKey, $isActive);
+        return $this->paymentMethods->latestPaginated($perPage, $search, $gatewayId, $categoriesKey, $isActive, $gatewayKey);
     }
 
-    public function getDetailPaymentMethod(?string $key, ?string $paymentGatewayId = null, ?bool $onlyActive = null): ?PaymentMethod
+    public function getDetailPaymentMethod(?string $key, ?string $paymentGatewayId = null, ?bool $onlyActive = null, ?string $paymentGatewayKey = null): ?PaymentMethod
     {
-        return $this->paymentMethods->detail($key, $paymentGatewayId, $onlyActive);
+        return $this->paymentMethods->detail($key, $paymentGatewayId, $onlyActive, $paymentGatewayKey);
     }
 
     public function getPaymentMethodById(int|string $id): ?PaymentMethod
@@ -174,10 +176,6 @@ class PaymentService
     {
         $data = $this->processPaymentMethodImage($data);
         $data['bankCode'] = $data['bankCode'] ?? '';
-        if (empty($data['payment_gateway_id']) && ! empty($data['from'])) {
-            $data['payment_gateway_id'] = PaymentGateway::where('key', $data['from'])->value('id');
-        }
-        unset($data['from']);
         if (! array_key_exists('is_active', $data) || $data['is_active'] === null) {
             $data['is_active'] = true;
         }
@@ -196,10 +194,6 @@ class PaymentService
         if (array_key_exists('bankCode', $data) && $data['bankCode'] === null) {
             $data['bankCode'] = '';
         }
-        if (empty($data['payment_gateway_id']) && ! empty($data['from'])) {
-            $data['payment_gateway_id'] = PaymentGateway::where('key', $data['from'])->value('id');
-        }
-        unset($data['from']);
         if (array_key_exists('is_active', $data) && $data['is_active'] !== null) {
             $data['is_active'] = (bool) $data['is_active'];
         }

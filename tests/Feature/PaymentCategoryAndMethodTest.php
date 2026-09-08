@@ -220,6 +220,11 @@ class PaymentCategoryAndMethodTest extends TestCase
         $response->assertStatus(200);
         $response->assertJsonPath('data.key', 'BC');
         $response->assertJsonPath('data.name', 'BCA VA');
+
+        $responseKey = $this->getJson('/api/payment/getDetailPaymentMethod?key=BC&payment_gateway_key=duitku');
+        $responseKey->assertStatus(200);
+        $responseKey->assertJsonPath('data.key', 'BC');
+        $responseKey->assertJsonPath('data.name', 'BCA VA');
     }
 
     public function test_client_payment_method_api_hides_inactive_methods(): void

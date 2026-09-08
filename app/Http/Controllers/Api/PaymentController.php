@@ -49,9 +49,10 @@ class PaymentController extends Controller
     public function getDetailPaymentMethod(Request $request): JsonResponse
     {
         $key = $request->query('key', $request->query('value'));
-        $paymentGatewayId = $request->query('payment_gateway_id', $request->query('from'));
+        $paymentGatewayId = $request->query('payment_gateway_id', $request->query('paymentGatewayId'));
+        $paymentGatewayKey = $request->query('payment_gateway_key', $request->query('paymentGatewayKey', $request->query('from')));
         $onlyActive = auth('sanctum')->check() ? null : true;
-        $result = $this->paymentService->getDetailPaymentMethod($key, $paymentGatewayId, $onlyActive);
+        $result = $this->paymentService->getDetailPaymentMethod($key, $paymentGatewayId, $onlyActive, $paymentGatewayKey);
 
         return ResponseHelper::successResponse($result ? new PaymentMethodResource($result) : null);
     }
