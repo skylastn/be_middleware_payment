@@ -7,6 +7,7 @@ use App\Http\Helper\LogHelper;
 use App\Http\Helper\ResponseHelper;
 use App\Services\Payment\DuitkuService;
 use App\Services\Payment\MidtransService;
+use App\Services\Payment\PaprikaService;
 use App\Services\Payment\SPNPayService;
 use App\Services\Payment\StripeService;
 use App\Services\Payment\XenditService;
@@ -17,8 +18,27 @@ use Illuminate\Support\Facades\DB;
 
 class WebhookController extends Controller
 {
+    private SPNPayService $spnPayService;
 
-    public function __construct() {}
+    private DuitkuService $duitkuService;
+
+    private MidtransService $midtransService;
+
+    private XenditService $xenditService;
+
+    private StripeService $stripeService;
+
+    private PaprikaService $paprikaService;
+
+    public function __construct()
+    {
+        $this->spnPayService = new SPNPayService;
+        $this->duitkuService = new DuitkuService;
+        $this->xenditService = new XenditService;
+        $this->midtransService = new MidtransService;
+        $this->stripeService = new StripeService;
+        $this->paprikaService = new PaprikaService;
+    }
 
     public function webhookPaprika(Request $request): JsonResponse
     {
@@ -26,6 +46,7 @@ class WebhookController extends Controller
             DB::beginTransaction();
             LogHelper::sendLog('Paprika Webhook', $request->all());
             // $callback = $this->stripeService->callback($request);
+            $callback = $this->paprikaService->callback($request);
             DB::commit();
 
             return ResponseHelper::successResponse('Success Send Callback');
