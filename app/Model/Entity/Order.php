@@ -21,6 +21,7 @@ class Order extends Model
         'payment_repository_id' => 'string',
         'mode' => PaymentModeType::class,
         'status' => OrderStatus::class,
+        'amount' => 'float',
     ];
 
     protected $fillable = [
@@ -30,6 +31,7 @@ class Order extends Model
         'type',
         'reference',
         'payment_method',
+        'amount',
         'value',
         'status',
         'request',
@@ -156,6 +158,16 @@ class Order extends Model
     public function setPaymentMethod(?string $paymentMethod): void
     {
         $this->payment_method = $paymentMethod;
+    }
+
+    public function getAmount(): float
+    {
+        return (float) ($this->amount ?? 0);
+    }
+
+    public function setAmount(float|int|string|null $amount): void
+    {
+        $this->amount = (float) ($amount ?? 0);
     }
 
     public function getValue(): ?string

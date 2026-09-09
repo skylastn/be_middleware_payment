@@ -5,7 +5,7 @@ export const resourceDefinitions: Record<ResourceKey, ResourceDefinition> = {
         label: 'Orders',
         singular: 'Order',
         readonly: true,
-        columns: ['reference', 'type', 'payment_method', 'status', 'mode', 'created_at'],
+        columns: ['reference', 'type', 'payment_method', 'amount', 'status', 'mode', 'created_at'],
         fields: {},
         endpoints: {
             list: '/api/admin/orders',

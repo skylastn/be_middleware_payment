@@ -95,22 +95,11 @@ class OrderService
 
     private function extractCallbackParams(Order $order): array
     {
-        $payload = is_array($order->callback)
-            ? $order->callback
-            : json_decode((string) $order->callback, true);
-
-        if (! empty($payload) && is_array($payload)) {
-            return $payload;
-        }
-
-        $requestData = is_array($order->request)
-            ? $order->request
-            : json_decode((string) $order->request, true);
-
         return [
             'merchantOrderId' => $order->getMerchantOrderId() ?: $order->reference,
             'reference' => $order->reference,
-            'amount' => (int) ($requestData['paymentAmount'] ?? $requestData['amount'] ?? 0),
+            'paymentCode' => $order->getPaymentMethod(),
+            'amount' => (int) $order->getAmount(),
             'status' => OrderStatus::SUCCESS->value,
             'resultCode' => '00',
         ];

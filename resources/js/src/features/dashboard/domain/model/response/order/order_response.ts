@@ -5,6 +5,7 @@ export interface OrderItem {
     type: string;
     reference: string;
     payment_method: string;
+    amount?: number | string | null;
     value?: string | null;
     status: string;
     url?: string;

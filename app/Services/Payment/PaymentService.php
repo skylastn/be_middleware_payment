@@ -362,7 +362,7 @@ class PaymentService
 
         $project->slug = $slug;
 
-        $amount = (float) ($params['amount'] ?? $params['paymentAmount'] ?? 10000);
+        $amount = (float) ($params['paymentAmount'] ?? $params['amount'] ?? 10000);
         if ($amount <= 0) {
             throw new Exception('Test amount must be greater than 0');
         }

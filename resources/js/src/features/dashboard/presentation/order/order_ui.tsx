@@ -132,6 +132,15 @@ export function OrderPage({ mode, id }: OrderPageProps): React.JSX.Element {
                                 <div className="input mono">{record.payment_method || '-'}</div>
                             </div>
 
+                            <div className="field">
+                                <span className="label">Amount</span>
+                                <div className="input mono" style={{ fontWeight: 600 }}>
+                                    {record.amount !== undefined && record.amount !== null
+                                        ? `Rp ${Number(record.amount).toLocaleString('id-ID')}`
+                                        : '-'}
+                                </div>
+                            </div>
+
                             <div className="field full">
                                 <span className="label">Value (QRIS / VA / Link / Code)</span>
                                 <div className="input mono" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -451,9 +460,9 @@ export function OrderPage({ mode, id }: OrderPageProps): React.JSX.Element {
             </div>
 
             <div className="panel">
-                <DataTable columns={['Reference', 'Project', 'Method', 'Status', 'Mode', 'Created', 'Actions']}>
+                <DataTable columns={['Reference', 'Project', 'Method', 'Amount', 'Status', 'Mode', 'Created', 'Actions']}>
                     {loading ? (
-                        <SkeletonTableRows rows={perPage > 15 ? 10 : 6} columns={7} />
+                        <SkeletonTableRows rows={perPage > 15 ? 10 : 6} columns={8} />
                     ) : records.length > 0 ? (
                         records.map((row: any) => {
                             const primaryKey = row.id || row.reference;
@@ -465,6 +474,11 @@ export function OrderPage({ mode, id }: OrderPageProps): React.JSX.Element {
                                     </td>
                                     <td>{row.type || '-'}</td>
                                     <td>{row.payment_method || '-'}</td>
+                                    <td className="mono" style={{ fontWeight: 600 }}>
+                                        {row.amount !== undefined && row.amount !== null
+                                            ? `Rp ${Number(row.amount).toLocaleString('id-ID')}`
+                                            : '-'}
+                                    </td>
                                     <td>{renderBadge('status', row.status)}</td>
                                     <td>{renderBadge('mode', row.mode)}</td>
                                     <td>{formatDate(row.created_at)}</td>
@@ -502,7 +516,7 @@ export function OrderPage({ mode, id }: OrderPageProps): React.JSX.Element {
                         })
                     ) : (
                         <tr>
-                            <td colSpan={7} className="empty" style={{ padding: '36px', textAlign: 'center' }}>
+                            <td colSpan={8} className="empty" style={{ padding: '36px', textAlign: 'center' }}>
                                 No orders found.
                             </td>
                         </tr>

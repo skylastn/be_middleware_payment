@@ -48,16 +48,19 @@ class MidtransService
         $paymentRepo = $this->getPaymentRepo($mode, $request->paymentGatewayId);
         $merchantOrderId = OrderIdGenerator::generate();
 
+        $paymentAmount = $request->paymentAmount;
+
         $req['id'] = $merchantOrderId;
         $req['reference'] = $project->type.'-'.$request->merchantOrderId;
         $req['type'] = $project->type;
         $req['mode'] = $mode->value;
         $req['payment_method'] = '';
+        $req['amount'] = (float) $paymentAmount;
         $req['status'] = OrderStatus::PENDING->value;
         $req['return_url'] = $request->returnUrl ?? $request->return_url ?? $project->callback;
 
         $transactionDetails['order_id'] = $req['reference'] ?? $project->type.'-'.$req['id'];
-        $transactionDetails['gross_amount'] = $request->paymentAmount ?? 0;
+        $transactionDetails['gross_amount'] = $paymentAmount ?? 0;
         $creditCard['secure'] = true;
         $customerDetails['first_name'] = $request->firstName ?? '';
         $customerDetails['last_name'] = $request->lastName ?? '';
