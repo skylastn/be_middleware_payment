@@ -374,7 +374,7 @@ class PaymentService
             $paymentMethod = 'qris';
         }
         $mode = $repository->mode?->value ?? (string) $repository->mode;
-        $orderNumber = 'TEST-' . strtoupper($slug->value) . '-' . time() . rand(100, 999);
+        $orderNumber = strtoupper($slug->value) . '-' . time() . rand(10, 99);
         $version = isset($params['version']) && $params['version'] !== '' ? (string) $params['version'] : '1';
 
         $requestData = [
