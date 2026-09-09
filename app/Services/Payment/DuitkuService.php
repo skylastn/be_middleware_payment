@@ -93,14 +93,16 @@ class DuitkuService
         $duitkuConfig = $this->setEnv($mode, $paymentRepo);
         $idSystem = OrderIdGenerator::generate();
 
+        $paymentAmount = $request->paymentAmount; // Amount
+
         $req['id'] = $idSystem;
         $req['reference'] = $project->type . '-' . $request->merchantOrderId;
         $req['type'] = $project->type;
         $req['mode'] = $mode->value;
         $req['payment_method'] = $request->paymentMethod ?? '';
+        $req['amount'] = (float) $paymentAmount;
 
         $defaultUrl = env('APP_URL') . '/api/callback/duitku';
-        $paymentAmount = $request->paymentAmount; // Amount
         $email = $request->email ?? 'admin@ngudek.com'; // your customer email
         $phoneNumber = $request->phone ?? '081512356123'; // your customer phone number (optional)
         $productDetails = $request->productDetails;

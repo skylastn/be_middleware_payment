@@ -59,12 +59,14 @@ class XenditService
         Configuration::setXenditKey($secretKey);
 
         $merchantOrderId = OrderIdGenerator::generate();
+        $paymentAmount = $request->paymentAmount;
         // return $request->req;
         $req['id'] = $merchantOrderId;
         $req['reference'] = $project->type.'-'.$request->merchantOrderId;
         $req['type'] = $project->type;
         $req['mode'] = $mode->value;
         $req['payment_method'] = '';
+        $req['amount'] = (float) $paymentAmount;
         $req['status'] = OrderStatus::PENDING->value;
         $req['return_url'] = $urlSuccess ?: $project->callback;
 
@@ -72,7 +74,7 @@ class XenditService
 
         $params = [
             'external_id' => $req['reference'] ?? $project->type.'-'.$req['id'],
-            'amount' => $request->paymentAmount ?? 0,
+            'amount' => $paymentAmount ?? 0,
             'description' => $request->productDetails ?? 'Payment',
             'invoice_duration' => $expired,
             // 'payer_email' => $request->firstName,

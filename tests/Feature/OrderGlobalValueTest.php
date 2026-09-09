@@ -107,4 +107,29 @@ class OrderGlobalValueTest extends TestCase
         $this->assertArrayHasKey('return_url', $array);
         $this->assertEquals('https://merchant.example.com/checkout/success', $array['return_url']);
     }
+
+    public function test_order_entity_persists_and_serializes_amount_field(): void
+    {
+        $order = Order::create([
+            'id' => 'ORDER-GV-004',
+            'type' => 'GV',
+            'reference' => 'GV-TEST-004',
+            'payment_method' => 'BC',
+            'amount' => 50000.50,
+            'status' => OrderStatus::PENDING->value,
+            'mode' => PaymentModeType::sandbox->value,
+        ]);
+
+        $this->assertEquals(50000.50, $order->getAmount());
+
+        $fresh = Order::find('ORDER-GV-004');
+        $this->assertNotNull($fresh);
+        $this->assertEquals(50000.50, $fresh->getAmount());
+
+        $resource = new OrderResource($fresh);
+        $array = $resource->toArray(Request::create('/admin/orders/' . $fresh->id));
+
+        $this->assertArrayHasKey('amount', $array);
+        $this->assertEquals(50000.50, $array['amount']);
+    }
 }

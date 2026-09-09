@@ -253,12 +253,14 @@ class PaprikaService
         $baseurl = $paymentRepo->getValue()['base_url'];
         $idSystem = OrderIdGenerator::generate();
         $reference = $project->type . '-' . $request->merchantOrderId;
+        $amount = (float) ($request->paymentAmount ?? 0);
 
         $req['id'] = $idSystem;
         $req['reference'] = $reference;
         $req['type'] = $project->type;
         $req['mode'] = $mode->value;
         $req['payment_method'] = $request->paymentMethod ?? '';
+        $req['amount'] = $amount;
         $req['return_url'] = $request->returnUrl ?? $request->return_url ?? $project->callback;
 
         $url = "$baseurl/api/snap/v1.0/qr/qr-mpm-generate";
@@ -266,7 +268,7 @@ class PaprikaService
         $body = [
             'partnerReferenceNo' => $reference,
             'amount' => [
-                'value' => number_format($request->paymentAmount, 2, '.', ''),
+                'value' => number_format($amount, 2, '.', ''),
                 'currency' => 'IDR',
             ],
         ];
@@ -382,12 +384,14 @@ class PaprikaService
         $baseurl = $paymentRepo->getValue()['base_url'];
         $idSystem = OrderIdGenerator::generate();
         $reference = $project->type . '-' . $request->merchantOrderId;
+        $amount = (float) ($request->paymentAmount ?? 0);
 
         $req['id'] = $idSystem;
         $req['reference'] = $reference;
         $req['type'] = $project->type;
         $req['mode'] = $mode->value;
         $req['payment_method'] = $request->paymentMethod ?? '';
+        $req['amount'] = $amount;
         $req['return_url'] = $request->returnUrl ?? $request->return_url ?? $project->callback;
 
         $url = "$baseurl/api/snap/v1.0/transfer-va/create-va";
@@ -409,7 +413,7 @@ class PaprikaService
             'virtualAccountPhone' => $request->phone ?? '',
             'trxId' => $reference,
             'totalAmount' => [
-                'value' => number_format($request->paymentAmount, 2, '.', ''),
+                'value' => number_format($amount, 2, '.', ''),
                 'currency' => $request->currency ?? 'IDR',
             ],
             'virtualAccountTrxType' => 'C',

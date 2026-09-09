@@ -45,12 +45,14 @@ class SPNPayService
     public function createOrderSPNPay(Request $request, Project $project): array
     {
         $idSystem = OrderIdGenerator::generate();
+        $paymentAmount = $request->paymentAmount;
 
         $req['id'] = $idSystem;
         $req['reference'] = $project->type.'-'.$request->merchantOrderId;
         $req['type'] = $project->type;
         $mode = PaymentModeType::fromName($request->mode) ?? PaymentModeType::sandbox;
         $req['mode'] = $mode->value;
+        $req['amount'] = (float) $paymentAmount;
         $token = $this->redisService->generatePaymentToken($project->id, $project->value, $req['reference']);
         if (FormatHelper::isNotEmpty($request->paymentMethod)) {
             $paymentUrl = env('PAYMENT_URL').'/detailpayment?token='.$token.'&reference='.$req['reference'];
@@ -67,7 +69,7 @@ class SPNPayService
         $params['singleUse'] = true;
         $params['type'] = 'ClosedAmount';
         $params['reference'] = $req['reference'];
-        $params['amount'] = $request->paymentAmount;
+        $params['amount'] = $paymentAmount;
         $params['expiryMinutes'] = 60;
         $userName = $request->firstName ?? 'AndalanSoftware';
         if (FormatHelper::isNotEmpty($request->lastName)) {
