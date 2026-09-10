@@ -26,6 +26,9 @@ log_file="docker-compose.log"
 echo "=== Deploy started at $(date) — realtime logs follow (also appended to $log_file) ===" | tee -a "$log_file"
 
 {
+  echo "Clearing Laravel caches (optimize:clear)..."
+  php artisan optimize:clear || echo "(optimize:clear skipped/failed — continuing deploy)"
+
   # On restricted servers (e.g. aaPanel where Docker build containers cannot reach
   # deb.debian.org even if the host can), set APP_DOCKER_IMAGE in .env to a pre-built
   # image (built on a machine with internet, then pushed or loaded via `docker load`).

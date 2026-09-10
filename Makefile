@@ -47,6 +47,7 @@ run:
 	./run.sh
 
 running:
+	php artisan migrate --force
 	chmod +x deploy.sh
 	./deploy.sh
 # 	docker compose down && docker compose build && docker compose up -d
