@@ -44,6 +44,14 @@ php artisan view:clear --no-interaction 2>/dev/null || true
 
 echo "Laravel config, cache & views cleared."
 
+# In production, cache config & routes for maximum Octane throughput
+if [ "${APP_ENV:-}" = "production" ] || [ "${APP_ENV:-}" = "prod" ]; then
+    echo "Caching config, routes and events for production..."
+    php artisan config:cache --no-interaction 2>/dev/null || true
+    php artisan route:cache --no-interaction 2>/dev/null || true
+    php artisan event:cache --no-interaction 2>/dev/null || true
+fi
+
 # -----------------------------------------------------------------------------
 # Database Migrations & Seeders
 # -----------------------------------------------------------------------------
