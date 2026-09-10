@@ -16,6 +16,8 @@ High-performance payment gateway aggregation platform that normalizes payment fl
 | Topic | Description | Link |
 |:---|:---|:---:|
 | 🚀 **Installation & Deployment** | Step-by-step local setup, Docker container, Supervisor, Redis queue, and aaPanel Nginx configuration. | [📖 **Open Setup Guide**](docs/installation.md) |
+| ⚙️ **Backend Architecture** | Layered flow, strategy routers, entity getters/setters, and detailed file map. | [📖 **Backend Guide**](docs/backend-architecture.md) |
+| 💻 **Frontend Architecture** | React 19 SPA, Clean Architecture feature anatomy, UI vs Logic hooks, and file map. | [📖 **Frontend Guide**](docs/frontend-architecture.md) |
 | 📬 **Postman Workspace** | Interactive API documentation, collection runner, and public environment variables. | [🌐 **Open Postman Workspace**](https://www.postman.com/solar-moon-928951/middleware-payment-v2) |
 | 💳 **Payment Gateways** | Gateway-specific integration guides, JSON credentials schemas, and Snap vs Direct API flows. | [📂 **Explore Gateways**](#-supported-payment-gateways) |
 | 💖 **Support the Author** | Donate via Saweria or Crypto (BNB / ETH / Solana). | [☕ **Support & Donate**](#-support-the-author--donations) |
@@ -90,16 +92,16 @@ bun run build && make run
 
 ---
 
-## 🏗️ Architecture & Core Endpoints
+## 🏗️ System Architecture
 
-### Layered Architecture
-```text
-Routes -> Controllers (Api) -> Services (Strategy Router) -> Repositories -> Eloquent Entities
-                      |
-                      +-- Helpers (ResponseHelper, LogHelper, FormatHelper)
-                      |
-                      +-- Async Jobs (SendMerchantCallback, SendNotificationJob)
-```
+The platform cleanly separates responsibilities between a high-throughput Laravel 13 Octane backend and a Clean Architecture React 19 Backoffice SPA in `resources/`.
+
+| Component | Technology | Architectural Pattern | Complete Documentation |
+|:---|:---|:---|:---:|
+| ⚙️ **Backend** | Laravel 13 + PHP 8.4 (FrankenPHP Octane) | Decoupled Layered Architecture (Strategy Router, Manual DI, Repositories, Entities) | [📖 **Open Backend Architecture Guide**](docs/backend-architecture.md) |
+| 💻 **Frontend** | React 19 + TypeScript (Blade Mounted SPA) | Feature-Driven Clean Architecture 4-Tier (`domain`, `infrastructure`, `application`, `presentation`) | [📖 **Open Frontend Architecture Guide**](docs/frontend-architecture.md) |
+
+---
 
 ### Main API Endpoints
 
