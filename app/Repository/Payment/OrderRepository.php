@@ -24,6 +24,7 @@ class OrderRepository extends BaseRepository
                 $query->where(function ($q) use ($search) {
                     $q->where('reference', 'like', "%{$search}%")
                         ->orWhere('id', 'like', "%{$search}%")
+                        ->orWhere('name', 'like', "%{$search}%")
                         ->orWhere('payment_method', 'like', "%{$search}%")
                         ->orWhere('type', 'like', "%{$search}%")
                         ->orWhere('email', 'like', "%{$search}%")
@@ -68,6 +69,13 @@ class OrderRepository extends BaseRepository
     {
         return Order::where('reference', $reference)
             ->whereBetween('created_at', [$fromDate, $toDate])
+            ->orderBy('id', 'desc')
+            ->first();
+    }
+
+    public function findOneByValue(string $value): ?Order
+    {
+        return Order::where('value', $value)
             ->orderBy('id', 'desc')
             ->first();
     }

@@ -142,7 +142,9 @@ Routes -> Controllers (Api) -> Services (Strategy Router) -> Repositories -> Elo
   - `POST /api/callback/xendit` — Webhook handler for Xendit.
   - `POST /api/callback/spnpay` — Webhook handler for SPNPay.
   - `POST /api/callback/stripe` — Webhook handler for Stripe.
-  - `POST /api/callback/paprika` — Webhook handler for Paprika (SNAP 1.0 format).
+  - `POST /api/paprika/callback` (or `/api/callback/paprika`) — Callback handler for Paprika (SNAP 1.0.2 format).
+  - `POST /api/paprika/webhook` (or `/api/webhook/paprika`) — Webhook handler for Paprika VA / QRIS.
+  - `POST /api/paprika/snap/v1.0/access-token/b2b` — SNAP B2B Access Token handshake endpoint for Paprika.
 - **Merchant Project Management:**
   - `GET /api/project` — List registered merchant projects.
   - `POST /api/project/create` — Register a new merchant project.

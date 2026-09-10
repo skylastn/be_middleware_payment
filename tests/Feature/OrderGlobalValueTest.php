@@ -132,4 +132,25 @@ class OrderGlobalValueTest extends TestCase
         $this->assertArrayHasKey('amount', $array);
         $this->assertEquals(50000.50, $array['amount']);
     }
+
+    public function test_order_migration_backfills_customer_name(): void
+    {
+        $order = Order::create([
+            'id' => 'ORDER-GV-005',
+            'type' => 'GV',
+            'reference' => 'GV-TEST-005',
+            'status' => OrderStatus::PENDING->value,
+            'mode' => PaymentModeType::sandbox->value,
+            'request' => json_encode([
+                'firstName' => 'Budi',
+                'lastName' => 'Santoso',
+            ]),
+        ]);
+
+        $migration = require database_path('migrations/2026_09_10_000001_add_name_to_orders_table.php');
+        $migration->up();
+
+        $order->refresh();
+        $this->assertEquals('Budi Santoso', $order->getName());
+    }
 }

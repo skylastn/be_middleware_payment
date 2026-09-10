@@ -20,6 +20,7 @@ class OrderResource extends ResponseResource
             'mode' => $this->mode instanceof PaymentModeType ? $this->mode->value : $this->mode,
             'type' => $this->type,
             'reference' => $this->reference,
+            'name' => $this->name,
             'payment_method' => $this->payment_method,
             'amount' => (float) ($this->amount ?? 0),
             'value' => $this->value,

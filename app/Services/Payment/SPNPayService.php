@@ -53,6 +53,8 @@ class SPNPayService
         $mode = PaymentModeType::fromName($request->mode) ?? PaymentModeType::sandbox;
         $req['mode'] = $mode->value;
         $req['amount'] = (float) $paymentAmount;
+        $customerName = trim(($request->firstName ?? '') . ' ' . ($request->lastName ?? ''));
+        $req['name'] = $customerName ?: ($request->customerVaName ?? $request->name ?? null);
         $token = $this->redisService->generatePaymentToken($project->id, $project->value, $req['reference']);
         if (FormatHelper::isNotEmpty($request->paymentMethod)) {
             $paymentUrl = env('PAYMENT_URL').'/detailpayment?token='.$token.'&reference='.$req['reference'];

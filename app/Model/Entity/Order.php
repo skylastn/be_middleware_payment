@@ -30,6 +30,7 @@ class Order extends Model
         'mode',
         'type',
         'reference',
+        'name',
         'payment_method',
         'amount',
         'value',
@@ -126,6 +127,16 @@ class Order extends Model
     public function setReference(?string $reference): void
     {
         $this->reference = $reference;
+    }
+
+    public function getName(): ?string
+    {
+        return $this->name;
+    }
+
+    public function setName(?string $name): void
+    {
+        $this->name = $name;
     }
 
     /**

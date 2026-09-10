@@ -37,4 +37,23 @@ class RedisService
     {
         Redis::del("payment_token:{$token}");
     }
+
+    public function storeSnapAccessToken(string $token, string $clientKey, int $ttl = 900): void
+    {
+        Redis::setex("snap_token:{$token}", $ttl, json_encode([
+            'client_key' => $clientKey,
+            'created_at' => time(),
+        ]));
+    }
+
+    public function getSnapAccessToken(string $token): ?array
+    {
+        $data = Redis::get("snap_token:{$token}");
+
+        if (! $data) {
+            return null;
+        }
+
+        return json_decode($data, true);
+    }
 }

@@ -47,6 +47,11 @@ class OrderService
         return $this->orders->findRecentByReference($reference, $fromDate, $toDate);
     }
 
+    public function findOneByValue(string $value): ?Order
+    {
+        return $this->orders->findOneByValue($value);
+    }
+
     public function getListOrder(Request $request): LengthAwarePaginator
     {
         $search = $request->query('search');

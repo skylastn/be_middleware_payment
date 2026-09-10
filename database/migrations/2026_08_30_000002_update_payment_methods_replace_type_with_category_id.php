@@ -86,10 +86,10 @@ return new class extends Migration
                         if ($hasType) {
                             $query->whereIn('type', ['qris', 'QRIS'])
                                 ->orWhere('name', 'LIKE', '%QRIS%')
-                                ->orWhereIn('key', ['SP', 'NQ', 'DQ', 'SQ', 'LQ', 'qris', 'PAPRIKA_QRIS']);
+                                ->orWhereIn('key', ['SP', 'NQ', 'DQ', 'SQ', 'LQ', 'qris', 'QRIS']);
                         } else {
                             $query->where('name', 'LIKE', '%QRIS%')
-                                ->orWhereIn('key', ['SP', 'NQ', 'DQ', 'SQ', 'LQ', 'qris', 'PAPRIKA_QRIS']);
+                                ->orWhereIn('key', ['SP', 'NQ', 'DQ', 'SQ', 'LQ', 'qris', 'QRIS']);
                         }
                     })
                     ->update(['category_id' => $catQris]);

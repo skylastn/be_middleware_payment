@@ -1087,16 +1087,69 @@ const updatedCollection = {
                     request: {
                         auth: noAuth,
                         method: 'POST',
-                        header: [{ key: 'Content-Type', value: 'application/json', type: 'text' }],
+                        header: [
+                            { key: 'Content-Type', value: 'application/json', type: 'text' },
+                            { key: 'Authorization', value: 'Bearer {{paprika_access_token}}', type: 'text' },
+                            { key: 'X-SIGNATURE', value: '{{paprika_signature}}', type: 'text' },
+                            { key: 'X-TIMESTAMP', value: '{{$isoTimestamp}}', type: 'text' },
+                        ],
                         body: {
                             mode: 'raw',
-                            raw: '{\n    "order_id": "PAP-12345",\n    "status": "PAID"\n}',
+                            raw: '{\n    "originalPartnerReferenceNo": "INV-001",\n    "originalReferenceNo": "PROJ-INV-001",\n    "latestTransactionStatus": "00",\n    "amount": {\n        "value": "10000.00",\n        "currency": "IDR"\n    }\n}',
                             options: { raw: { language: 'json' } },
                         },
                         url: {
-                            raw: '{{url_payment}}callback/paprika',
-                            host: ['{{url_payment}}callback'],
-                            path: ['paprika'],
+                            raw: '{{url_payment}}paprika/callback',
+                            host: ['{{url_payment}}paprika'],
+                            path: ['callback'],
+                        },
+                    },
+                    response: [],
+                },
+                {
+                    name: 'Webhook Paprika (VA / QRIS)',
+                    request: {
+                        auth: noAuth,
+                        method: 'POST',
+                        header: [
+                            { key: 'Content-Type', value: 'application/json', type: 'text' },
+                            { key: 'Authorization', value: 'Bearer {{paprika_access_token}}', type: 'text' },
+                            { key: 'X-SIGNATURE', value: '{{paprika_signature}}', type: 'text' },
+                            { key: 'X-TIMESTAMP', value: '{{$isoTimestamp}}', type: 'text' },
+                        ],
+                        body: {
+                            mode: 'raw',
+                            raw: '{\n    "virtualAccountNo": "1234567890123456",\n    "trxId": "PROJ-INV-001",\n    "paidAmount": {\n        "value": "10000.00",\n        "currency": "IDR"\n    }\n}',
+                            options: { raw: { language: 'json' } },
+                        },
+                        url: {
+                            raw: '{{url_payment}}paprika/webhook',
+                            host: ['{{url_payment}}paprika'],
+                            path: ['webhook'],
+                        },
+                    },
+                    response: [],
+                },
+                {
+                    name: 'Paprika SNAP B2B Access Token',
+                    request: {
+                        auth: noAuth,
+                        method: 'POST',
+                        header: [
+                            { key: 'Content-Type', value: 'application/json', type: 'text' },
+                            { key: 'X-CLIENT-KEY', value: '{{paprika_client_key}}', type: 'text' },
+                            { key: 'X-TIMESTAMP', value: '{{$isoTimestamp}}', type: 'text' },
+                            { key: 'X-SIGNATURE', value: '{{paprika_asymmetric_signature}}', type: 'text' },
+                        ],
+                        body: {
+                            mode: 'raw',
+                            raw: '{\n    "grantType": "client_credentials"\n}',
+                            options: { raw: { language: 'json' } },
+                        },
+                        url: {
+                            raw: '{{url_payment}}paprika/snap/v1.0/access-token/b2b',
+                            host: ['{{url_payment}}paprika'],
+                            path: ['snap', 'v1.0', 'access-token', 'b2b'],
                         },
                     },
                     response: [],
