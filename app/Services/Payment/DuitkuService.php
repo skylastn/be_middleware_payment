@@ -101,6 +101,8 @@ class DuitkuService
         $req['mode'] = $mode->value;
         $req['payment_method'] = $request->paymentMethod ?? '';
         $req['amount'] = (float) $paymentAmount;
+        $customerName = trim(($request->firstName ?? '') . ' ' . ($request->lastName ?? ''));
+        $req['name'] = $customerName ?: ($request->customerVaName ?? $request->name ?? null);
 
         $defaultUrl = env('APP_URL') . '/api/callback/duitku';
         $email = $request->email ?? 'admin@ngudek.com'; // your customer email

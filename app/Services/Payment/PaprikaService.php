@@ -158,6 +158,100 @@ class PaprikaService
         ];
     }
 
+    public function generateB2BAccessToken(Request $request)
+    {
+        $clientKey = $request->header('X-CLIENT-KEY');
+        $timestamp = $request->header('X-TIMESTAMP');
+        $signature = $request->header('X-SIGNATURE');
+
+        // Step 2: Validate mandatory headers
+        if (empty($clientKey) || empty($timestamp) || empty($signature)) {
+            return response()->json([
+                'responseCode' => '4007302',
+                'responseMessage' => 'Missing Mandatory Field [X-CLIENT-KEY, X-TIMESTAMP, or X-SIGNATURE]',
+            ], 400);
+        }
+
+        // Step 3: Format check client key (UUID format)
+        if (! preg_match('/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/', $clientKey)) {
+            return response()->json([
+                'responseCode' => '4017300',
+                'responseMessage' => 'Unauthorized [Invalid Client Key format]',
+            ], 401);
+        }
+
+        // Step 4: Validate timestamp format and expiry (<= 300 seconds)
+        try {
+            $parsedTimestamp = Carbon::parse($timestamp);
+            $timeDiff = abs(now()->diffInSeconds($parsedTimestamp, false));
+            if ($timeDiff > 300) {
+                return response()->json([
+                    'responseCode' => '4017300',
+                    'responseMessage' => 'Unauthorized [Timestamp expired]',
+                ], 401);
+            }
+        } catch (\Throwable $e) {
+            return response()->json([
+                'responseCode' => '4007301',
+                'responseMessage' => 'Invalid Field Format [X-TIMESTAMP]',
+            ], 400);
+        }
+
+        // Step 5: Validate grantType
+        if ($request->input('grantType') !== 'client_credentials') {
+            return response()->json([
+                'responseCode' => '4007301',
+                'responseMessage' => 'Invalid Field Format [grantType must be client_credentials]',
+            ], 400);
+        }
+
+        // Lookup repository by clientKey
+        $paymentRepo = $this->paymentRepositoryService->getByGatewayKeyAndClientKey('paprika', $clientKey);
+        if (! $paymentRepo) {
+            return response()->json([
+                'responseCode' => '4017300',
+                'responseMessage' => 'Unauthorized [Unknown Client Key]',
+            ], 401);
+        }
+
+        $config = $paymentRepo->getValue();
+        $publicKeyPem = $config['public_key']
+            ?? (isset($config['private_key']) ? self::getPublicKey($config['private_key']) : null);
+
+        if (empty($publicKeyPem)) {
+            return response()->json([
+                'responseCode' => '4017300',
+                'responseMessage' => 'Unauthorized [Public key not found for client]',
+            ], 401);
+        }
+
+        // Step 6: Verify asymmetric signature
+        $stringToVerify = "{$clientKey}|{$timestamp}";
+        $publicKey = openssl_pkey_get_public(str_replace('\n', "\n", $publicKeyPem));
+        $decodedSignature = base64_decode($signature);
+
+        if (! $publicKey || openssl_verify($stringToVerify, $decodedSignature, $publicKey, OPENSSL_ALGO_SHA256) !== 1) {
+            return response()->json([
+                'responseCode' => '4017300',
+                'responseMessage' => 'Unauthorized [Signature]',
+            ], 401);
+        }
+
+        // Step 8: Generate access token
+        $expiresIn = 900;
+        $accessToken = bin2hex(random_bytes(32));
+        $this->redisService->storeSnapAccessToken($accessToken, $clientKey, $expiresIn);
+
+        // Step 9: Return success response
+        return response()->json([
+            'responseCode' => '2007300',
+            'responseMessage' => 'Successful',
+            'accessToken' => $accessToken,
+            'tokenType' => 'Bearer',
+            'expiresIn' => (string) $expiresIn,
+        ], 200);
+    }
+
     public function signBySymmetricSignature(
         PaymentRepository $paymentRepo,
         string $accessToken,
@@ -254,9 +348,11 @@ class PaprikaService
         $idSystem = OrderIdGenerator::generate();
         $reference = $project->type . '-' . $request->merchantOrderId;
         $amount = (float) ($request->paymentAmount ?? 0);
+        $customerName = trim(($request->firstName ?? '') . ' ' . ($request->lastName ?? ''));
 
         $req['id'] = $idSystem;
         $req['reference'] = $reference;
+        $req['name'] = $customerName ?: ($request->customerVaName ?? $request->name ?? null);
         $req['type'] = $project->type;
         $req['mode'] = $mode->value;
         $req['payment_method'] = $request->paymentMethod ?? '';
@@ -385,9 +481,11 @@ class PaprikaService
         $idSystem = OrderIdGenerator::generate();
         $reference = $project->type . '-' . $request->merchantOrderId;
         $amount = (float) ($request->paymentAmount ?? 0);
+        $customerName = trim(($request->firstName ?? '') . ' ' . ($request->lastName ?? ''));
 
         $req['id'] = $idSystem;
         $req['reference'] = $reference;
+        $req['name'] = $customerName ?: ($request->customerVaName ?? $request->name ?? null);
         $req['type'] = $project->type;
         $req['mode'] = $mode->value;
         $req['payment_method'] = $request->paymentMethod ?? '';
@@ -524,22 +622,48 @@ class PaprikaService
     {
         LogHelper::sendLog('callback_paprika', $request->all());
 
+        // Validate Bearer token if provided (SNAP standard)
+        $bearerToken = $request->bearerToken();
+        if (! empty($bearerToken)) {
+            $tokenData = $this->redisService->getSnapAccessToken($bearerToken);
+            if (! $tokenData) {
+                return response()->json([
+                    'responseCode' => '4012600',
+                    'responseMessage' => 'Unauthorized [Invalid or expired access token]',
+                ], 401);
+            }
+        }
+
         $now = Carbon::now();
         $dateBefore = date('Y-m-d', strtotime('-1 week'));
-        $order = $this->orderService->findRecentByReference(
-            $request->input('originalReferenceNo'),
-            $dateBefore,
-            $now->toDateTimeString()
-        );
+        $reference = $request->input('originalReferenceNo')
+            ?: $request->input('paymentRequestId')
+            ?: $request->input('trxId');
+
+        $order = null;
+        if (! empty($reference)) {
+            $order = $this->orderService->findRecentByReference(
+                $reference,
+                $dateBefore,
+                $now->toDateTimeString()
+            );
+        }
+
+        $valueLookup = $request->input('virtualAccountNo') ?: $request->input('qrString') ?: $request->input('qrContent');
+        if (! $order && ! empty($valueLookup)) {
+            $order = $this->orderService->findOneByValue($valueLookup);
+        }
 
         if (! $order) {
             throw new Exception('Order not found');
         }
 
         $required = ['originalPartnerReferenceNo', 'latestTransactionStatus', 'originalReferenceNo'];
-        foreach ($required as $field) {
-            if (empty($request->input($field))) {
-                throw new Exception("Missing required field: $field");
+        if (empty($request->input('virtualAccountNo')) && empty($request->input('paidAmount'))) {
+            foreach ($required as $field) {
+                if (empty($request->input($field))) {
+                    throw new Exception("Missing required field: $field");
+                }
             }
         }
 
@@ -564,11 +688,17 @@ class PaprikaService
 
         $this->verifyCallbackSignature($request, $paymentRepo);
 
-        $status = match ($request->input('latestTransactionStatus')) {
-            '00' => OrderStatus::SUCCESS,
-            '06' => OrderStatus::FAILED,
-            default => null,
-        };
+        $transactionStatus = $request->input('latestTransactionStatus');
+        if ($transactionStatus !== null) {
+            $status = match ($transactionStatus) {
+                '00' => OrderStatus::SUCCESS,
+                '06' => OrderStatus::FAILED,
+                default => null,
+            };
+        } else {
+            // Virtual account payment notify implies success if paidAmount is present
+            $status = OrderStatus::SUCCESS;
+        }
 
         $previousStatus = $order->status;
         $order->setCallback(json_encode($request->all()));
@@ -578,9 +708,11 @@ class PaprikaService
         }
 
         $payerIssuer = $request->input('additionalInfo.payerIssuer', '');
-        $paymentMethod = $this->paymentService->getPaymentMethodByKeyAndGatewayKey($payerIssuer, 'paprika');
-        if (FormatHelper::isNotEmpty($paymentMethod)) {
-            $order->setPaymentMethod($paymentMethod->key);
+        if (! empty($payerIssuer)) {
+            $paymentMethod = $this->paymentService->getPaymentMethodByKeyAndGatewayKey($payerIssuer, 'paprika');
+            if (FormatHelper::isNotEmpty($paymentMethod)) {
+                $order->setPaymentMethod($paymentMethod->key);
+            }
         }
 
         $order->save();
@@ -590,7 +722,7 @@ class PaprikaService
                 $order,
                 $status,
                 'WEBHOOK_PAPRIKA',
-                "Paprika QR callback received: {$request->input('latestTransactionStatus')}",
+                "Paprika callback received status: " . ($transactionStatus ?? 'SUCCESS'),
                 $request->all(),
                 $previousStatus
             );
@@ -610,16 +742,12 @@ class PaprikaService
             'callback_order_paprika'
         );
 
-        $params = [
-            'originalPartnerReferenceNo' => $order->getMerchantOrderId(),
-            'originalReferenceNo' => $request->input('originalReferenceNo'),
-            'latestTransactionStatus' => $request->input('latestTransactionStatus'),
-            'amount' => $request->input('amount'),
-        ];
+        $params['merchantOrderId'] = $order->getMerchantOrderId();
+        $params['paymentCode'] = $order->getPaymentMethod();
+        $params['resultCode'] = $transactionStatus ?? '00';
 
         SendMerchantCallback::dispatch($project->value, $params, $project->callback);
         SendNotificationJob::dispatch($reference);
-        // $order->refresh();
 
         return response()->json([
             'responseCode' => '2002600',
@@ -646,28 +774,26 @@ class PaprikaService
 
     private function verifyCallbackSignature(Request $request, PaymentRepository $paymentRepo): void
     {
-        $paymentConfig = $paymentRepo->getValue();
-        $clientSecret = $paymentConfig['api_secret'];
-        $clientKey = $paymentConfig['api_key'];
-
-        $receivedSignature = $request->header('X-SIGNATURE');
+        $signature = $request->header('X-SIGNATURE');
         $timestamp = $request->header('X-TIMESTAMP');
-        $partnerId = $request->header('X-PARTNER-ID');
+        $accessToken = $request->bearerToken();
 
-        if (empty($receivedSignature) || empty($timestamp) || empty($partnerId)) {
-            throw new \Exception('Missing callback signature headers');
+        if (empty($signature) || empty($timestamp) || empty($accessToken)) {
+            throw new Exception('Missing callback signature headers');
         }
 
-        $requestBody = json_encode($request->except('X-SIGNATURE'));
-        $bodyHash = hash('sha256', $requestBody);
-        $stringToSign = "POST:/api/callback/paprika:{$partnerId}:{$bodyHash}:{$timestamp}";
+        // SNAP v1.0.2: {HTTP_METHOD}:{URL_PATH}:{accessToken}:{SHA256_hex(body)}:{X-TIMESTAMP}
+        $method = strtoupper($request->method());
+        $path = $request->getPathInfo();
+        $rawBody = $request->getContent() ?: json_encode($request->except('X-SIGNATURE'), JSON_UNESCAPED_SLASHES);
+        $bodyHash = hash('sha256', $rawBody);
 
-        $expectedSignature = base64_encode(
-            hash_hmac('sha512', $stringToSign, $clientSecret, true)
-        );
+        $stringToSign = "{$method}:{$path}:{$accessToken}:{$bodyHash}:{$timestamp}";
+        $clientSecret = $paymentRepo->getValue()['api_secret'];
+        $expectedSignature = base64_encode(hash_hmac('sha512', $stringToSign, $clientSecret, true));
 
-        if (! hash_equals($expectedSignature, $receivedSignature)) {
-            throw new \Exception('Invalid callback signature');
+        if (! hash_equals($expectedSignature, $signature)) {
+            throw new Exception('Invalid callback signature');
         }
     }
 

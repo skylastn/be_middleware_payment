@@ -40,21 +40,23 @@ class WebhookController extends Controller
         $this->paprikaService = new PaprikaService;
     }
 
-    public function webhookPaprika(Request $request): JsonResponse
-    {
-        try {
-            DB::beginTransaction();
-            LogHelper::sendLog('Paprika Webhook', $request->all());
-            // $callback = $this->stripeService->callback($request);
-            $callback = $this->paprikaService->callback($request);
-            DB::commit();
-
-            return ResponseHelper::successResponse('Success Send Callback');
-        } catch (Exception $ex) {
-            DB::rollback();
-            LogHelper::sendErrorLog($ex);
-
-            return ResponseHelper::failedResponse($ex->getMessage());
-        }
-    }
+    // public function webhookPaprika(Request $request): JsonResponse
+    // {
+    //     try {
+    // public function webhookPaprika(Request $request): JsonResponse
+    // {
+    //     try {
+    //         DB::beginTransaction();
+    //         LogHelper::sendLog('Paprika Webhook', $request->all());
+    //         $callback = $this->paprikaService->callback($request);
+    //         DB::commit();
+    // 
+    //         return $callback;
+    //     } catch (Exception $ex) {
+    //         DB::rollback();
+    //         LogHelper::sendErrorLog($ex);
+    // 
+    //         return ResponseHelper::failedResponse($ex->getMessage());
+    //     }
+    // }
 }

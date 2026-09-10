@@ -609,10 +609,41 @@ class PostmanSyncService
                         'method' => 'POST',
                         'header' => [
                             ['key' => 'Content-Type', 'value' => 'application/json'],
+                            ['key' => 'Authorization', 'value' => 'Bearer {{paprika_access_token}}'],
                             ['key' => 'X-SIGNATURE', 'value' => '{{paprika_signature}}'],
                             ['key' => 'X-TIMESTAMP', 'value' => '{{$isoTimestamp}}'],
                         ],
-                        'url' => ['raw' => '{{base_url}}/api/callback/paprika', 'host' => ['{{base_url}}'], 'path' => ['api', 'callback', 'paprika']],
+                        'url' => ['raw' => '{{base_url}}/api/paprika/callback', 'host' => ['{{base_url}}'], 'path' => ['api', 'paprika', 'callback']],
+                    ],
+                ],
+                [
+                    'name' => 'Paprika Webhook (VA / QRIS)',
+                    'request' => [
+                        'method' => 'POST',
+                        'header' => [
+                            ['key' => 'Content-Type', 'value' => 'application/json'],
+                            ['key' => 'Authorization', 'value' => 'Bearer {{paprika_access_token}}'],
+                            ['key' => 'X-SIGNATURE', 'value' => '{{paprika_signature}}'],
+                            ['key' => 'X-TIMESTAMP', 'value' => '{{$isoTimestamp}}'],
+                        ],
+                        'url' => ['raw' => '{{base_url}}/api/paprika/webhook', 'host' => ['{{base_url}}'], 'path' => ['api', 'paprika', 'webhook']],
+                    ],
+                ],
+                [
+                    'name' => 'Paprika SNAP B2B Access Token',
+                    'request' => [
+                        'method' => 'POST',
+                        'header' => [
+                            ['key' => 'Content-Type', 'value' => 'application/json'],
+                            ['key' => 'X-CLIENT-KEY', 'value' => '{{paprika_client_key}}'],
+                            ['key' => 'X-TIMESTAMP', 'value' => '{{$isoTimestamp}}'],
+                            ['key' => 'X-SIGNATURE', 'value' => '{{paprika_asymmetric_signature}}'],
+                        ],
+                        'body' => [
+                            'mode' => 'raw',
+                            'raw' => json_encode(['grantType' => 'client_credentials'], JSON_PRETTY_PRINT),
+                        ],
+                        'url' => ['raw' => '{{base_url}}/api/paprika/snap/v1.0/access-token/b2b', 'host' => ['{{base_url}}'], 'path' => ['api', 'paprika', 'snap', 'v1.0', 'access-token', 'b2b']],
                     ],
                 ],
             ],

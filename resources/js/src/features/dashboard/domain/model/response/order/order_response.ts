@@ -4,6 +4,7 @@ export interface OrderItem {
     mode: string;
     type: string;
     reference: string;
+    name?: string | null;
     payment_method: string;
     amount?: number | string | null;
     value?: string | null;

@@ -20,6 +20,17 @@ class PaymentRepositoryRepository extends BaseRepository
             ->first();
     }
 
+    public function findByGatewayAndClientKey(string $paymentGatewayId, string $clientKey): ?PaymentRepository
+    {
+        return PaymentRepository::where('payment_gateway_id', $paymentGatewayId)
+            ->where(function ($query) use ($clientKey) {
+                $query->where('value->api_key', $clientKey)
+                    ->orWhere('value', 'like', '%"api_key":"' . $clientKey . '"%')
+                    ->orWhere('value', 'like', '%"api_key": "' . $clientKey . '"%');
+            })
+            ->first();
+    }
+
     public function latestPaginated(int $perPage = 10, ?string $search = null, ?string $mode = null): LengthAwarePaginator
     {
         return PaymentRepository::query()

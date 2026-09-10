@@ -236,6 +236,9 @@ class PaprikaServiceTest extends TestCase
             $this->expectException(\Exception::class);
             $this->expectExceptionMessage('Invalid callback signature');
 
+            $redis = new \App\Services\System\RedisService;
+            $redis->storeSnapAccessToken('valid-token', 'test-client-key-12345', 900);
+
             $body = [
                 'originalPartnerReferenceNo' => 'FM-0000072',
                 'originalReferenceNo' => 'AD-FM-0000072',
@@ -245,6 +248,7 @@ class PaprikaServiceTest extends TestCase
             $request = Request::create('/api/callback/paprika', 'POST',
                 [], [], [],
                 [
+                    'HTTP_AUTHORIZATION' => 'Bearer valid-token',
                     'HTTP_X_SIGNATURE' => 'invalid-signature',
                     'HTTP_X_TIMESTAMP' => '2026-08-24T00:00:00+00:00',
                     'HTTP_X_PARTNER_ID' => 'test-client-key-12345',
@@ -273,7 +277,11 @@ class PaprikaServiceTest extends TestCase
 
         $requestBody = json_encode($body);
         $bodyHash = hash('sha256', $requestBody);
-        $stringToSign = "POST:/api/callback/paprika:{$clientKey}:{$bodyHash}:{$timestamp}";
+        $token = 'test-unit-token';
+        $redis = new \App\Services\System\RedisService;
+        $redis->storeSnapAccessToken($token, $clientKey, 900);
+
+        $stringToSign = "POST:/api/callback/paprika:{$token}:{$bodyHash}:{$timestamp}";
         $signature = base64_encode(hash_hmac('sha512', $stringToSign, $clientSecret, true));
 
         $order = Order::create([
@@ -302,6 +310,7 @@ class PaprikaServiceTest extends TestCase
             $request = Request::create('/api/callback/paprika', 'POST',
                 [], [], [],
                 [
+                    'HTTP_AUTHORIZATION' => "Bearer {$token}",
                     'HTTP_X_SIGNATURE' => $signature,
                     'HTTP_X_TIMESTAMP' => $timestamp,
                     'HTTP_X_PARTNER_ID' => $clientKey,

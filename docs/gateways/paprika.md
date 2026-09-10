@@ -121,14 +121,19 @@ Payment methods configured in `payment_methods` table routed to Paprika:
 
 ## 4. Webhook / Callback Handling
 
-Paprika delivers SNAP 1.0 JSON notifications to the webhook endpoint:
+Paprika delivers SNAP 1.0.2 JSON notifications using B2B Access Token flow and HMAC-SHA512 symmetric transaction signature.
 
-**`POST /api/callback/paprika`**
+### Endpoints
+- **Access Token B2B**: `POST /api/paprika/snap/v1.0/access-token/b2b`
+- **Webhook Endpoint (VA / Dedicated)**: `POST /api/paprika/webhook` (or alias `POST /api/webhook/paprika`)
+- **Callback Endpoint (QRIS / Dedicated)**: `POST /api/paprika/callback` (or alias `POST /api/callback/paprika`)
 
 ### Callback Headers:
+- `Authorization`: `Bearer {accessToken}`
 - `X-PARTNER-ID`: Client Key / Partner ID
 - `X-TIMESTAMP`: ISO 8601 Timestamp
-- `X-SIGNATURE`: HMAC-SHA512 signature (`POST:/api/callback/paprika:{partnerId}:{bodyHash}:{timestamp}`)
+- `X-SIGNATURE`: HMAC-SHA512 signature (`{HTTP_METHOD}:{URL_PATH}:{accessToken}:{SHA256_hex(body)}:{X-TIMESTAMP}`)
+- `X-EXTERNAL-ID`: Idempotency key (optional / numeric)
 
 ### Callback Payload Example:
 ```json

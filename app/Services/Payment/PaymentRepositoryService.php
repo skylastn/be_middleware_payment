@@ -31,4 +31,14 @@ class PaymentRepositoryService
         }
         return $this->paymentRepositories->findByGatewayAndMode($pg->id, $mode);
     }
+
+    public function getByGatewayKeyAndClientKey(string $gatewayKey, string $clientKey): ?PaymentRepository
+    {
+        $pg = $this->paymentGateways->findByKey($gatewayKey);
+        if (!FormatHelper::isNotEmpty($pg)) {
+            return null;
+        }
+
+        return $this->paymentRepositories->findByGatewayAndClientKey($pg->id, $clientKey);
+    }
 }

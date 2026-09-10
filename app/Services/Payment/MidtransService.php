@@ -56,6 +56,8 @@ class MidtransService
         $req['mode'] = $mode->value;
         $req['payment_method'] = '';
         $req['amount'] = (float) $paymentAmount;
+        $customerName = trim(($request->firstName ?? '') . ' ' . ($request->lastName ?? ''));
+        $req['name'] = $customerName ?: ($request->customerVaName ?? $request->name ?? null);
         $req['status'] = OrderStatus::PENDING->value;
         $req['return_url'] = $request->returnUrl ?? $request->return_url ?? $project->callback;
 

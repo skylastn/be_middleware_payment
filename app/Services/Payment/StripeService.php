@@ -77,6 +77,8 @@ class StripeService
         $req['mode'] = $mode->value;
         $req['payment_method'] = $request->input('paymentMethod') ?? $request->input('payment_method') ?? '';
         $req['amount'] = $rawAmount;
+        $customerName = trim(($request->firstName ?? '') . ' ' . ($request->lastName ?? ''));
+        $req['name'] = $customerName ?: ($request->customerVaName ?? $request->name ?? null);
         $req['status'] = OrderStatus::PENDING->value;
         $req['return_url'] = $request->input('returnUrl') ?: $request->input('return_url') ?: $project->callback;
 

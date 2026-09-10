@@ -113,6 +113,11 @@ export function OrderPage({ mode, id }: OrderPageProps): React.JSX.Element {
                             </div>
 
                             <div className="field">
+                                <span className="label">Customer Name</span>
+                                <div className="input" style={{ fontWeight: 500 }}>{record.name || '-'}</div>
+                            </div>
+
+                            <div className="field">
                                 <span className="label">Payment Status</span>
                                 <div>{renderBadge('status', record.status)}</div>
                             </div>
@@ -460,9 +465,9 @@ export function OrderPage({ mode, id }: OrderPageProps): React.JSX.Element {
             </div>
 
             <div className="panel">
-                <DataTable columns={['Reference', 'Project', 'Method', 'Amount', 'Status', 'Mode', 'Created', 'Actions']}>
+                <DataTable columns={['Reference', 'Customer', 'Project', 'Method', 'Amount', 'Status', 'Mode', 'Created', 'Actions']}>
                     {loading ? (
-                        <SkeletonTableRows rows={perPage > 15 ? 10 : 6} columns={8} />
+                        <SkeletonTableRows rows={perPage > 15 ? 10 : 6} columns={9} />
                     ) : records.length > 0 ? (
                         records.map((row: any) => {
                             const primaryKey = row.id || row.reference;
@@ -472,6 +477,7 @@ export function OrderPage({ mode, id }: OrderPageProps): React.JSX.Element {
                                         {row.reference}
                                         <CopyButton text={row.reference} />
                                     </td>
+                                    <td>{row.name || '-'}</td>
                                     <td>{row.type || '-'}</td>
                                     <td>{row.payment_method || '-'}</td>
                                     <td className="mono" style={{ fontWeight: 600 }}>
