@@ -176,6 +176,26 @@ class OrderController extends Controller
         }
     }
 
+    public function setSuccessAdmin(int|string $id): JsonResponse
+    {
+        try {
+            DB::beginTransaction();
+            $updatedOrder = $this->service->setSuccessById($id);
+            DB::commit();
+
+            return ResponseHelper::successResponse($updatedOrder, 'Order status updated to SUCCESS and callback sent.');
+        } catch (Exception $ex) {
+            if (DB::transactionLevel() > 0) {
+                DB::rollback();
+            }
+            LogHelper::sendErrorLog($ex);
+
+            $code = $ex->getCode() >= 400 && $ex->getCode() < 600 ? $ex->getCode() : 400;
+
+            return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), $code, $ex->getLine(), $ex->getFile());
+        }
+    }
+
     public function destroy(int|string $id): JsonResponse
     {
         try {

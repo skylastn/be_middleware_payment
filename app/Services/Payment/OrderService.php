@@ -154,4 +154,49 @@ class OrderService
 
         return $order;
     }
+
+    public function setSuccessById(int|string $id): Order
+    {
+        $order = $this->orders->findById($id, ['histories']);
+        if (! $order) {
+            throw new Exception('Order Not Found', 404);
+        }
+
+        $currentStatus = $order->getStatus();
+        if ($currentStatus !== null && $currentStatus->isSuccess()) {
+            return $order;
+        }
+
+        $project = $order->project ?: $this->projectService->getByType($order->type);
+        if (! FormatHelper::isNotEmpty($project)) {
+            throw new Exception('Project Not Found', 404);
+        }
+
+        $previousStatus = $order->status;
+        $order->setStatus(OrderStatus::SUCCESS);
+        $order->save();
+
+        $this->orderHistoryService->log(
+            $order,
+            OrderStatus::SUCCESS,
+            'SET_SUCCESS_ADMIN',
+            'Order status manually marked as SUCCESS by admin',
+            ['updated_by' => auth('sanctum')->user()?->email ?? 'admin'],
+            $previousStatus
+        );
+
+        $params = $this->extractCallbackParams($order);
+        $params['status'] = OrderStatus::SUCCESS->value;
+        $params['resultCode'] = '00';
+
+        if ($project->value && $project->callback) {
+            SendMerchantCallback::dispatch($project->value, $params, $project->callback);
+        }
+
+        if (FormatHelper::isNotEmpty($order->reference)) {
+            SendNotificationJob::dispatch($order->reference);
+        }
+
+        return $order->refresh();
+    }
 }
