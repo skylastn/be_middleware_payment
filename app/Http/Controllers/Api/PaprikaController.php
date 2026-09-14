@@ -6,10 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Http\Helper\LogHelper;
 use App\Http\Helper\ResponseHelper;
 use App\Services\Payment\PaprikaService;
-use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Throwable;
 
 class PaprikaController extends Controller
 {
@@ -29,8 +29,11 @@ class PaprikaController extends Controller
             ]);
 
             return $this->paprikaService->generateB2BAccessToken($request);
-        } catch (Exception $ex) {
-            LogHelper::sendErrorLog($ex);
+        } catch (Throwable $ex) {
+            LogHelper::sendErrorLog($ex, [
+                'path' => $request->path(),
+                'payload' => $request->all(),
+            ]);
 
             return response()->json([
                 'responseCode' => '5007300',
@@ -48,9 +51,12 @@ class PaprikaController extends Controller
             DB::commit();
 
             return $callback;
-        } catch (Exception $ex) {
+        } catch (Throwable $ex) {
             DB::rollback();
-            LogHelper::sendErrorLog($ex);
+            LogHelper::sendErrorLog($ex, [
+                'path' => $request->path(),
+                'payload' => $request->all(),
+            ]);
 
             return ResponseHelper::failedResponse($ex->getMessage());
         }
@@ -65,9 +71,12 @@ class PaprikaController extends Controller
             DB::commit();
 
             return $callback;
-        } catch (Exception $ex) {
+        } catch (Throwable $ex) {
             DB::rollback();
-            LogHelper::sendErrorLog($ex);
+            LogHelper::sendErrorLog($ex, [
+                'path' => $request->path(),
+                'payload' => $request->all(),
+            ]);
 
             return ResponseHelper::failedResponse($ex->getMessage());
         }

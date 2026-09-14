@@ -2,11 +2,11 @@
 
 namespace App\Http\Helper;
 
-use Exception;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
+use Throwable;
 
 class LogHelper
 {
@@ -43,7 +43,8 @@ class LogHelper
     ];
 
     public static function sendErrorLog(
-        Exception $ex,
+        Throwable $ex,
+        array $context = [],
         string $idProject = '',
         string $key = ''
     ): void {
@@ -51,6 +52,9 @@ class LogHelper
         $error['ip']        = LogHelper::getClientIP();
         $error['message']   = $ex->getMessage();
         $error['file']      = $ex->getFile();
+        if ($context !== []) {
+            $error['context'] = $context;
+        }
         if (!empty($idProject)) {
             try {
                 $dateNow                    = date("Y-m-d H:i:s");

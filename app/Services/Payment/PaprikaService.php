@@ -17,6 +17,7 @@ use App\Services\System\ProjectService;
 use App\Services\System\RedisService;
 use Carbon\Carbon;
 use Exception;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
@@ -166,18 +167,26 @@ class PaprikaService
 
         // Step 2: Validate mandatory headers
         if (empty($clientKey) || empty($timestamp) || empty($signature)) {
-            return response()->json([
-                'responseCode' => '4007302',
-                'responseMessage' => 'Missing Mandatory Field [X-CLIENT-KEY, X-TIMESTAMP, or X-SIGNATURE]',
-            ], 400);
+            return $this->errorResponse(
+                '4007302',
+                'Missing Mandatory Field [X-CLIENT-KEY, X-TIMESTAMP, or X-SIGNATURE]',
+                400,
+                [
+                    'clientKey' => $clientKey,
+                    'timestamp' => $timestamp,
+                    'hasSignature' => ! empty($signature),
+                ]
+            );
         }
 
         // Step 3: Format check client key (UUID or alphanumeric client id)
         if (! preg_match('/^[A-Za-z0-9.-]{8,128}$/', $clientKey)) {
-            return response()->json([
-                'responseCode' => '4017300',
-                'responseMessage' => 'Unauthorized [Invalid Client Key format]',
-            ], 401);
+            return $this->errorResponse(
+                '4017300',
+                'Unauthorized [Invalid Client Key format]',
+                401,
+                ['clientKey' => $clientKey]
+            );
         }
 
         // Step 4: Validate timestamp format and expiry (<= 300 seconds)
@@ -185,33 +194,41 @@ class PaprikaService
             $parsedTimestamp = Carbon::parse($timestamp);
             $timeDiff = abs(now()->diffInSeconds($parsedTimestamp, false));
             if ($timeDiff > 300) {
-                return response()->json([
-                    'responseCode' => '4017300',
-                    'responseMessage' => 'Unauthorized [Timestamp expired]',
-                ], 401);
+                return $this->errorResponse(
+                    '4017300',
+                    'Unauthorized [Timestamp expired]',
+                    401,
+                    ['timestamp' => $timestamp, 'diffSeconds' => $timeDiff]
+                );
             }
         } catch (\Throwable $e) {
-            return response()->json([
-                'responseCode' => '4007301',
-                'responseMessage' => 'Invalid Field Format [X-TIMESTAMP]',
-            ], 400);
+            return $this->errorResponse(
+                '4007301',
+                'Invalid Field Format [X-TIMESTAMP]',
+                400,
+                ['timestamp' => $timestamp, 'error' => $e->getMessage()]
+            );
         }
 
         // Step 5: Validate grantType
         if ($request->input('grantType') !== 'client_credentials') {
-            return response()->json([
-                'responseCode' => '4007301',
-                'responseMessage' => 'Invalid Field Format [grantType must be client_credentials]',
-            ], 400);
+            return $this->errorResponse(
+                '4007301',
+                'Invalid Field Format [grantType must be client_credentials]',
+                400,
+                ['grantType' => $request->input('grantType')]
+            );
         }
 
         // Lookup repository by clientKey
         $paymentRepo = $this->paymentRepositoryService->getByGatewayKeyAndClientKey('paprika', $clientKey);
         if (! $paymentRepo) {
-            return response()->json([
-                'responseCode' => '4017300',
-                'responseMessage' => 'Unauthorized [Unknown Client Key]',
-            ], 401);
+            return $this->errorResponse(
+                '4017300',
+                'Unauthorized [Unknown Client Key]',
+                401,
+                ['clientKey' => $clientKey]
+            );
         }
 
         $config = $paymentRepo->getValue();
@@ -219,10 +236,12 @@ class PaprikaService
             ?? (isset($config['private_key']) ? self::getPublicKey($config['private_key']) : null);
 
         if (empty($publicKeyPem)) {
-            return response()->json([
-                'responseCode' => '4017300',
-                'responseMessage' => 'Unauthorized [Public key not found for client]',
-            ], 401);
+            return $this->errorResponse(
+                '4017300',
+                'Unauthorized [Public key not found for client]',
+                401,
+                ['clientKey' => $clientKey, 'repositoryId' => $paymentRepo->id]
+            );
         }
 
         // Step 6: Verify asymmetric signature
@@ -231,10 +250,16 @@ class PaprikaService
         $decodedSignature = base64_decode($signature);
 
         if (! $publicKey || openssl_verify($stringToVerify, $decodedSignature, $publicKey, OPENSSL_ALGO_SHA256) !== 1) {
-            return response()->json([
-                'responseCode' => '4017300',
-                'responseMessage' => 'Unauthorized [Signature]',
-            ], 401);
+            return $this->errorResponse(
+                '4017300',
+                'Unauthorized [Signature]',
+                401,
+                [
+                    'clientKey' => $clientKey,
+                    'timestamp' => $timestamp,
+                    'stringToSign' => $stringToVerify,
+                ]
+            );
         }
 
         // Step 8: Generate access token
@@ -243,13 +268,20 @@ class PaprikaService
         $this->redisService->storeSnapAccessToken($accessToken, $clientKey, $expiresIn);
 
         // Step 9: Return success response
-        return response()->json([
+        $response = [
             'responseCode' => '2007300',
             'responseMessage' => 'Successful',
             'accessToken' => $accessToken,
             'tokenType' => 'Bearer',
             'expiresIn' => (string) $expiresIn,
-        ], 200);
+        ];
+
+        LogHelper::sendLog('Paprika B2B Access Token Issued', array_merge(
+            ['clientKey' => $clientKey],
+            $response
+        ));
+
+        return response()->json($response, 200);
     }
 
     public function signBySymmetricSignature(
@@ -316,6 +348,12 @@ class PaprikaService
         if (! empty($responseData['accessToken'])) {
             return $responseData;
         }
+
+        LogHelper::sendLog('Paprika B2B Token Failed', [
+            'url' => $url,
+            'headers' => $headers,
+            'response' => $rawResponse,
+        ]);
 
         throw new Exception(
             'Failed to get B2B token: ' . (is_string($rawResponse) ? $rawResponse : json_encode($responseData))
@@ -627,10 +665,12 @@ class PaprikaService
         if (! empty($bearerToken)) {
             $tokenData = $this->redisService->getSnapAccessToken($bearerToken);
             if (! $tokenData) {
-                return response()->json([
-                    'responseCode' => '4012600',
-                    'responseMessage' => 'Unauthorized [Invalid or expired access token]',
-                ], 401);
+                return $this->errorResponse(
+                    '4012600',
+                    'Unauthorized [Invalid or expired access token]',
+                    401,
+                    ['reference' => $request->input('originalReferenceNo') ?: $request->input('paymentRequestId')]
+                );
             }
         }
 
@@ -755,6 +795,24 @@ class PaprikaService
         ]);
     }
 
+    private function errorResponse(
+        string $responseCode,
+        string $responseMessage,
+        int $httpStatus,
+        array $context = []
+    ): JsonResponse {
+        LogHelper::sendLog('Paprika Error Response', array_merge([
+            'responseCode' => $responseCode,
+            'responseMessage' => $responseMessage,
+            'path' => request()->path(),
+        ], $context));
+
+        return response()->json([
+            'responseCode' => $responseCode,
+            'responseMessage' => $responseMessage,
+        ], $httpStatus);
+    }
+
     private function assertPaprikaSuccess(array $responseData): void
     {
         if (!empty($responseData['virtualAccountData']['virtualAccountNo'])) {
@@ -766,6 +824,12 @@ class PaprikaService
         if ($responseCode !== null && str_starts_with((string) $responseCode, '200')) {
             return;
         }
+
+        LogHelper::sendLog('Paprika Order Rejected', [
+            'responseCode' => $responseCode,
+            'responseMessage' => $responseData['responseMessage'] ?? null,
+            'response' => $responseData,
+        ]);
 
         throw new RuntimeException(
             $responseData['responseMessage'] ?? 'Failed to create order at Paprika'

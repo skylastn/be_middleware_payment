@@ -44,7 +44,7 @@ class ProjectLogsTest extends TestCase
         // Insert sample logs using LogHelper
         LogHelper::sendLog('test_event_alpha', ['order_id' => 'ORD-101', 'amount' => 50000], (string) $this->project->id, 'key_alpha');
         LogHelper::sendLog('test_event_beta', ['order_id' => 'ORD-102', 'status' => 'PAID'], (string) $this->project->id, 'key_beta');
-        LogHelper::sendErrorLog(new \Exception('Test simulate exception'), (string) $this->project->id, 'key_error');
+        LogHelper::sendErrorLog(new \Exception('Test simulate exception'), [], (string) $this->project->id, 'key_error');
     }
 
     protected function tearDown(): void
