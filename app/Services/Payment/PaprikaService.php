@@ -172,8 +172,8 @@ class PaprikaService
             ], 400);
         }
 
-        // Step 3: Format check client key (UUID format)
-        if (! preg_match('/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/', $clientKey)) {
+        // Step 3: Format check client key (UUID or alphanumeric client id)
+        if (! preg_match('/^[A-Za-z0-9.-]{8,128}$/', $clientKey)) {
             return response()->json([
                 'responseCode' => '4017300',
                 'responseMessage' => 'Unauthorized [Invalid Client Key format]',

@@ -369,6 +369,53 @@ class PaprikaCallbackTest extends TestCase
         $this->assertNotEmpty($response->json('accessToken'));
     }
 
+    public function test_snap_access_token_b2b_accepts_non_uuid_client_key(): void
+    {
+        $clientKey = 'cM9RGeQFdhIk4Q1UYxABzAwx5HET3bsRg8Sr4c3rlSL96N72qTB9iGJ2PLGGSvAn';
+        $repoValue = $this->repo->getValue();
+        $repoValue['api_key'] = $clientKey;
+        $this->repo->update(['value' => $repoValue]);
+
+        $timestamp = now()->toIso8601String();
+        $stringToSign = "{$clientKey}|{$timestamp}";
+        $privateKey = openssl_pkey_get_private($this->privateKey);
+        openssl_sign($stringToSign, $rawSignature, $privateKey, OPENSSL_ALGO_SHA256);
+
+        $response = $this->postJson('/api/paprika/snap/v1.0/access-token/b2b', [
+            'grantType' => 'client_credentials',
+        ], [
+            'X-CLIENT-KEY' => $clientKey,
+            'X-TIMESTAMP' => $timestamp,
+            'X-SIGNATURE' => base64_encode($rawSignature),
+        ]);
+
+        $response->assertStatus(200);
+        $response->assertJson([
+            'responseCode' => '2007300',
+            'responseMessage' => 'Successful',
+        ]);
+        $this->assertNotEmpty($response->json('accessToken'));
+    }
+
+    public function test_snap_access_token_b2b_rejects_malformed_client_key(): void
+    {
+        $timestamp = now()->toIso8601String();
+
+        $response = $this->postJson('/api/paprika/snap/v1.0/access-token/b2b', [
+            'grantType' => 'client_credentials',
+        ], [
+            'X-CLIENT-KEY' => 'not a valid key!',
+            'X-TIMESTAMP' => $timestamp,
+            'X-SIGNATURE' => base64_encode('any-signature'),
+        ]);
+
+        $response->assertStatus(401);
+        $response->assertJson([
+            'responseCode' => '4017300',
+            'responseMessage' => 'Unauthorized [Invalid Client Key format]',
+        ]);
+    }
+
     public function test_snap_access_token_b2b_missing_headers(): void
     {
         $response = $this->postJson('/api/paprika/snap/v1.0/access-token/b2b', [
