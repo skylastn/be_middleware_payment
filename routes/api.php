@@ -80,7 +80,6 @@ Route::middleware('throttle:api')->group(function () {
         Route::post('/xendit', [CallbackController::class, 'callbackXendit']);
         Route::post('/spnpay', [CallbackController::class, 'callbackSPNPay']);
         Route::post('/stripe', [CallbackController::class, 'callbackStripe']);
-        Route::post('/paprika', [CallbackController::class, 'callbackPaprika']);
         Route::post('/payout/stripe', [CallbackController::class, 'callbackPayoutStripe']);
     });
 
