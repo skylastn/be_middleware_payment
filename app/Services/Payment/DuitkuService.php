@@ -23,6 +23,9 @@ use Duitku\Pop;
 use Exception;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 use stdClass;
 
 class DuitkuService
@@ -79,7 +82,7 @@ class DuitkuService
     {
         $paymentRepo = $this->getPaymentRepo($order->getMode(), $order->getPaymentRepositoryId());
         $duitkuConfig = $this->setEnv($order->getMode(), $paymentRepo);
-        $createInvoice = Pop::transactionStatus($order->reference, $duitkuConfig);
+        $createInvoice = $this->duitkuRepository->checkStatus($order->getReference(), $duitkuConfig);
         $response = json_decode($createInvoice);
 
         return $response;
@@ -87,7 +90,6 @@ class DuitkuService
 
     public function orderDuitku(Request $request, Project $project): array
     {
-        set_time_limit(75);
         $mode = PaymentModeType::fromName($request->mode) ?? PaymentModeType::sandbox;
         $paymentRepo = $this->getPaymentRepo($mode, $request->paymentRepositoryId);
         $duitkuConfig = $this->setEnv($mode, $paymentRepo);
@@ -157,7 +159,7 @@ class DuitkuService
             $item1,
         ];
 
-        $signature = md5($duitkuConfig->getMerchantCode() . $merchantOrderId . $paymentAmount . $duitkuConfig->getApiKey());
+        $signature = hash_hmac('sha256', $duitkuConfig->getMerchantCode() . $merchantOrderId . $paymentAmount, $duitkuConfig->getApiKey());
         // dd($signature);
 
         $params = [
@@ -183,219 +185,192 @@ class DuitkuService
 
         $req['request'] = json_encode($params);
         $req['status'] = OrderStatus::PENDING->value;
-        $order = Order::createAndFind($req);
-
-        LogHelper::sendLog(
-            'Request Order Duitku',
-            $req,
-            $project->id,
-            'request_order_duitku'
-        );
-
-        if (FormatHelper::isNotEmpty($request->paymentMethod)) {
-            $createInvoice = $this->duitkuRepository
-                ->createInvoice($params, $duitkuConfig);
-        } else {
-            $createInvoice = Pop::createInvoice($params, $duitkuConfig);
-        }
-
-        $response = json_decode($createInvoice);
-
-        LogHelper::sendLog(
-            'Response Order Duitku',
-            $response,
-            $project->id,
-            'response_order_duitku'
-        );
-
-        $globalValue = $response->vaNumber ?? $response->qrString ?? null;
-        $order->setResponse(json_encode($response));
-        $order->setUrl($response->paymentUrl ?? null);
-        $order->setValue($globalValue);
-        $order->setPaymentRepositoryId($paymentRepo->id);
-        $order->save();
-
-        $this->orderHistoryService->log(
-            $order,
-            OrderStatus::PENDING,
-            'ORDER_CREATE_DUITKU',
-            'Order created with status PENDING',
-            $params,
-            null
-        );
-
-        $msg = 'Success Create Order Duitku';
-        $result['link'] = $response->paymentUrl;
-        if (FormatHelper::isNotEmpty($request->version) && $request->version == '2') {
-            $token = $this->redisService->generatePaymentToken($project->id, $project->value, $order->reference);
-            if (FormatHelper::isNotEmpty($request->paymentMethod)) {
-                $result['link'] = env('PAYMENT_URL') . '/detailpayment?token=' . $token . '&reference=' . $order->reference;
-            } else {
-                $result['link'] = env('PAYMENT_URL') . '/home?token=' . $token . '&reference=' . $order->reference;
+        $req['payment_repository_id'] = $paymentRepo->getKey();
+        $req['invoice_state'] = 'PROCESSING';
+        $req['expires_at'] = now()->addMinutes((int) $expiryPeriod);
+        $order = DB::transaction(fn () => Order::without(['payment_methods', 'project', 'payment_repository'])
+            ->firstOrCreate(['reference' => $req['reference']], $req));
+        if (! $order->wasRecentlyCreated) {
+            $original = json_decode((string) $order->getRequest(), true) ?: [];
+            if ($order->getAmount() !== (float) $paymentAmount
+                || $order->getPaymentMethod() !== ($request->paymentMethod ?? '')
+                || $order->getMode() !== $mode
+                || $order->getPaymentRepositoryId() !== (string) $paymentRepo->getKey()) {
+                throw new Exception('Merchant order ID was already used with different payment parameters', 409);
             }
+            return $this->invoiceResult($order, $request, $project);
         }
-        $result['result'] = $response;
-        $result['message'] = $msg;
 
-        return $result;
+        Log::info('Creating Duitku invoice', ['reference' => $order->getReference()]);
+
+        try {
+            $createInvoice = FormatHelper::isNotEmpty($request->paymentMethod)
+                ? $this->duitkuRepository->createInvoice($params, $duitkuConfig)
+                : Pop::createInvoice($params, $duitkuConfig);
+            $response = json_decode((string) $createInvoice, false, 512, JSON_THROW_ON_ERROR);
+            if (is_object($response) && isset($response->statusCode) && $response->statusCode !== '00') {
+                Order::whereKey($order->getKey())->update(['invoice_state' => 'FAILED', 'response' => json_encode($response)]);
+                return $this->invoiceResult($order->fresh(), $request, $project);
+            }
+            if (! is_object($response) || ($response->statusCode ?? null) !== '00'
+                || empty($response->paymentUrl)) {
+                throw new Exception('Invoice response could not be confirmed');
+            }
+            DB::transaction(function () use ($order, $response, $params) {
+                $locked = Order::without(['payment_methods', 'project', 'payment_repository'])
+                    ->whereKey($order->getKey())->lockForUpdate()->firstOrFail();
+                $locked->setResponse(json_encode($response));
+                $locked->setUrl($response->paymentUrl);
+                $locked->setValue($response->vaNumber ?? $response->qrString ?? null);
+                $locked->setAttribute('invoice_state', 'READY');
+                $locked->save();
+                $this->orderHistoryService->log($locked, $locked->getStatus(), 'ORDER_CREATE_DUITKU',
+                    'Invoice created', ['reference' => $response->reference ?? null]);
+            });
+        } catch (Throwable $e) {
+            Order::whereKey($order->getKey())->where('invoice_state', 'PROCESSING')
+                ->update(['invoice_state' => 'UNKNOWN']);
+            Log::warning('Duitku invoice requires reconciliation', ['reference' => $order->getReference(), 'error_type' => get_class($e)]);
+        }
+        return $this->invoiceResult($order->fresh(), $request, $project);
+    }
+
+    private function invoiceResult(Order $order, Request $request, Project $project): array
+    {
+        $response = json_decode((string) $order->getResponse());
+        if ($order->getAttribute('invoice_state') === 'FAILED') {
+            throw new Exception('Duitku rejected this payment request', 422);
+        }
+        if (in_array($order->getAttribute('invoice_state'), ['PROCESSING', 'UNKNOWN'], true) || ! $response || empty($response->paymentUrl)) {
+            return ['pending' => true, 'link' => null, 'result' => null,
+                'reference' => $order->getReference(), 'message' => 'Payment confirmation is pending'];
+        }
+        $link = $response->paymentUrl;
+        if ($request->version == '2') {
+            $token = $this->redisService->generatePaymentToken($project->id, $project->value, $order->getReference());
+            $page = FormatHelper::isNotEmpty($request->paymentMethod) ? '/detailpayment' : '/home';
+            $link = env('PAYMENT_URL').$page.'?token='.$token.'&reference='.$order->getReference();
+        }
+        return ['pending' => false, 'link' => $link, 'result' => $response, 'message' => 'Success Create Order Duitku'];
     }
 
     public function createOrderPaymentDuitku(Request $request, Project $project, Order $order): array
     {
-        $mode = $order->getMode() ?? PaymentModeType::sandbox;
-        $paymentRepo = $this->getPaymentRepo($mode, $order->getPaymentRepositoryId());
-        if (! FormatHelper::isNotEmpty($paymentRepo)) {
-            $paymentRepo = $this->getPaymentRepo($mode, null);
+        $method = $request->paymentMethod ?? $request->input('payment_method');
+        if (!is_string($method) || $method === '') throw new Exception('Payment method is required', 422);
+        $claimed = DB::transaction(function () use ($order, $method) {
+            $locked = Order::without(['payment_methods', 'project', 'payment_repository'])
+                ->whereKey($order->getKey())->lockForUpdate()->firstOrFail();
+            if ($locked->getStatus() !== OrderStatus::PENDING) throw new Exception('Order is no longer payable', 409);
+            if ($locked->getPaymentMethod()) {
+                if ($locked->getPaymentMethod() !== $method) throw new Exception('Payment method already selected', 409);
+                return null;
+            }
+            if (in_array($locked->getAttribute('invoice_state'), ['PROCESSING', 'UNKNOWN'], true)) return null;
+            $locked->setPaymentMethod($method);
+            $locked->setAttribute('invoice_state', 'PROCESSING');
+            $locked->save();
+            return $locked;
+        });
+        if (!$claimed) return $this->invoiceResult($order->fresh(), $request, $project);
+        $config = $this->setEnv($claimed->getMode(), $this->getPaymentRepo($claimed->getMode(), $claimed->getPaymentRepositoryId()));
+        $params = json_decode((string) $claimed->getRequest(), true) ?: [];
+        $params['paymentMethod'] = $method;
+        $params['signature'] = hash_hmac('sha256', $config->getMerchantCode().$params['merchantOrderId'].$params['paymentAmount'], $config->getApiKey());
+        try {
+            $response = json_decode((string) $this->duitkuRepository->createInvoice($params, $config), false, 512, JSON_THROW_ON_ERROR);
+            if (($response->statusCode ?? null) !== '00' || empty($response->paymentUrl)) throw new Exception('Invoice could not be confirmed');
+            DB::transaction(function () use ($claimed, $params, $response) {
+                $locked = Order::without(['payment_methods', 'project', 'payment_repository'])
+                    ->whereKey($claimed->getKey())->lockForUpdate()->firstOrFail();
+                $locked->setRequest(json_encode($params));
+                $locked->setResponse(json_encode($response));
+                $locked->setUrl($response->paymentUrl);
+                $locked->setValue($response->vaNumber ?? $response->qrString ?? null);
+                $locked->setAttribute('invoice_state', 'READY');
+                $locked->save();
+            });
+        } catch (Throwable $e) {
+            Order::whereKey($claimed->getKey())->where('invoice_state', 'PROCESSING')->update(['invoice_state' => 'UNKNOWN']);
         }
-        $duitkuConfig = $this->setEnv($mode, $paymentRepo);
+        return $this->invoiceResult($claimed->fresh(), $request, $project);
+    }
 
-        $params = json_decode($order->request, true) ?: [];
-        $paymentMethod = $request->paymentMethod ?? $request->input('payment_method');
-        $params['paymentMethod'] = $paymentMethod;
-
-        $signature = md5($duitkuConfig->getMerchantCode() . $params['merchantOrderId'] . $params['paymentAmount'] . $duitkuConfig->getApiKey());
-        $params['signature'] = $signature;
-
-        $order->setRequest(json_encode($params));
-        $order->setPaymentMethod($paymentMethod);
-
-        LogHelper::sendLog(
-            'Request Order Payment Duitku',
-            $params,
-            $project->id,
-            'request_order_payment_duitku'
-        );
-
-        $createInvoice = $this->duitkuRepository
-            ->createInvoice($params, $duitkuConfig);
-
-        $response = json_decode($createInvoice);
-
-        LogHelper::sendLog(
-            'Response Order Payment Duitku',
-            $response,
-            $project->id,
-            'response_order_payment_duitku'
-        );
-
-        $globalValue = $response->vaNumber ?? $response->qrString ?? null;
-        $order->setResponse(json_encode($response));
-        $order->setUrl($response->paymentUrl ?? null);
-        $order->setValue($globalValue);
-        $order->setPaymentRepositoryId($paymentRepo->id);
-        $order->save();
-
-        $result['result'] = $response;
-        $result['link'] = $response->paymentUrl ?? null;
-        $result['value'] = $globalValue;
-        $result['message'] = 'Success Create Order Payment Duitku';
-
-        return $result;
+    public function reconcile(string $id): void
+    {
+        $order = Order::without(['payment_methods', 'project', 'payment_repository'])->findOrFail($id);
+        if ($order->getStatus() === OrderStatus::SUCCESS) return;
+        $result = $this->checkStatus($order);
+        if (($result->statusCode ?? null) !== '00') return;
+        if (!isset($result->amount) || sprintf('%.2f', $result->amount) !== sprintf('%.2f', $order->getAmount())) {
+            throw new Exception('Duitku status amount mismatch');
+        }
+        DB::transaction(function () use ($id, $result) {
+            $locked = Order::without(['payment_methods', 'project', 'payment_repository'])->whereKey($id)->lockForUpdate()->firstOrFail();
+            if ($locked->getStatus() === OrderStatus::SUCCESS) return;
+            $previous = $locked->getStatus();
+            $locked->setStatus(OrderStatus::SUCCESS);
+            $locked->save();
+            $this->orderHistoryService->log($locked, OrderStatus::SUCCESS, 'DUITKU_RECONCILIATION',
+                'Payment confirmed through provider status inquiry', ['statusCode' => $result->statusCode], $previous);
+            $project = Project::where('type', $locked->getType())->firstOrFail();
+            (new CallbackDeliveryService)->enqueue($project, $locked->getReference(), [
+                'merchantOrderId' => $locked->getMerchantOrderId(),
+                'paymentCode' => $locked->getPaymentMethod() ?: ($result->paymentCode ?? 'QRIS'),
+                'resultCode' => '00', 'amount' => $locked->getAmount(),
+            ]);
+            SendNotificationJob::dispatch($locked->getReference())->afterCommit();
+        });
     }
 
     public function callback(Request $request): Order
     {
-        LogHelper::sendLog('callback', $request->all());
-        $now = Carbon::now();
-        $dateBefore = date('Y-m-d', strtotime('-1 week'));
-        $order = Order::where('reference', $request->merchantOrderId)
-            ->whereBetween('created_at', [$dateBefore, $now])
-            ->orderBy('id', 'DESC')->first();
-        if (! $order) {
-            throw new Exception('Order not found');
-        }
-        $required = ['merchantOrderId', 'resultCode', 'paymentCode', 'signature'];
-        foreach ($required as $field) {
-            if (empty($request->input($field))) {
-                throw new Exception("Missing required field: $field");
+        $request->validate([
+            'merchantOrderId' => 'required|string', 'resultCode' => 'required|string',
+            'paymentCode' => 'required|string', 'signature' => 'required|string',
+            'amount' => 'required|numeric|min:1', 'merchantCode' => 'required|string',
+        ]);
+        return DB::transaction(function () use ($request) {
+            $order = Order::without(['payment_methods', 'project', 'payment_repository'])
+                ->where('reference', $request->merchantOrderId)->lockForUpdate()->firstOrFail();
+            $paymentRepo = $this->getPaymentRepo($order->getMode(), $order->getPaymentRepositoryId());
+            if (! $paymentRepo) {
+                throw new Exception('Payment repository not found');
             }
-        }
-
-        $order = Order::findOrFailCustom($order->id);
-
-        $currentStatus = $order->getStatus();
-        if ($currentStatus !== null && ($currentStatus->isSuccess() || $currentStatus->isFailed())) {
-            LogHelper::sendLog('callback_duitku_idempotent', [
-                'reference' => $order->getReference(),
-                'status' => $currentStatus->value,
+            $config = $this->setEnv($order->getMode(), $paymentRepo);
+            $signedValue = $config->getMerchantCode().$request->input('amount').$order->getReference();
+            $signature = hash_hmac('sha256', $signedValue, $config->getApiKey());
+            $legacySignature = md5($signedValue.$config->getApiKey());
+            if (! hash_equals($config->getMerchantCode(), $request->merchantCode)
+                || (! hash_equals($signature, $request->signature) && ! hash_equals($legacySignature, $request->signature))
+                || sprintf('%.2f', $order->getAmount()) !== sprintf('%.2f', $request->amount)) {
+                throw new Exception('Invalid Duitku callback', 403);
+            }
+            $status = match ($request->resultCode) {
+                '00' => OrderStatus::SUCCESS,
+                '01', '02', '03' => OrderStatus::FAILED,
+                default => throw new Exception('Unknown Duitku callback status'),
+            };
+            $current = $order->getStatus();
+            if ($current === OrderStatus::SUCCESS || $current === $status) {
+                return $order;
+            }
+            $previousStatus = $current;
+            $order->setCallback(json_encode($request->all()));
+            $order->setStatus($status);
+            $order->setPaymentMethod($request->paymentCode);
+            $order->save();
+            $this->orderHistoryService->log($order, $status, 'WEBHOOK_DUITKU',
+                'Duitku payment status received', ['resultCode' => $request->resultCode], $previousStatus);
+            $project = Project::where('type', $order->getType())->firstOrFail();
+            (new CallbackDeliveryService)->enqueue($project, $order->getReference(), [
+                'merchantOrderId' => $order->getMerchantOrderId(),
+                'paymentCode' => $order->getPaymentMethod(), 'resultCode' => $request->resultCode,
+                'amount' => $order->getAmount(),
             ]);
+            SendNotificationJob::dispatch($order->getReference())->afterCommit();
             return $order;
-        }
-
-        $paymentRepo = $this->getPaymentRepo($order->getMode(), $order->getPaymentRepositoryId());
-        if (! FormatHelper::isNotEmpty($paymentRepo)) {
-            throw new Exception('Payment Repository not found');
-        }
-
-        $repoValue = $paymentRepo->getValue() ?? [];
-        $apiKey = $repoValue['duitku_mk'] ?? $repoValue['apiKey'] ?? '';
-        $merchantCode = $repoValue['duitku_mc'] ?? $repoValue['merchantCode'] ?? '';
-        $amount = (string) ($request->input('amount') ?? '');
-        $merchantOrderId = (string) ($request->input('merchantOrderId') ?? '');
-        $incomingSig = (string) ($request->input('signature') ?? '');
-
-        if (! empty($apiKey) && ! empty($merchantCode) && ! empty($incomingSig)) {
-            $expectedSig = md5($merchantCode . $amount . $merchantOrderId . $apiKey);
-            if (! hash_equals($expectedSig, $incomingSig)) {
-                throw new Exception('Invalid Duitku callback signature', 403);
-            }
-        }
-
-        $duitkuConfig = $this->setEnv($order->getMode(), $paymentRepo);
-        $_POST = $request->all();
-        $callback = Pop::callback($duitkuConfig);
-        $notif = json_decode((string) $callback);
-
-        // var_dump($callback);
-        $status = match ($notif->resultCode) {
-            '00' => OrderStatus::SUCCESS,
-            '01', '02', '03' => OrderStatus::FAILED,
-            default => throw new Exception("Status Undefined: resultCode={$notif->resultCode}"),
-        };
-        $reference = $request->merchantOrderId;
-        $previousStatus = $order->status;
-        $order->setCallback(json_encode($request->all()));
-        $order->setStatus($status);
-        $paymentMethod = PaymentMethod::where('key', $request->paymentCode)
-            ->whereHas('payment_gateway', fn ($q) => $q->where('key', 'duitku'))
-            ->first();
-
-        if (! FormatHelper::isNotEmpty($paymentMethod)) {
-            throw new Exception('Payment not found : ' . $request->paymentCode);
-        }
-
-        $order->setPaymentMethod($paymentMethod->key);
-        $order->save();
-
-        $this->orderHistoryService->log(
-            $order,
-            $status,
-            'WEBHOOK_DUITKU',
-            "Duitku webhook callback received with resultCode: {$notif->resultCode}",
-            $request->all(),
-            $previousStatus
-        );
-
-        $split = explode('-', $reference);
-        $project = Project::where('type', $split[0])->first();
-        if (! FormatHelper::isNotEmpty($project)) {
-            throw new Exception('Project Not Found');
-        }
-        LogHelper::sendLog(
-            'Callback Duitku',
-            json_encode($order->getCallback()),
-            $project->id,
-            'callback_order_duitku'
-        );
-        $params['merchantOrderId'] = $order->getMerchantOrderId();
-        $params['paymentCode'] = $order->getPaymentMethod();
-        $params['resultCode'] = $notif->resultCode;
-        SendMerchantCallback::dispatch($project->value, $params, $project->callback);
-
-        SendNotificationJob::dispatch($reference);
-        $order->refresh();
-
-        return $order;
+        });
     }
 
     public function duitkuPaymentSync(Request $request): Collection

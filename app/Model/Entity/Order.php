@@ -22,6 +22,8 @@ class Order extends Model
         'mode' => PaymentModeType::class,
         'status' => OrderStatus::class,
         'amount' => 'float',
+        'expires_at' => 'datetime',
+        'reconciled_at' => 'datetime',
     ];
 
     protected $fillable = [
@@ -31,6 +33,9 @@ class Order extends Model
         'type',
         'reference',
         'name',
+        'invoice_state',
+        'expires_at',
+        'reconciled_at',
         'payment_method',
         'amount',
         'value',
@@ -87,7 +92,7 @@ class Order extends Model
         $this->id = $id;
     }
 
-    public function getPaymentRepositoryId(): string
+    public function getPaymentRepositoryId(): ?string
     {
         return $this->payment_repository_id;
     }

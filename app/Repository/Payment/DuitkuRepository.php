@@ -5,6 +5,7 @@ namespace App\Repository\Payment;
 use App\Services\Network\NetworkService;
 use Duitku\Config;
 use Exception;
+use Illuminate\Support\Facades\Http;
 
 class DuitkuRepository
 {
@@ -12,6 +13,14 @@ class DuitkuRepository
         private ?NetworkService $networkService = null
     ) {
         $this->networkService ??= new NetworkService();
+    }
+
+    public function checkStatus(string $merchantOrderId, Config $config): string
+    {
+        return Http::connectTimeout(5)->timeout(20)->post(rtrim($config->getApiUrl(), '/') . '/webapi/api/merchant/transactionStatus', [
+            'merchantCode' => $config->getMerchantCode(), 'merchantOrderId' => $merchantOrderId,
+            'signature' => hash_hmac('sha256', $config->getMerchantCode().$merchantOrderId, $config->getApiKey()),
+        ])->throw()->body();
     }
 
     public function createInvoice(array $params, Config $config): ?string
@@ -25,7 +34,8 @@ class DuitkuRepository
                 'Content-Length' => strlen(json_encode($params)),
             ];
 
-            $result = $this->networkService->post($url, $headers, $params);
+            $result = Http::connectTimeout(5)->timeout(45)->withHeaders(['Content-Type' => 'application/json'])
+                ->post($url, $params)->throw()->body();
 
             if ($result) {
                 $decode = json_decode($result);
