@@ -11,6 +11,8 @@ use Throwable;
 class LogHelper
 {
     private const SENSITIVE_KEYS = [
+        'password', 'token', 'authorization', 'signature', 'api_key', 'api_secret',
+        'duitku_mk', 'secret', 'client_secret', 'x-signature',
         // 'password',
         // 'card_number',
         // 'cardnumber',

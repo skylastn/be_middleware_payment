@@ -86,7 +86,6 @@ class ClientPaymentController extends Controller
     public function createPayment(Request $request): JsonResponse
     {
         try {
-            DB::beginTransaction();
 
             $project = $request->attributes->get('project');
             $order = $this->orderService->detailByReferenceAndKey($request->reference, $project->type);
@@ -94,6 +93,12 @@ class ClientPaymentController extends Controller
                 throw new Exception('Order Not Found', 404);
             }
 
+            if ($project->getSlug() === ProjectSlug::DUITKU) {
+                $result = $this->duitkuService->createOrderPaymentDuitku($request, $project, $order);
+                $status = ($result['pending'] ?? false) ? 202 : 200;
+                return ResponseHelper::successResponse($result, $result['message'], $status)->setStatusCode($status);
+            }
+            DB::beginTransaction();
             $result = match ($project->getSlug()) {
                 ProjectSlug::DUITKU => $this->duitkuService->createOrderPaymentDuitku($request, $project, $order),
                 ProjectSlug::SPNPAY => $this->spnPayService->createOrderPaymentSPNPay($request, $project, $order),
@@ -106,7 +111,7 @@ class ClientPaymentController extends Controller
 
             return ResponseHelper::successResponse($result);
         } catch (Exception $ex) {
-            DB::rollBack();
+            if (DB::transactionLevel() > 0) DB::rollBack();
             LogHelper::sendErrorLog($ex);
 
             return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400, $ex->getLine(), $ex->getFile());

@@ -110,8 +110,19 @@ class OrderController extends Controller
     public function store(Request $request): JsonResponse
     {
         try {
-            DB::beginTransaction();
             $project = $this->projectService->checkKey();
+            if ($project->getSlug() === ProjectSlug::DUITKU) {
+                $request->validate([
+                    'merchantOrderId' => 'required|string|max:200',
+                    'paymentAmount' => 'required|numeric|min:1',
+                    'expiryPeriod' => 'nullable|integer|min:1|max:1440',
+                    'paymentMethod' => 'nullable|string|max:10',
+                ]);
+                $response = $this->duitkuService->orderDuitku($request, $project);
+                $status = ($response['pending'] ?? false) ? 202 : 200;
+                return ResponseHelper::successResponse($response, $response['message'], $status)->setStatusCode($status);
+            }
+            DB::beginTransaction();
             $response = match ($project->getSlug()) {
                 ProjectSlug::XENDIT => $this->xenditService->order($request, $project),
                 ProjectSlug::MIDTRANS => $this->midtransService->orderMidtrans($request, $project),
