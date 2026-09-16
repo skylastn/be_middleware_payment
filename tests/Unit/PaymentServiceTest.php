@@ -42,7 +42,9 @@ class PaymentServiceTest extends TestCase
             'key' => 'paprika_unit_' . uniqid(),
             'mode' => PaymentModeType::sandbox->value,
             'value' => [
-                'api_key' => 'test-api-key',
+                'api_key_paprika' => 'test-api-key',
+                'api_secret_paprika' => 'test-api-secret',
+                'api_client' => 'test-api-client',
                 'api_secret' => 'test-api-secret',
                 'base_url' => 'https://sandbox.paprika.test',
                 'private_key' => $this->privateKeyPem,

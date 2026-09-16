@@ -49,7 +49,9 @@ class PaprikaCallbackTest extends TestCase
             'key' => 'paprika_sandbox_cb_' . uniqid(),
             'mode' => PaymentModeType::sandbox->value,
             'value' => [
-                'api_key' => $this->clientKey,
+                'api_key_paprika' => 'test-api-key-paprika',
+                'api_secret_paprika' => 'test-api-secret-paprika',
+                'api_client' => $this->clientKey,
                 'api_secret' => $this->clientSecret,
                 'public_key' => $this->publicKey,
                 'private_key' => $this->privateKey,
@@ -82,7 +84,7 @@ class PaprikaCallbackTest extends TestCase
         parent::tearDown();
     }
 
-    private function generateCallbackSignature(array $body, string $path = '/api/callback/paprika', ?string $token = 'test-bearer-token'): array
+    private function generateCallbackSignature(array $body, string $path = '/api/paprika/callback', ?string $token = 'test-bearer-token'): array
     {
         // Store test token in redis so bearer token validation passes
         $redis = new \App\Services\System\RedisService;
@@ -125,7 +127,7 @@ class PaprikaCallbackTest extends TestCase
             ];
             $headers = $this->generateCallbackSignature($body);
 
-            $response = $this->postJson('/api/callback/paprika', $body, $headers);
+            $response = $this->postJson('/api/paprika/callback', $body, $headers);
 
             LogHelper::sendLog('test_callback_paprika_success', $response->json());
             $response->assertStatus(200);
@@ -167,7 +169,7 @@ class PaprikaCallbackTest extends TestCase
             ];
             $headers = $this->generateCallbackSignature($body);
 
-            $response = $this->postJson('/api/callback/paprika', $body, $headers);
+            $response = $this->postJson('/api/paprika/callback', $body, $headers);
 
             $response->assertStatus(200);
 
@@ -192,7 +194,7 @@ class PaprikaCallbackTest extends TestCase
         ];
         $headers = $this->generateCallbackSignature($body);
 
-        $response = $this->postJson('/api/callback/paprika', $body, $headers);
+        $response = $this->postJson('/api/paprika/callback', $body, $headers);
 
         $response->assertStatus(400);
         $response->assertJson([
@@ -219,7 +221,7 @@ class PaprikaCallbackTest extends TestCase
             ];
             $headers = $this->generateCallbackSignature($body);
 
-            $response = $this->postJson('/api/callback/paprika', $body, $headers);
+            $response = $this->postJson('/api/paprika/callback', $body, $headers);
 
             $response->assertStatus(400);
             $response->assertJson([
@@ -252,7 +254,7 @@ class PaprikaCallbackTest extends TestCase
                 'latestTransactionStatus' => '00',
             ];
 
-            $response = $this->postJson('/api/callback/paprika', $body, [
+            $response = $this->postJson('/api/paprika/callback', $body, [
                 'Authorization' => 'Bearer test-bearer-token',
                 'X-SIGNATURE' => 'invalid-signature-value',
                 'X-TIMESTAMP' => '2026-08-24T12:00:00+00:00',
@@ -287,7 +289,7 @@ class PaprikaCallbackTest extends TestCase
                 'latestTransactionStatus' => '00',
             ];
 
-            $response = $this->postJson('/api/callback/paprika', $body);
+            $response = $this->postJson('/api/paprika/callback', $body);
 
             $response->assertStatus(400);
             $response->assertJson([
@@ -322,7 +324,7 @@ class PaprikaCallbackTest extends TestCase
             ];
             $headers = $this->generateCallbackSignature($body);
 
-            $response = $this->postJson('/api/callback/paprika', $body, $headers);
+            $response = $this->postJson('/api/paprika/callback', $body, $headers);
 
             $response->assertStatus(200);
             $response->assertJson([
@@ -371,9 +373,9 @@ class PaprikaCallbackTest extends TestCase
 
     public function test_snap_access_token_b2b_accepts_non_uuid_client_key(): void
     {
-        $clientKey = 'cM9RGeQFdhIk4Q1UYxABzAwx5HET3bsRg8Sr4c3rlSL96N72qTB9iGJ2PLGGSvAn';
+        $clientKey = 'clientKeyCustomNonUuid1234567890Abcdefghijklmnopqrstuvwxyz';
         $repoValue = $this->repo->getValue();
-        $repoValue['api_key'] = $clientKey;
+        $repoValue['api_client'] = $clientKey;
         $this->repo->update(['value' => $repoValue]);
 
         $timestamp = now()->toIso8601String();
@@ -487,7 +489,7 @@ class PaprikaCallbackTest extends TestCase
             $bodyJson = json_encode($body, JSON_UNESCAPED_SLASHES);
             $bodyHash = hash('sha256', $bodyJson);
             $cbTimestamp = now()->toIso8601String();
-            $path = '/api/callback/paprika';
+            $path = '/api/paprika/callback';
             $stringToSignCb = "POST:{$path}:{$token}:{$bodyHash}:{$cbTimestamp}";
             $cbSignature = base64_encode(hash_hmac('sha512', $stringToSignCb, $this->clientSecret, true));
 

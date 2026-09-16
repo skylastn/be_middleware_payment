@@ -33,8 +33,10 @@ class PaprikaOrderCreateTest extends TestCase
             'key' => 'paprika_sandbox_order_' . uniqid(),
             'mode' => PaymentModeType::sandbox->value,
             'value' => [
-                'api_key' => 'test-client-key-order',
-                'api_secret' => 'test-client-secret-order',
+                'api_key_paprika' => 'test-client-key-order',
+                'api_secret_paprika' => 'test-client-secret-order',
+                'api_client' => 'test-api-client-order',
+                'api_secret' => 'test-api-secret-order',
                 'base_url' => 'https://sandbox.paprika.test',
                 'private_key' => $this->generateTestPrivateKey(),
             ],

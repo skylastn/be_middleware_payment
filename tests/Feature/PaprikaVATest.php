@@ -35,8 +35,10 @@ class PaprikaVATest extends TestCase
             'key' => 'paprika_sandbox_va_' . uniqid(),
             'mode' => PaymentModeType::sandbox->value,
             'value' => [
-                'api_key' => 'test-client-key-va',
-                'api_secret' => 'test-client-secret-va',
+                'api_key_paprika' => 'test-client-key-va',
+                'api_secret_paprika' => 'test-client-secret-va',
+                'api_client' => 'test-api-client-va',
+                'api_secret' => 'test-api-secret-va',
                 'base_url' => 'https://sandbox.paprika.test',
                 'private_key' => $this->generateTestPrivateKey(),
             ],

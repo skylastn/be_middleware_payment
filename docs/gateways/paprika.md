@@ -20,19 +20,23 @@ In the Backoffice under **Payment Repositories**, configure a repository with th
 
 ```json
 {
-  "api_key": "your_client_key_here",
-  "api_secret": "your_client_secret_here",
-  "base_url": "https://sandbox.paprika.id",
-  "private_key": "-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEA..."
+  "api_key_paprika": "paprika_api_key_xxx",
+  "api_secret_paprika": "paprika_api_secret_xxx",
+  "api_client": "paprika_api_client_xxx",
+  "api_secret": "paprika_api_secret_xxx",
+  "base_url": "https://staging-gateway.paprika.co.id",
+  "private_key": "-----BEGIN PRIVATE KEY-----\n..."
 }
 ```
 
 ### Parameter Description:
 | Key | Type | Required | Description |
 |:---|:---|:---:|:---|
-| `api_key` | string | Yes | Partner ID / Client Key (`X-PARTNER-ID`, `X-CLIENT-KEY`). |
-| `api_secret` | string | Yes | Client Secret used for HMAC-SHA512 symmetric request & webhook verification. |
-| `base_url` | string | Yes | Upstream Paprika API base URL. |
+| `api_key_paprika` | string | Yes | Partner ID / Client Key for outbound API requests (`getB2BToken`, `X-PARTNER-ID`, `X-CLIENT-KEY`). |
+| `api_secret_paprika` | string | Yes | Secret used for HMAC-SHA512 symmetric transaction signature on order creation. |
+| `api_client` | string | Yes | Client ID expected from Paprika when calling SNAP B2B handshake (`X-CLIENT-KEY`) and callback/webhook (`X-PARTNER-ID`). |
+| `api_secret` | string | Yes | Secret used to verify incoming SNAP callback/webhook HMAC-SHA512 signatures. |
+| `base_url` | string | Yes | Upstream Paprika API base URL (e.g. `https://staging-gateway.paprika.co.id`). |
 | `private_key` | string | Yes | RSA private key in PEM format used for B2B token asymmetric signature. |
 
 ---

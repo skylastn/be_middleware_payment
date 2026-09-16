@@ -77,16 +77,22 @@ class PaymentRepository extends Model
             return $this->value;
         }
 
-        return is_string($this->value)
+        $decoded = is_string($this->value)
             ? json_decode($this->value, true) ?? []
             : [];
+
+        if (is_string($decoded)) {
+            $decoded = json_decode($decoded, true) ?? [];
+        }
+
+        return is_array($decoded) ? $decoded : [];
     }
 
     /** @param array|string $value */
     public function setValue(array|string $value): void
     {
-        $this->value = is_array($value)
-            ? json_encode($value)
+        $this->value = is_string($value)
+            ? (json_decode($value, true) ?: $value)
             : $value;
     }
 }

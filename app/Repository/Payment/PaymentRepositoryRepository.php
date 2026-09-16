@@ -24,9 +24,12 @@ class PaymentRepositoryRepository extends BaseRepository
     {
         return PaymentRepository::where('payment_gateway_id', $paymentGatewayId)
             ->where(function ($query) use ($clientKey) {
-                $query->where('value->api_key', $clientKey)
-                    ->orWhere('value', 'like', '%"api_key":"' . $clientKey . '"%')
-                    ->orWhere('value', 'like', '%"api_key": "' . $clientKey . '"%');
+                $query->where('value->api_client', $clientKey)
+                    ->orWhere('value->api_key_paprika', $clientKey)
+                    ->orWhere('value', 'like', '%"api_client":"' . $clientKey . '"%')
+                    ->orWhere('value', 'like', '%"api_client": "' . $clientKey . '"%')
+                    ->orWhere('value', 'like', '%"api_key_paprika":"' . $clientKey . '"%')
+                    ->orWhere('value', 'like', '%"api_key_paprika": "' . $clientKey . '"%');
             })
             ->first();
     }

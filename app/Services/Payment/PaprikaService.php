@@ -87,7 +87,7 @@ class PaprikaService
     {
         $paymentConfig = $paymentRepo->getValue();
 
-        $clientKey = $paymentConfig['api_key'];
+        $clientKey = $paymentConfig['api_key_paprika'] ?? null;
         $privateKey = $paymentConfig['private_key'];
 
         $timestamp ??= date('c');
@@ -141,7 +141,7 @@ class PaprikaService
         ?string $timestamp = null
     ): array {
         $paymentConfig = $paymentRepo->getValue();
-        $clientKey = $paymentConfig['api_key'];
+        $clientKey = $paymentConfig['api_key_paprika'] ?? null;
 
         $headerGeneration = $this->signBySymmetricSignature(
             $paymentRepo,
@@ -294,8 +294,8 @@ class PaprikaService
     ): array {
         $paymentConfig = $paymentRepo->getValue();
 
-        $clientKey = $paymentConfig['api_key'];
-        $clientSecret = $paymentConfig['api_secret'];
+        $clientKey = $paymentConfig['api_key_paprika'] ?? null;
+        $clientSecret = $paymentConfig['api_secret_paprika'] ?? null;
 
         $bodyHash = hash('sha256', $requestBody);
         $timestamp ??= date('c');
@@ -315,7 +315,7 @@ class PaprikaService
 
     public function getB2BToken(PaymentRepository $paymentRepo): array
     {
-        $baseurl = $paymentRepo->getValue()['base_url'];
+        $baseurl = rtrim($paymentRepo->getValue()['base_url'] ?? '', '/');
         $url = "$baseurl/api/snap/v1.0/access-token/b2b";
 
         $headerGeneration = $this->generateSignature($paymentRepo);
@@ -382,7 +382,7 @@ class PaprikaService
     {
         $mode = PaymentModeType::fromName($request->mode) ?? PaymentModeType::sandbox;
         $paymentRepo = $this->getPaymentRepo($mode, $request->paymentRepositoryId);
-        $baseurl = $paymentRepo->getValue()['base_url'];
+        $baseurl = rtrim($paymentRepo->getValue()['base_url'] ?? '', '/');
         $idSystem = OrderIdGenerator::generate();
         $reference = $project->type . '-' . $request->merchantOrderId;
         $amount = (float) ($request->paymentAmount ?? 0);
@@ -515,7 +515,7 @@ class PaprikaService
 
         $mode = PaymentModeType::fromName($request->mode) ?? PaymentModeType::sandbox;
         $paymentRepo = $this->getPaymentRepo($mode, $request->paymentRepositoryId);
-        $baseurl = $paymentRepo->getValue()['base_url'];
+        $baseurl = rtrim($paymentRepo->getValue()['base_url'] ?? '', '/');
         $idSystem = OrderIdGenerator::generate();
         $reference = $project->type . '-' . $request->merchantOrderId;
         $amount = (float) ($request->paymentAmount ?? 0);
@@ -676,7 +676,8 @@ class PaprikaService
 
         $now = Carbon::now();
         $dateBefore = date('Y-m-d', strtotime('-1 week'));
-        $reference = $request->input('originalReferenceNo')
+        $reference = $request->input('originalPartnerReferenceNo')
+            ?: $request->input('originalReferenceNo')
             ?: $request->input('paymentRequestId')
             ?: $request->input('trxId');
 
@@ -684,6 +685,14 @@ class PaprikaService
         if (! empty($reference)) {
             $order = $this->orderService->findRecentByReference(
                 $reference,
+                $dateBefore,
+                $now->toDateTimeString()
+            );
+        }
+
+        if (! $order && ! empty($request->input('originalReferenceNo'))) {
+            $order = $this->orderService->findRecentByReference(
+                $request->input('originalReferenceNo'),
                 $dateBefore,
                 $now->toDateTimeString()
             );
@@ -846,6 +855,19 @@ class PaprikaService
             throw new Exception('Missing callback signature headers');
         }
 
+        $paymentConfig = $paymentRepo->getValue();
+
+        $partnerId = $request->header('X-PARTNER-ID') ?: $request->header('X-CLIENT-KEY');
+        if (! empty($partnerId)) {
+            $allowedKeys = array_filter([
+                $paymentConfig['api_client'] ?? null,
+                $paymentConfig['api_key_paprika'] ?? null,
+            ]);
+            if (! empty($allowedKeys) && ! in_array($partnerId, $allowedKeys, true)) {
+                throw new Exception('Invalid partner ID');
+            }
+        }
+
         // SNAP v1.0.2: {HTTP_METHOD}:{URL_PATH}:{accessToken}:{SHA256_hex(body)}:{X-TIMESTAMP}
         $method = strtoupper($request->method());
         $path = $request->getPathInfo();
@@ -853,11 +875,22 @@ class PaprikaService
         $bodyHash = hash('sha256', $rawBody);
 
         $stringToSign = "{$method}:{$path}:{$accessToken}:{$bodyHash}:{$timestamp}";
-        $clientSecret = $paymentRepo->getValue()['api_secret'];
+        $clientSecret = $paymentConfig['api_secret'] ?? null;
+        if (empty($clientSecret)) {
+            throw new Exception('API secret not configured for signature verification');
+        }
         $expectedSignature = base64_encode(hash_hmac('sha512', $stringToSign, $clientSecret, true));
 
         if (! hash_equals($expectedSignature, $signature)) {
-            throw new Exception('Invalid callback signature');
+            // Also try with minified JSON payload (as noted in SNAP v1.0.2 / documentation)
+            $fallbackBody = json_encode($request->all(), JSON_UNESCAPED_SLASHES);
+            $fallbackHash = hash('sha256', $fallbackBody);
+            $fallbackStringToSign = "{$method}:{$path}:{$accessToken}:{$fallbackHash}:{$timestamp}";
+            $fallbackSignature = base64_encode(hash_hmac('sha512', $fallbackStringToSign, $clientSecret, true));
+
+            if (! hash_equals($fallbackSignature, $signature)) {
+                throw new Exception('Invalid callback signature');
+            }
         }
     }
 

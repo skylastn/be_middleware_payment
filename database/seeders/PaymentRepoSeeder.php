@@ -177,23 +177,47 @@ class PaymentRepoSeeder extends Seeder
                 $stripeRepo->save();
             }
 
-            PaymentRepository::firstOrCreate(
+            $paprikaDefaultConfig = [
+                'api_key_paprika' => env('PAPRIKA_API_KEY_PAPRIKA', 'paprika_api_key_xxx'),
+                'api_secret_paprika' => env('PAPRIKA_API_SECRET_PAPRIKA', 'paprika_api_secret_xxx'),
+                'api_client' => env('PAPRIKA_API_CLIENT', 'paprika_api_client_xxx'),
+                'api_secret' => env('PAPRIKA_API_SECRET', 'paprika_api_secret_xxx'),
+                'base_url' => $mode === PaymentModeType::sandbox
+                    ? 'https://staging-gateway.paprika.co.id'
+                    : 'https://gateway.paprika.co.id',
+                'private_key' => env('PAPRIKA_PRIVATE_KEY', '-----BEGIN RSA PRIVATE KEY-----...'),
+            ];
+
+            $paprikaRepo = PaymentRepository::firstOrCreate(
                 [
                     'payment_gateway_id' => $paprika->id,
                     'mode' => $mode->value,
                 ],
                 [
                     'key' => 'default_paprika_'.$mode->value,
-                    'value' => json_encode([
-                        'api_key' => 'paprika_api_key_xxx',
-                        'api_secret' => 'paprika_api_secret_xxx',
-                        'base_url' => $mode === PaymentModeType::sandbox
-                            ? 'https://sandbox.paprika.id'
-                            : 'https://api.paprika.id',
-                        'private_key' => '-----BEGIN RSA PRIVATE KEY-----...',
-                    ]),
+                    'value' => $paprikaDefaultConfig,
                 ]
             );
+
+            $paprikaValue = is_array($paprikaRepo->value) ? $paprikaRepo->value : (json_decode((string) $paprikaRepo->value, true) ?: []);
+            if (is_string($paprikaValue)) {
+                $paprikaValue = json_decode($paprikaValue, true) ?: [];
+            }
+            $needsUpdate = false;
+            foreach ($paprikaDefaultConfig as $cfgKey => $cfgVal) {
+                if (! array_key_exists($cfgKey, $paprikaValue)) {
+                    $paprikaValue[$cfgKey] = $cfgVal;
+                    $needsUpdate = true;
+                }
+            }
+            if ($mode === PaymentModeType::sandbox && isset($paprikaValue['base_url']) && str_contains($paprikaValue['base_url'], 'sandbox.paprika.id')) {
+                $paprikaValue['base_url'] = 'https://staging-gateway.paprika.co.id';
+                $needsUpdate = true;
+            }
+            if ($needsUpdate || ! is_array($paprikaRepo->value)) {
+                $paprikaRepo->value = $paprikaValue;
+                $paprikaRepo->save();
+            }
         }
     }
 }
