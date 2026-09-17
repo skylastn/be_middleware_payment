@@ -17,6 +17,7 @@ import { SettingPage } from '@/features/dashboard/presentation/setting/setting_u
 import { GatewayHistoryPage } from '@/features/dashboard/presentation/gateway_history/gateway_history_ui';
 import { ProjectLogPage } from '@/features/dashboard/presentation/project_log/project_log_ui';
 import { LogsPage } from '@/features/logs/presentation/logs/logs_ui';
+import { QueuePage } from '@/features/queue/presentation/queue_ui';
 import { Shell } from '@/shared/component/layout/shell_ui';
 import { useTheme } from '@/shared/hooks/use_theme';
 import { getStoredToken, removeStoredToken } from '@/shared/utils/auth_utils';
@@ -28,6 +29,10 @@ function parseRoute(pathname: string): RouteInfo {
 
     if (pathname === '/admin/logs' || pathname === '/logs') {
         return { page: 'logs' };
+    }
+
+    if (pathname === '/admin/queue' || pathname === '/queue') {
+        return { page: 'queue' as any };
     }
 
     if (pathname === '/admin/gateway-history' || pathname === '/gateway-history') {
@@ -119,6 +124,9 @@ export function App(): React.JSX.Element {
         }
         if (route.page === 'logs') {
             return <LogsPage />;
+        }
+        if ((route.page as string) === 'queue') {
+            return <QueuePage />;
         }
         if ((route.page as string) === 'gateway-history') {
             return <GatewayHistoryPage />;

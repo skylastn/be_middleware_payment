@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class PaymentRepository extends Model
 {
-    use SoftDeletes, HasUuids, BaseModelTrait;
+    use BaseModelTrait, HasUuids, SoftDeletes;
 
     protected $table = 'payment_repositories';
 
@@ -22,12 +22,15 @@ class PaymentRepository extends Model
         'value',
     ];
 
-    protected $casts = [
-        'id' => 'string',
-        'payment_gateway_id' => 'string',
-        'mode' => PaymentModeType::class,
-        'value' => 'array',
-    ];
+    protected function casts(): array
+    {
+        return [
+            'id' => 'string',
+            'payment_gateway_id' => 'string',
+            'mode' => PaymentModeType::class,
+            'value' => 'array',
+        ];
+    }
 
     protected $with = ['payment_gateway'];
 
@@ -43,13 +46,11 @@ class PaymentRepository extends Model
     // Getter & Setter Methods (Explicit style)
     // ------------------------------------------------------------
 
-    /** @return string */
     public function getPaymentGatewayId(): string
     {
         return $this->payment_gateway_id;
     }
 
-    /** @param string $gatewayId */
     public function setPaymentGatewayId(string $gatewayId): void
     {
         $this->payment_gateway_id = strtolower($gatewayId);
@@ -62,7 +63,6 @@ class PaymentRepository extends Model
             : PaymentModeType::tryFrom($this->mode);
     }
 
-    /** @param PaymentModeType|string $mode */
     public function setMode(PaymentModeType|string $mode): void
     {
         $this->mode = $mode instanceof PaymentModeType
@@ -70,7 +70,6 @@ class PaymentRepository extends Model
             : $mode;
     }
 
-    /** @return array */
     public function getValue(): array
     {
         if (is_array($this->value)) {
@@ -88,7 +87,6 @@ class PaymentRepository extends Model
         return is_array($decoded) ? $decoded : [];
     }
 
-    /** @param array|string $value */
     public function setValue(array|string $value): void
     {
         $this->value = is_string($value)

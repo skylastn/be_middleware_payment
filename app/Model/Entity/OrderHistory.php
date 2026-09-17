@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class OrderHistory extends Model
 {
-    use HasFactory, BaseModelTrait, HasUuids;
+    use BaseModelTrait, HasFactory, HasUuids;
 
     protected $table = 'order_histories';
 
@@ -28,14 +28,17 @@ class OrderHistory extends Model
         'created_at',
     ];
 
-    protected $casts = [
-        'id' => 'string',
-        'order_id' => 'string',
-        'from_status' => OrderStatus::class,
-        'to_status' => OrderStatus::class,
-        'payload' => 'array',
-        'created_at' => 'datetime',
-    ];
+    protected function casts(): array
+    {
+        return [
+            'id' => 'string',
+            'order_id' => 'string',
+            'from_status' => OrderStatus::class,
+            'to_status' => OrderStatus::class,
+            'payload' => 'array',
+            'created_at' => 'datetime',
+        ];
+    }
 
     // ------------------------------------------------------------
     // Relationships

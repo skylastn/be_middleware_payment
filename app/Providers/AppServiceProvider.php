@@ -2,8 +2,10 @@
 
 namespace App\Providers;
 
+use App\Interface\RabbitMQServiceInterface;
 use App\Interface\RedisServiceInterface;
 use App\Model\Entity\User;
+use App\Services\System\RabbitMQService;
 use App\Services\System\RedisService;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -18,6 +20,9 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->singleton(RedisServiceInterface::class, RedisService::class);
         $this->app->singleton(RedisService::class, RedisService::class);
+
+        $this->app->singleton(RabbitMQServiceInterface::class, RabbitMQService::class);
+        $this->app->singleton(RabbitMQService::class, RabbitMQService::class);
     }
 
     public function boot(): void

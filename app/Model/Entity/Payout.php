@@ -28,19 +28,22 @@ class Payout extends Model
         'completed_at',
     ];
 
-    protected $casts = [
-        'id' => 'string',
-        'gateway' => PayoutGateway::class,
-        'amount' => 'decimal:2',
-        'currency' => 'string',
-        'status' => TransferStatus::class,
-        'reference' => 'string',
-        'internal_id' => 'string',
-        'request' => 'string',
-        'response' => 'string',
-        'callback' => 'string',
-        'completed_at' => 'datetime',
-    ];
+    protected function casts(): array
+    {
+        return [
+            'id' => 'string',
+            'gateway' => PayoutGateway::class,
+            'amount' => 'decimal:2',
+            'currency' => 'string',
+            'status' => TransferStatus::class,
+            'reference' => 'string',
+            'internal_id' => 'string',
+            'request' => 'string',
+            'response' => 'string',
+            'callback' => 'string',
+            'completed_at' => 'datetime',
+        ];
+    }
 
     public function histories(): HasMany
     {

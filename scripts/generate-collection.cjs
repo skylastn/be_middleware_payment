@@ -979,6 +979,26 @@ const updatedCollection = {
             name: 'Webhooks & Callbacks',
             item: [
                 {
+                    name: 'Transaction Callback Test',
+                    request: {
+                        auth: noAuth,
+                        method: 'POST',
+                        header: [{ key: 'Content-Type', value: 'application/json', type: 'text' }],
+                        body: {
+                            mode: 'raw',
+                            raw: '{\n    "merchantOrderId": "TEST-INV-001",\n    "resultCode": "00",\n    "amount": "50000.00",\n    "reference": "REF-TEST-001"\n}',
+                            options: { raw: { language: 'json' } },
+                        },
+                        url: {
+                            raw: '{{url_payment}}callback/test',
+                            host: ['{{url_payment}}callback'],
+                            path: ['test'],
+                        },
+                        description: 'Mock / test callback endpoint returning HTTP 200 success response.',
+                    },
+                    response: [],
+                },
+                {
                     name: 'Transaction Callback Duitku',
                     request: {
                         auth: noAuth,
