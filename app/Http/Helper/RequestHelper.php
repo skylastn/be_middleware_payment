@@ -8,7 +8,7 @@ use stdClass;
 
 class RequestHelper
 {
-    public static function sendCallback(string $token, array $params, string $urlCallback): stdClass
+    public static function sendCallback(string $token, array $params, string $urlCallback, bool $throwOnError = false): stdClass
     {
         Log::info('Sending Request', [$urlCallback, $params, $token]);
 
@@ -30,6 +30,10 @@ class RequestHelper
                     'response' => $body,
                 ]);
 
+                if ($throwOnError) {
+                    throw new \RuntimeException("Callback to {$urlCallback} failed with status {$response->status()}: {$body}");
+                }
+
                 return new stdClass;
             }
 
@@ -47,16 +51,21 @@ class RequestHelper
                         $stream->rewind();
                         $fullBody = (string) $stream;
                         if (! empty($fullBody)) {
-                            $fullMessage .= "\nFull Response: " . $fullBody;
+                            $fullMessage .= "\nFull Response: ".$fullBody;
                         }
                     }
-                } catch (\Throwable) {}
+                } catch (\Throwable) {
+                }
             }
 
             Log::error('Callback failed', [
                 'url' => $urlCallback,
                 'error' => $fullMessage,
             ]);
+
+            if ($throwOnError) {
+                throw $e;
+            }
 
             return new stdClass;
         }

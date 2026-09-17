@@ -2,58 +2,147 @@
 
 namespace App\Services\System;
 
+use App\Interface\RedisServiceInterface;
+use Closure;
 use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Str;
 
-class RedisService
+class RedisService implements RedisServiceInterface
 {
     private const DEFAULT_TTL = 7200; // 2 jam
+
+    public function __construct(private mixed $client = null) {}
+
+    protected function getClient(): mixed
+    {
+        return $this->client ?? Redis::getFacadeRoot();
+    }
+
+    public function get(string $key, mixed $default = null): mixed
+    {
+        $data = $this->getClient()->get($key);
+
+        if ($data === null || $data === false) {
+            return $default;
+        }
+
+        if (is_string($data)) {
+            $decoded = json_decode($data, true);
+            if (json_last_error() === JSON_ERROR_NONE && (is_array($decoded) || is_object($decoded))) {
+                return $decoded;
+            }
+        }
+
+        return $data;
+    }
+
+    public function set(string $key, mixed $value, ?int $ttl = null): bool
+    {
+        $payload = is_array($value) || is_object($value) ? json_encode($value) : $value;
+
+        if ($ttl !== null && $ttl > 0) {
+            return (bool) $this->getClient()->setex($key, $ttl, $payload);
+        }
+
+        return (bool) $this->getClient()->set($key, $payload);
+    }
+
+    public function setex(string $key, int $ttl, mixed $value): bool
+    {
+        return $this->set($key, $value, $ttl);
+    }
+
+    public function has(string $key): bool
+    {
+        return (bool) $this->getClient()->exists($key);
+    }
+
+    public function del(string ...$keys): int
+    {
+        if (empty($keys)) {
+            return 0;
+        }
+
+        return (int) $this->getClient()->del(...$keys);
+    }
+
+    public function delete(string ...$keys): int
+    {
+        return $this->del(...$keys);
+    }
+
+    public function remember(string $key, int $ttl, Closure $callback): mixed
+    {
+        $cached = $this->get($key);
+        if ($cached !== null) {
+            return $cached;
+        }
+
+        $fresh = $callback();
+        $this->set($key, $fresh, $ttl);
+
+        return $fresh;
+    }
+
+    public function increment(string $key, int $amount = 1): int
+    {
+        return (int) ($amount === 1
+            ? $this->getClient()->incr($key)
+            : $this->getClient()->incrby($key, $amount));
+    }
+
+    public function decrement(string $key, int $amount = 1): int
+    {
+        return (int) ($amount === 1
+            ? $this->getClient()->decr($key)
+            : $this->getClient()->decrby($key, $amount));
+    }
 
     public function generatePaymentToken(int $projectId, string $projectValue, string $reference, int $ttl = self::DEFAULT_TTL): string
     {
         $token = Str::random(40);
 
-        Redis::setex("payment_token:{$token}", $ttl, json_encode([
-            'project_id'    => $projectId,
+        $this->set("payment_token:{$token}", [
+            'project_id' => $projectId,
             'project_value' => $projectValue,
-            'reference'     => $reference,
-        ]));
+            'reference' => $reference,
+        ], $ttl);
 
         return $token;
     }
 
     public function getPaymentToken(string $token): ?array
     {
-        $data = Redis::get("payment_token:{$token}");
+        $data = $this->get("payment_token:{$token}");
 
-        if (! $data) {
+        if (! is_array($data)) {
             return null;
         }
 
-        return json_decode($data, true);
+        return $data;
     }
 
     public function deletePaymentToken(string $token): void
     {
-        Redis::del("payment_token:{$token}");
+        $this->del("payment_token:{$token}");
     }
 
     public function storeSnapAccessToken(string $token, string $clientKey, int $ttl = 900): void
     {
-        Redis::setex("snap_token:{$token}", $ttl, json_encode([
+        $this->set("snap_token:{$token}", [
             'client_key' => $clientKey,
             'created_at' => time(),
-        ]));
+        ], $ttl);
     }
 
     public function getSnapAccessToken(string $token): ?array
     {
-        $data = Redis::get("snap_token:{$token}");
+        $data = $this->get("snap_token:{$token}");
 
-        if (! $data) {
+        if (! is_array($data)) {
             return null;
         }
 
-        return json_decode($data, true);
+        return $data;
     }
 }

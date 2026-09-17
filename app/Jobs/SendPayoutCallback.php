@@ -22,6 +22,6 @@ class SendPayoutCallback implements ShouldQueue
 
     public function handle(): void
     {
-        RequestHelper::sendCallback($this->token, $this->params, $this->urlCallback);
+        RequestHelper::sendCallback($this->token, $this->params, $this->urlCallback, throwOnError: true);
     }
 }

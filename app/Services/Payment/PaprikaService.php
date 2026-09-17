@@ -2,19 +2,18 @@
 
 namespace App\Services\Payment;
 
-use App\Enums\NetworkType;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentModeType;
 use App\Http\Helper\FormatHelper;
 use App\Http\Helper\LogHelper;
 use App\Http\Helper\OrderIdGenerator;
+use App\Interface\RedisServiceInterface;
 use App\Jobs\SendMerchantCallback;
 use App\Jobs\SendNotificationJob;
 use App\Model\Entity\PaymentRepository;
 use App\Model\Entity\Project;
 use App\Services\Network\NetworkService;
 use App\Services\System\ProjectService;
-use App\Services\System\RedisService;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -26,17 +25,24 @@ use RuntimeException;
 class PaprikaService
 {
     private PaymentRepositoryService $paymentRepositoryService;
-    private RedisService $redisService;
+
+    private RedisServiceInterface $redisService;
+
     private OrderHistoryService $orderHistoryService;
+
     private OrderService $orderService;
+
     private PaymentService $paymentService;
+
     private ProjectService $projectService;
+
     private NetworkService $networkService;
+
     private ?array $vaBankCodeMap = null;
 
     public function __construct(
         ?PaymentRepositoryService $paymentRepositoryService = null,
-        ?RedisService $redisService = null,
+        ?RedisServiceInterface $redisService = null,
         ?OrderHistoryService $orderHistoryService = null,
         ?OrderService $orderService = null,
         ?PaymentService $paymentService = null,
@@ -44,7 +50,7 @@ class PaprikaService
         ?NetworkService $networkService = null,
     ) {
         $this->paymentRepositoryService = $paymentRepositoryService ?? new PaymentRepositoryService;
-        $this->redisService = $redisService ?? new RedisService;
+        $this->redisService = $redisService ?? app(RedisServiceInterface::class);
         $this->orderHistoryService = $orderHistoryService ?? new OrderHistoryService;
         $this->orderService = $orderService ?? new OrderService;
         $this->paymentService = $paymentService ?? new PaymentService;
@@ -82,11 +88,12 @@ class PaprikaService
         $res = openssl_get_privatekey($privateKey);
         if ($res === false) {
             throw new RuntimeException(
-                'Invalid private key: ' .
+                'Invalid private key: '.
                     (openssl_error_string() ?: 'Unknown OpenSSL error')
             );
         }
         $details = openssl_pkey_get_details($res);
+
         return $details['key'];
     }
 
@@ -121,7 +128,7 @@ class PaprikaService
 
         if ($key === false) {
             throw new RuntimeException(
-                'Invalid private key: ' .
+                'Invalid private key: '.
                     (openssl_error_string() ?: 'Unknown OpenSSL error')
             );
         }
@@ -135,7 +142,7 @@ class PaprikaService
 
         if ($result === false) {
             throw new RuntimeException(
-                'Failed to generate signature: ' .
+                'Failed to generate signature: '.
                     (openssl_error_string() ?: 'Unknown OpenSSL error')
             );
         }
@@ -366,7 +373,7 @@ class PaprikaService
         ]);
 
         throw new Exception(
-            'Failed to get B2B token: ' . (is_string($rawResponse) ? $rawResponse : json_encode($responseData))
+            'Failed to get B2B token: '.(is_string($rawResponse) ? $rawResponse : json_encode($responseData))
         );
     }
 
@@ -384,7 +391,7 @@ class PaprikaService
 
             throw new Exception("no supported payment method {$request->paymentMethod}");
         } else {
-            throw new Exception("payment method is requred");
+            throw new Exception('payment method is requred');
         }
     }
 
@@ -394,9 +401,9 @@ class PaprikaService
         $paymentRepo = $this->getPaymentRepo($mode, $request->paymentRepositoryId);
         $baseurl = rtrim($paymentRepo->getValue()['base_url'] ?? '', '/');
         $idSystem = OrderIdGenerator::generate();
-        $reference = $project->type . '-' . $request->merchantOrderId;
+        $reference = $project->type.'-'.$request->merchantOrderId;
         $amount = (float) ($request->paymentAmount ?? 0);
-        $customerName = trim(($request->firstName ?? '') . ' ' . ($request->lastName ?? ''));
+        $customerName = trim(($request->firstName ?? '').' '.($request->lastName ?? ''));
 
         $req['id'] = $idSystem;
         $req['reference'] = $reference;
@@ -419,7 +426,7 @@ class PaprikaService
 
         $token = $this->getB2BToken($paymentRepo);
 
-        if (!isset($token['accessToken'])) {
+        if (! isset($token['accessToken'])) {
             throw new \Error('access token is fail to generate');
         }
 
@@ -436,12 +443,12 @@ class PaprikaService
         );
 
         $headers = [
-            'Authorization' => 'Bearer ' . $token['accessToken'],
+            'Authorization' => 'Bearer '.$token['accessToken'],
             'Content-Type' => 'application/json',
             'X-PARTNER-ID' => $headerGeneration['X-CLIENT-KEY'],
             'X-TIMESTAMP' => $headerGeneration['X-TIMESTAMP'],
             'X-SIGNATURE' => $headerGeneration['X-SIGNATURE'],
-            'X-EXTERNAL-ID' =>  $this->dailyUnique($reference, 28),
+            'X-EXTERNAL-ID' => $this->dailyUnique($reference, 28),
             'CHANNEL-ID' => 95221,
         ];
 
@@ -506,9 +513,9 @@ class PaprikaService
         if (FormatHelper::isNotEmpty($request->version) && $request->version == '2') {
             $token = $this->redisService->generatePaymentToken($project->id, $project->value, $order->getReference());
             if (FormatHelper::isNotEmpty($request->paymentMethod)) {
-                $result['link'] = env('PAYMENT_URL') . '/detailpayment?token=' . $token . '&reference=' . $order->getReference();
+                $result['link'] = env('PAYMENT_URL').'/detailpayment?token='.$token.'&reference='.$order->getReference();
             } else {
-                $result['link'] = env('PAYMENT_URL') . '/home?token=' . $token . '&reference=' . $order->getReference();
+                $result['link'] = env('PAYMENT_URL').'/home?token='.$token.'&reference='.$order->getReference();
             }
         }
         $result['result'] = $responseData;
@@ -519,17 +526,17 @@ class PaprikaService
 
     public function createVA(Request $request, Project $project): array
     {
-        if (!FormatHelper::isNotEmpty($request->paymentMethod)) {
-            throw new Exception("payment method required");
+        if (! FormatHelper::isNotEmpty($request->paymentMethod)) {
+            throw new Exception('payment method required');
         }
 
         $mode = PaymentModeType::fromName($request->mode) ?? PaymentModeType::sandbox;
         $paymentRepo = $this->getPaymentRepo($mode, $request->paymentRepositoryId);
         $baseurl = rtrim($paymentRepo->getValue()['base_url'] ?? '', '/');
         $idSystem = OrderIdGenerator::generate();
-        $reference = $project->type . '-' . $request->merchantOrderId;
+        $reference = $project->type.'-'.$request->merchantOrderId;
         $amount = (float) ($request->paymentAmount ?? 0);
-        $customerName = trim(($request->firstName ?? '') . ' ' . ($request->lastName ?? ''));
+        $customerName = trim(($request->firstName ?? '').' '.($request->lastName ?? ''));
 
         $req['id'] = $idSystem;
         $req['reference'] = $reference;
@@ -545,12 +552,12 @@ class PaprikaService
         $bankCode = $this->getVABankCodeMap()[strtoupper($request->paymentMethod)] ?? '';
 
         if (empty($bankCode)) {
-            throw new RuntimeException('Unsupported VA payment method: ' . $request->paymentMethod);
+            throw new RuntimeException('Unsupported VA payment method: '.$request->paymentMethod);
         }
         $expiryPeriod = $request->expiryPeriod ?? 60;
         $expiredDate = Carbon::now()->addMinutes((int) $expiryPeriod)->format('Y-m-d\TH:i:sP');
 
-        $customerName = trim(($request->firstName ?? '') . ' ' . ($request->lastName ?? ''));
+        $customerName = trim(($request->firstName ?? '').' '.($request->lastName ?? ''));
 
         $body = [
             'customerNo' => '',
@@ -565,7 +572,7 @@ class PaprikaService
             'virtualAccountTrxType' => 'C',
             // TODO: nextnya ini bisa dipake kalo dari paprika expiredDate udah oke
             // 'expiredDate' => $expiredDate,
-            'expiredDate' => "",
+            'expiredDate' => '',
             'additionalInfo' => [
                 'bankCode' => $bankCode,
             ],
@@ -573,7 +580,7 @@ class PaprikaService
 
         $token = $this->getB2BToken($paymentRepo);
 
-        if (!isset($token['accessToken'])) {
+        if (! isset($token['accessToken'])) {
             throw new \Error('access token is fail to generate');
         }
 
@@ -591,7 +598,7 @@ class PaprikaService
 
         $headers = [
             'Content-Type' => 'application/json',
-            'Authorization' => 'Bearer ' . $token['accessToken'],
+            'Authorization' => 'Bearer '.$token['accessToken'],
             'X-PARTNER-ID' => $headerGeneration['X-CLIENT-KEY'],
             'X-TIMESTAMP' => $headerGeneration['X-TIMESTAMP'],
             'X-SIGNATURE' => $headerGeneration['X-SIGNATURE'],
@@ -658,7 +665,7 @@ class PaprikaService
         $result['link'] = $vaNumber;
         if (FormatHelper::isNotEmpty($request->version) && $request->version == '2') {
             $token = $this->redisService->generatePaymentToken($project->id, $project->value, $order->getReference());
-            $result['link'] = env('PAYMENT_URL') . '/detailpayment?token=' . $token . '&reference=' . $order->getReference();
+            $result['link'] = env('PAYMENT_URL').'/detailpayment?token='.$token.'&reference='.$order->getReference();
         }
         $result['result'] = $responseData;
         $result['message'] = $msg;
@@ -737,6 +744,7 @@ class PaprikaService
                 'reference' => $order->getReference(),
                 'status' => $currentStatus->value,
             ]);
+
             return response()->json([
                 'responseCode' => '2002600',
                 'responseMessage' => 'Success',
@@ -784,7 +792,7 @@ class PaprikaService
                 $order,
                 $status,
                 'WEBHOOK_PAPRIKA',
-                "Paprika callback received status: " . ($transactionStatus ?? 'SUCCESS'),
+                'Paprika callback received status: '.($transactionStatus ?? 'SUCCESS'),
                 $request->all(),
                 $previousStatus
             );
@@ -837,7 +845,7 @@ class PaprikaService
 
     private function assertPaprikaSuccess(array $responseData): void
     {
-        if (!empty($responseData['virtualAccountData']['virtualAccountNo'])) {
+        if (! empty($responseData['virtualAccountData']['virtualAccountNo'])) {
             return;
         }
 
@@ -951,8 +959,7 @@ class PaprikaService
     }
 
     /**
-     * @param PaymentRepository $repository
-     * @param array<string, mixed> $filters
+     * @param  array<string, mixed>  $filters
      * @return array<string, mixed>
      */
     public function fetchHistory(PaymentRepository $repository, array $filters = []): array
