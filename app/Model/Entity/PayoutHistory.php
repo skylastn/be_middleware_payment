@@ -24,12 +24,15 @@ class PayoutHistory extends Model
         'performed_at',
     ];
 
-    protected $casts = [
-        'id' => 'string',
-        'payout_id' => 'string',
-        'metadata' => 'array',
-        'performed_at' => 'datetime',
-    ];
+    protected function casts(): array
+    {
+        return [
+            'id' => 'string',
+            'payout_id' => 'string',
+            'metadata' => 'array',
+            'performed_at' => 'datetime',
+        ];
+    }
 
     public function payout(): BelongsTo
     {

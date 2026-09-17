@@ -20,11 +20,14 @@ class PaymentMethod extends Model
         'is_active',
     ];
 
-    protected $casts = [
-        'category_id' => 'integer',
-        'payment_gateway_id' => 'string',
-        'is_active' => 'boolean',
-    ];
+    protected function casts(): array
+    {
+        return [
+            'category_id' => 'integer',
+            'payment_gateway_id' => 'string',
+            'is_active' => 'boolean',
+        ];
+    }
 
     protected $appends = ['type'];
 

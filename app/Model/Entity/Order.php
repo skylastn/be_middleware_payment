@@ -16,14 +16,17 @@ class Order extends Model
 
     public $incrementing = false;
 
-    protected $casts = [
-        'id' => 'string',
-        'payment_repository_id' => 'string',
-        'mode' => PaymentModeType::class,
-        'status' => OrderStatus::class,
-        'amount' => 'float',
-        'expired_at' => 'datetime',
-    ];
+    protected function casts(): array
+    {
+        return [
+            'id' => 'string',
+            'payment_repository_id' => 'string',
+            'mode' => PaymentModeType::class,
+            'status' => OrderStatus::class,
+            'amount' => 'float',
+            'expired_at' => 'datetime',
+        ];
+    }
 
     protected $fillable = [
         'id',
