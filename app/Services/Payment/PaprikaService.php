@@ -668,7 +668,10 @@ class PaprikaService
 
     public function callback(Request $request)
     {
-        LogHelper::sendLog('callback_paprika', $request->all());
+        LogHelper::sendLog('callback_paprika', [
+            'headers' => $request->headers->all(),
+            'body' => $request->all(),
+        ]);
 
         // Validate Bearer token if provided (SNAP standard)
         $bearerToken = $request->bearerToken();
@@ -881,7 +884,7 @@ class PaprikaService
         // SNAP v1.0.2: {HTTP_METHOD}:{URL_PATH}:{accessToken}:{SHA256_hex(body)}:{X-TIMESTAMP}
         $method = strtoupper($request->method());
         $path = $request->getPathInfo();
-        $rawBody = $request->getContent() ?: json_encode($request->except('X-SIGNATURE'), JSON_UNESCAPED_SLASHES);
+        $rawBody = $request->getContent() ?: json_encode($request->all(), JSON_UNESCAPED_SLASHES);
         $bodyHash = hash('sha256', $rawBody);
 
         $stringToSign = "{$method}:{$path}:{$accessToken}:{$bodyHash}:{$timestamp}";
@@ -890,7 +893,11 @@ class PaprikaService
             throw new Exception('API secret not configured for signature verification');
         }
         $expectedSignature = base64_encode(hash_hmac('sha512', $stringToSign, $clientSecret, true));
-
+        Log::info('Paprika Callback Signature Verification', [
+            'stringToSign' => $stringToSign,
+            'clientSecret' => $clientSecret ? '***' : null,
+            'signature' => $signature,
+        ]);
         if (! hash_equals($expectedSignature, $signature)) {
             // Also try with minified JSON payload (as noted in SNAP v1.0.2 / documentation)
             $fallbackBody = json_encode($request->all(), JSON_UNESCAPED_SLASHES);
