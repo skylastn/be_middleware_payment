@@ -2,21 +2,24 @@
 
 namespace App\Services\System;
 
+use App\Interface\RabbitMQServiceInterface;
 use App\Interface\RedisServiceInterface;
 use App\Jobs\TestQueueJob;
 use Carbon\Carbon;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class QueueMonitorService
 {
-    public function __construct(private ?RedisServiceInterface $redisService = null)
-    {
+    public function __construct(
+        private ?RedisServiceInterface $redisService = null,
+        private ?RabbitMQServiceInterface $rabbitMQService = null
+    ) {
         $this->redisService = $redisService ?? app(RedisServiceInterface::class);
+        $this->rabbitMQService = $rabbitMQService ?? app(RabbitMQServiceInterface::class);
     }
 
     public function getOverview(): array
@@ -38,11 +41,11 @@ class QueueMonitorService
         // 2. Metrics based on driver
         if ($driver === 'redis') {
             try {
-                $pending = (int) Redis::llen("queues:{$defaultQueue}");
-                $scheduled = (int) Redis::zcard("queues:{$defaultQueue}:delayed");
-                $reserved = (int) Redis::zcard("queues:{$defaultQueue}:reserved");
+                $pending = $this->redisService->llen("queues:{$defaultQueue}");
+                $scheduled = $this->redisService->zcard("queues:{$defaultQueue}:delayed");
+                $reserved = $this->redisService->zcard("queues:{$defaultQueue}:reserved");
 
-                $clientInfo = Redis::connection()->client()->info();
+                $clientInfo = $this->redisService->info();
                 $details = [
                     'redis_version' => $clientInfo['Server']['redis_version'] ?? 'unknown',
                     'uptime_in_days' => $clientInfo['Server']['uptime_in_days'] ?? 0,
@@ -60,12 +63,8 @@ class QueueMonitorService
                 $reserved = (int) DB::table('jobs')->whereNotNull('reserved_at')->count();
             }
         } elseif ($driver === 'rabbitmq') {
-            $details = [
-                'host' => config('queue.connections.rabbitmq.hosts.0.host', 'localhost'),
-                'port' => config('queue.connections.rabbitmq.hosts.0.port', 5672),
-                'vhost' => config('queue.connections.rabbitmq.hosts.0.vhost', '/'),
-                'note' => 'RabbitMQ driver active via AMQP protocol',
-            ];
+            $pending = $this->rabbitMQService->getQueueSize($defaultQueue);
+            $details = $this->rabbitMQService->getConnectionDetails();
         }
 
         return [
@@ -93,7 +92,7 @@ class QueueMonitorService
             try {
                 // Pending (List)
                 if ($type === 'all' || $type === 'pending') {
-                    $rawPending = Redis::lrange("queues:{$defaultQueue}", 0, 99) ?: [];
+                    $rawPending = $this->redisService->lrange("queues:{$defaultQueue}", 0, 99) ?: [];
                     foreach ($rawPending as $raw) {
                         $parsed = $this->parseJobPayload($raw, 'pending', $defaultQueue);
                         if ($parsed) {
@@ -104,7 +103,7 @@ class QueueMonitorService
 
                 // Scheduled / Delayed (Sorted Set)
                 if ($type === 'all' || $type === 'scheduled') {
-                    $rawScheduled = Redis::zrange("queues:{$defaultQueue}:delayed", 0, 99, ['WITHSCORES' => true]) ?: [];
+                    $rawScheduled = $this->redisService->zrange("queues:{$defaultQueue}:delayed", 0, 99, ['WITHSCORES' => true]) ?: [];
                     foreach ($rawScheduled as $raw => $score) {
                         $parsed = $this->parseJobPayload($raw, 'scheduled', $defaultQueue, (int) $score);
                         if ($parsed) {
@@ -115,7 +114,7 @@ class QueueMonitorService
 
                 // In-Flight / Reserved (Sorted Set)
                 if ($type === 'all' || $type === 'reserved') {
-                    $rawReserved = Redis::zrange("queues:{$defaultQueue}:reserved", 0, 99, ['WITHSCORES' => true]) ?: [];
+                    $rawReserved = $this->redisService->zrange("queues:{$defaultQueue}:reserved", 0, 99, ['WITHSCORES' => true]) ?: [];
                     foreach ($rawReserved as $raw => $score) {
                         $parsed = $this->parseJobPayload($raw, 'reserved', $defaultQueue, (int) $score);
                         if ($parsed) {
@@ -155,6 +154,35 @@ class QueueMonitorService
                 $dbPaginator->perPage(),
                 $dbPaginator->currentPage()
             );
+        } elseif ($driver === 'rabbitmq') {
+            try {
+                $pending = $this->rabbitMQService->getQueueSize($defaultQueue);
+                if ($pending > 0) {
+                    $details = $this->rabbitMQService->getConnectionDetails();
+                    $items[] = [
+                        'id' => 'amqp-queue-channel',
+                        'uuid' => 'amqp-stream-active',
+                        'name' => "RabbitMQ Queue [{$defaultQueue}]",
+                        'full_name' => "RabbitMQ Broker (Messages waiting: {$pending})",
+                        'queue' => $defaultQueue,
+                        'status' => 'pending',
+                        'attempts' => 0,
+                        'max_tries' => null,
+                        'timeout' => null,
+                        'created_at' => now()->toIso8601String(),
+                        'scheduled_for' => null,
+                        'raw_payload' => [
+                            'driver' => 'RabbitMQ (AMQP)',
+                            'pending_messages' => $pending,
+                            'queue' => $defaultQueue,
+                            'exchange' => $details['exchange'] ?? 'default',
+                            'consumer_model' => 'AMQP Push (Basic.Deliver)',
+                        ],
+                    ];
+                }
+            } catch (\Throwable) {
+                $items = [];
+            }
         }
 
         // Manual pagination for in-memory collection

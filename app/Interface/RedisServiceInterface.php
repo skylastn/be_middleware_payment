@@ -28,6 +28,16 @@ interface RedisServiceInterface
 
     public function unlock(string $key): bool;
 
+    public function llen(string $key): int;
+
+    public function lrange(string $key, int $start, int $stop): array;
+
+    public function zcard(string $key): int;
+
+    public function zrange(string $key, int $start, int $stop, array $options = []): array;
+
+    public function info(?string $section = null): array;
+
     public function generatePaymentToken(int $projectId, string $projectValue, string $reference, int $ttl = 7200): string;
 
     public function getPaymentToken(string $token): ?array;

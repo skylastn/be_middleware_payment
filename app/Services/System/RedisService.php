@@ -118,6 +118,59 @@ class RedisService implements RedisServiceInterface
         }
     }
 
+    public function llen(string $key): int
+    {
+        try {
+            return (int) $this->getClient()->llen($key);
+        } catch (\Throwable) {
+            return 0;
+        }
+    }
+
+    public function lrange(string $key, int $start, int $stop): array
+    {
+        try {
+            return (array) ($this->getClient()->lrange($key, $start, $stop) ?: []);
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    public function zcard(string $key): int
+    {
+        try {
+            return (int) $this->getClient()->zcard($key);
+        } catch (\Throwable) {
+            return 0;
+        }
+    }
+
+    public function zrange(string $key, int $start, int $stop, array $options = []): array
+    {
+        try {
+            if (! empty($options)) {
+                return (array) ($this->getClient()->zrange($key, $start, $stop, $options) ?: []);
+            }
+
+            return (array) ($this->getClient()->zrange($key, $start, $stop) ?: []);
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    public function info(?string $section = null): array
+    {
+        try {
+            if ($section !== null) {
+                return (array) ($this->getClient()->info($section) ?: []);
+            }
+
+            return (array) ($this->getClient()->info() ?: []);
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
     public function generatePaymentToken(int $projectId, string $projectValue, string $reference, int $ttl = self::DEFAULT_TTL): string
     {
         $token = Str::random(40);

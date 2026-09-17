@@ -88,4 +88,23 @@ class RedisServiceTest extends TestCase
 
         $redis->unlock($lockKey);
     }
+
+    public function test_redis_service_queue_data_structures_and_info(): void
+    {
+        $redis = app(RedisServiceInterface::class);
+        $listKey = 'test:queue:list:'.uniqid();
+        $zsetKey = 'test:queue:zset:'.uniqid();
+
+        // Test List methods (used for pending jobs)
+        $this->assertEquals(0, $redis->llen($listKey));
+        $this->assertEquals([], $redis->lrange($listKey, 0, -1));
+
+        // Test ZSet methods (used for delayed/reserved jobs)
+        $this->assertEquals(0, $redis->zcard($zsetKey));
+        $this->assertEquals([], $redis->zrange($zsetKey, 0, -1));
+
+        // Test info method
+        $info = $redis->info();
+        $this->assertIsArray($info);
+    }
 }
