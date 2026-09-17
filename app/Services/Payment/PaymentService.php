@@ -207,6 +207,18 @@ class PaymentService
         return $this->paymentMethods->delete($method);
     }
 
+    public function togglePaymentMethod(int|string $id, ?bool $isActive = null): PaymentMethod
+    {
+        $method = $this->paymentMethods->find($id);
+        if (! $method) {
+            throw new Exception('Payment Method Not Found', 404);
+        }
+
+        $newStatus = $isActive !== null ? $isActive : ! $method->getIsActive();
+
+        return $this->paymentMethods->update($method, ['is_active' => $newStatus])->load(['category', 'payment_gateway']);
+    }
+
     public function getPaginatedPaymentGateway(Request $request): LengthAwarePaginator
     {
         $perPage = (int) ($request->query('per_page', $request->query('perPage', 10)));

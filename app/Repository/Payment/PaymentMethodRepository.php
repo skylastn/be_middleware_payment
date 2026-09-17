@@ -108,9 +108,10 @@ class PaymentMethodRepository extends BaseRepository
             ->paginate($perPage);
     }
 
-    public function getBankCodeMapByGatewayKey(string $gatewayKey): array
+    public function getBankCodeMapByGatewayKey(string $gatewayKey, bool $onlyActive = true): array
     {
         return $this->applyGatewayFilter(PaymentMethod::query(), null, $gatewayKey)
+            ->when($onlyActive, fn ($q) => $q->where('is_active', true))
             ->whereNotNull('bankCode')
             ->where('bankCode', '!=', '')
             ->whereNotNull('key')

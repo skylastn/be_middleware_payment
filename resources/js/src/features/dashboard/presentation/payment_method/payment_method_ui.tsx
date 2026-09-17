@@ -23,6 +23,7 @@ export function PaymentMethodPage({ mode, id }: PaymentMethodPageProps): React.J
         setForm,
         loading,
         saving,
+        togglingId,
         error,
         searchTerm,
         setSearchTerm,
@@ -289,11 +290,51 @@ export function PaymentMethodPage({ mode, id }: PaymentMethodPageProps): React.J
                         </div>
 
                         <div className="field">
-                            <span className="label">Client Visibility</span>
-                            <div>
-                                <span className={`badge ${record.is_active !== false ? 'success' : 'danger'}`}>
-                                    {record.is_active !== false ? 'Active (Shown to Client)' : 'Inactive (Hidden)'}
-                                </span>
+                            <span className="label">Client Visibility (On / Off)</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '4px' }}>
+                                <button
+                                    type="button"
+                                    disabled={togglingId === (record.id || record.key)}
+                                    style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '8px',
+                                        background: 'none',
+                                        border: 'none',
+                                        cursor: togglingId === (record.id || record.key) ? 'wait' : 'pointer',
+                                        padding: '4px',
+                                    }}
+                                    onClick={() => handleToggleActive(record.id || record.key, record.is_active !== false)}
+                                >
+                                    <span
+                                        style={{
+                                            position: 'relative',
+                                            display: 'inline-block',
+                                            width: '42px',
+                                            height: '24px',
+                                            borderRadius: '24px',
+                                            backgroundColor: record.is_active !== false ? '#10b981' : '#94a3b8',
+                                            transition: 'background-color 0.2s ease',
+                                        }}
+                                    >
+                                        <span
+                                            style={{
+                                                position: 'absolute',
+                                                top: '3px',
+                                                left: record.is_active !== false ? '21px' : '3px',
+                                                width: '18px',
+                                                height: '18px',
+                                                borderRadius: '50%',
+                                                backgroundColor: '#ffffff',
+                                                boxShadow: '0 1px 3px rgba(0,0,0,0.25)',
+                                                transition: 'left 0.2s ease',
+                                            }}
+                                        />
+                                    </span>
+                                    <span className={`badge ${record.is_active !== false ? 'success' : 'danger'}`}>
+                                        {record.is_active !== false ? 'Active (ON)' : 'Inactive (OFF)'}
+                                    </span>
+                                </button>
                             </div>
                         </div>
 
@@ -457,15 +498,64 @@ export function PaymentMethodPage({ mode, id }: PaymentMethodPageProps): React.J
                                     <td><span className="badge success">{row.payment_gateway?.name || '-'}</span></td>
                                     <td>{row.bankCode || '-'}</td>
                                     <td>
-                                        <button
-                                            type="button"
-                                            className={`badge ${row.is_active !== false ? 'success' : 'danger'}`}
-                                            style={{ cursor: 'pointer', border: 'none' }}
-                                            title="Click to toggle client visibility"
-                                            onClick={() => handleToggleActive(primaryKey, row.is_active !== false)}
-                                        >
-                                            {row.is_active !== false ? 'Active' : 'Hidden'}
-                                        </button>
+                                        {(() => {
+                                            const isRowActive = row.is_active !== false;
+                                            const isRowToggling = togglingId === primaryKey;
+
+                                            return (
+                                                <button
+                                                    type="button"
+                                                    disabled={isRowToggling}
+                                                    style={{
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '8px',
+                                                        background: 'none',
+                                                        border: 'none',
+                                                        cursor: isRowToggling ? 'wait' : 'pointer',
+                                                        padding: '4px 2px',
+                                                        opacity: isRowToggling ? 0.6 : 1,
+                                                    }}
+                                                    title={`Click to switch ${isRowActive ? 'OFF (Hide)' : 'ON (Activate)'}`}
+                                                    onClick={() => handleToggleActive(primaryKey, isRowActive)}
+                                                >
+                                                    <span
+                                                        style={{
+                                                            position: 'relative',
+                                                            display: 'inline-block',
+                                                            width: '38px',
+                                                            height: '20px',
+                                                            borderRadius: '20px',
+                                                            backgroundColor: isRowActive ? '#10b981' : '#94a3b8',
+                                                            transition: 'background-color 0.2s ease',
+                                                        }}
+                                                    >
+                                                        <span
+                                                            style={{
+                                                                position: 'absolute',
+                                                                top: '2px',
+                                                                left: isRowActive ? '20px' : '2px',
+                                                                width: '16px',
+                                                                height: '16px',
+                                                                borderRadius: '50%',
+                                                                backgroundColor: '#ffffff',
+                                                                boxShadow: '0 1px 3px rgba(0,0,0,0.25)',
+                                                                transition: 'left 0.2s ease',
+                                                            }}
+                                                        />
+                                                    </span>
+                                                    <span
+                                                        style={{
+                                                            fontSize: '12px',
+                                                            fontWeight: 600,
+                                                            color: isRowActive ? '#10b981' : '#64748b',
+                                                        }}
+                                                    >
+                                                        {isRowActive ? 'ON' : 'OFF'}
+                                                    </span>
+                                                </button>
+                                            );
+                                        })()}
                                     </td>
                                     <td>
                                         <div className="actions">

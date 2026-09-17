@@ -6,5 +6,6 @@ export interface PaymentMethodRepository {
     getPaymentMethodById(id: string | number): Promise<PaymentMethodItem>;
     createPaymentMethod(data: Record<string, any>): Promise<PaymentMethodItem>;
     updatePaymentMethod(id: string | number, data: Record<string, any>): Promise<PaymentMethodItem>;
+    togglePaymentMethod(id: string | number, isActive?: boolean): Promise<PaymentMethodItem>;
     deletePaymentMethod(id: string | number): Promise<any>;
 }

@@ -26,6 +26,10 @@ export class PaymentMethodService {
         return this.repo.updatePaymentMethod(id, data);
     }
 
+    async togglePaymentMethod(id: string | number, isActive?: boolean): Promise<PaymentMethodItem> {
+        return this.repo.togglePaymentMethod(id, isActive);
+    }
+
     async deletePaymentMethod(id: string | number): Promise<any> {
         return this.repo.deletePaymentMethod(id);
     }

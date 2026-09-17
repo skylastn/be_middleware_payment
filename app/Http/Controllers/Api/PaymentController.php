@@ -260,6 +260,28 @@ class PaymentController extends Controller
         }
     }
 
+    public function togglePaymentMethod(Request $request, int|string $id): JsonResponse
+    {
+        try {
+            DB::beginTransaction();
+            $isActive = $request->has('is_active') ? $request->boolean('is_active') : null;
+            $method = $this->paymentService->togglePaymentMethod($id, $isActive);
+            DB::commit();
+
+            return ResponseHelper::successResponse(
+                new PaymentMethodResource($method),
+                $method->getIsActive() ? 'Payment method activated' : 'Payment method deactivated'
+            );
+        } catch (Exception $ex) {
+            if (DB::transactionLevel() > 0) {
+                DB::rollback();
+            }
+            LogHelper::sendErrorLog($ex);
+
+            return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400);
+        }
+    }
+
     public function showPaymentGateway(int|string $id): JsonResponse
     {
         $gateway = $this->paymentService->getPaymentGatewayById($id);

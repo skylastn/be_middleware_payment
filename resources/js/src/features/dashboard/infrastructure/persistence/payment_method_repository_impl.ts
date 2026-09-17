@@ -24,6 +24,10 @@ export class PaymentMethodRepositoryImpl implements PaymentMethodRepository {
         return this.remote.updatePaymentMethod(id, data);
     }
 
+    async togglePaymentMethod(id: string | number, isActive?: boolean): Promise<PaymentMethodItem> {
+        return this.remote.togglePaymentMethod(id, isActive);
+    }
+
     async deletePaymentMethod(id: string | number): Promise<any> {
         return this.remote.deletePaymentMethod(id);
     }

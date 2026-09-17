@@ -31,6 +31,7 @@ export function usePaymentMethodLogic({ mode, id }: UsePaymentMethodLogicProps) 
     });
     const [loading, setLoading] = useState<boolean>(true);
     const [saving, setSaving] = useState<boolean>(false);
+    const [togglingId, setTogglingId] = useState<string | number | null>(null);
     const [error, setError] = useState<string>('');
 
     // Filter states
@@ -179,13 +180,31 @@ export function usePaymentMethodLogic({ mode, id }: UsePaymentMethodLogicProps) 
     };
 
     const handleToggleActive = async (methodId: string | number, currentActive: boolean) => {
+        setTogglingId(methodId);
+        setError('');
         try {
-            await paymentMethodService.updatePaymentMethod(methodId, {
-                is_active: !currentActive,
+            const nextActive = !currentActive;
+            await paymentMethodService.togglePaymentMethod(methodId, nextActive);
+            // Optimistically update records in list
+            setPayload((prev: any) => {
+                if (!prev?.data) return prev;
+                return {
+                    ...prev,
+                    data: prev.data.map((item: any) =>
+                        String(item.id) === String(methodId) || String(item.key) === String(methodId)
+                            ? { ...item, is_active: nextActive }
+                            : item
+                    ),
+                };
             });
-            loadList(page);
+            if (record && (String(record.id) === String(methodId) || String(record.key) === String(methodId))) {
+                setRecord((prev: any) => prev ? { ...prev, is_active: nextActive } : prev);
+            }
         } catch (err: any) {
             setError(err?.message || 'Failed to update payment method status.');
+            loadList(page);
+        } finally {
+            setTogglingId(null);
         }
     };
 
@@ -215,6 +234,7 @@ export function usePaymentMethodLogic({ mode, id }: UsePaymentMethodLogicProps) 
         setForm,
         loading,
         saving,
+        togglingId,
         error,
         searchTerm,
         setSearchTerm,

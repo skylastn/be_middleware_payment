@@ -36,6 +36,14 @@ export class PaymentMethodRemoteDataSource {
         return res?.data || res;
     }
 
+    async togglePaymentMethod(id: string | number, isActive?: boolean): Promise<PaymentMethodItem> {
+        const res = await apiClient<any>(`/api/admin/payment-methods/${id}/toggle`, {
+            method: 'PATCH',
+            body: JSON.stringify(isActive !== undefined ? { is_active: isActive } : {}),
+        });
+        return res?.data || res;
+    }
+
     async deletePaymentMethod(id: string | number): Promise<any> {
         return apiClient(`/api/admin/payment-methods/${id}`, { method: 'DELETE' });
     }

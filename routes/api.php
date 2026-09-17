@@ -170,6 +170,7 @@ Route::middleware('throttle:api')->group(function () {
                 Route::get('/{id}', [PaymentController::class, 'showPaymentMethod']);
                 Route::post('/create', [PaymentController::class, 'createPaymentMethod']);
                 Route::put('/{id}', [PaymentController::class, 'updatePaymentMethod']);
+                Route::match(['patch', 'post'], '/{id}/toggle', [PaymentController::class, 'togglePaymentMethod']);
                 Route::delete('/{id}', [PaymentController::class, 'deletePaymentMethod']);
             });
 

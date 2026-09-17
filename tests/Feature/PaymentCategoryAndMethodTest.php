@@ -274,4 +274,73 @@ class PaymentCategoryAndMethodTest extends TestCase
         $activeMethod->forceDelete();
         $inactiveMethod->forceDelete();
     }
+
+    public function test_admin_can_toggle_payment_method_status(): void
+    {
+        $this->seed(PaymentCategorySeeder::class);
+        $vaCategory = PaymentCategory::where('key', 'va')->firstOrFail();
+        $duitkuGateway = PaymentGateway::where('key', 'duitku')->firstOrFail();
+
+        $method = PaymentMethod::create([
+            'key' => 'TEST_TOGGLE_METHOD',
+            'name' => 'Toggle Test Method',
+            'category_id' => $vaCategory->id,
+            'payment_gateway_id' => $duitkuGateway->id,
+            'is_active' => true,
+        ]);
+
+        Sanctum::actingAs($this->admin);
+
+        // 1. Toggle OFF via PATCH
+        $responseOff = $this->patchJson("/api/admin/payment-methods/{$method->id}/toggle", [
+            'is_active' => false,
+        ]);
+        $responseOff->assertStatus(200);
+        $this->assertFalse($responseOff->json('data.is_active'));
+        $this->assertFalse($method->fresh()->getIsActive());
+
+        // 2. Toggle ON without payload (auto invert)
+        $responseOn = $this->postJson("/api/admin/payment-methods/{$method->id}/toggle");
+        $responseOn->assertStatus(200);
+        $this->assertTrue($responseOn->json('data.is_active'));
+        $this->assertTrue($method->fresh()->getIsActive());
+
+        // 3. Partial update via PUT with only is_active
+        $responsePut = $this->putJson("/api/admin/payment-methods/{$method->id}", [
+            'is_active' => false,
+        ]);
+        $responsePut->assertStatus(200);
+        $this->assertFalse($responsePut->json('data.is_active'));
+        $this->assertFalse($method->fresh()->getIsActive());
+
+        $method->forceDelete();
+    }
+
+    public function test_bank_code_map_respects_is_active_flag(): void
+    {
+        $this->seed(PaymentCategorySeeder::class);
+        $vaCategory = PaymentCategory::where('key', 'va')->firstOrFail();
+        $paprikaGateway = PaymentGateway::where('key', 'paprika')->firstOrFail();
+
+        $method = PaymentMethod::create([
+            'key' => 'VA_TEST_ACTIVE',
+            'name' => 'Test VA Active',
+            'category_id' => $vaCategory->id,
+            'payment_gateway_id' => $paprikaGateway->id,
+            'bankCode' => '999',
+            'is_active' => true,
+        ]);
+
+        $paymentService = new \App\Services\Payment\PaymentService();
+        $mapActive = $paymentService->getBankCodeMapByGatewayKey('paprika');
+        $this->assertArrayHasKey('VA_TEST_ACTIVE', $mapActive);
+        $this->assertEquals('999', $mapActive['VA_TEST_ACTIVE']);
+
+        // Toggle to inactive
+        $method->update(['is_active' => false]);
+        $mapInactive = $paymentService->getBankCodeMapByGatewayKey('paprika');
+        $this->assertArrayNotHasKey('VA_TEST_ACTIVE', $mapInactive);
+
+        $method->forceDelete();
+    }
 }
