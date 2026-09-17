@@ -897,6 +897,7 @@ class PaprikaService
             'stringToSign' => $stringToSign,
             'clientSecret' => $clientSecret,
             'signature' => $signature,
+            'expectedSignature' => $expectedSignature,
         ]);
         if (! hash_equals($expectedSignature, $signature)) {
             // Also try with minified JSON payload (as noted in SNAP v1.0.2 / documentation)
