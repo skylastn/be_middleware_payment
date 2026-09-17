@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AdminAuthController;
 use App\Http\Controllers\Api\AdminDashboardController;
 use App\Http\Controllers\Api\AdminGatewayHistoryController;
+use App\Http\Controllers\Api\AdminQueueController;
 use App\Http\Controllers\Api\CallbackController;
 use App\Http\Controllers\Api\ClientPaymentController;
 use App\Http\Controllers\Api\OrderController;
@@ -125,6 +126,18 @@ Route::middleware('throttle:api')->group(function () {
 
         Route::get('/dashboard', AdminDashboardController::class)->name('dashboard');
         Route::get('/gateway-history', AdminGatewayHistoryController::class)->name('gateway-history');
+
+        // Admin Queue Monitor
+        Route::prefix('queue')->controller(AdminQueueController::class)->group(function () {
+            Route::get('/overview', 'overview');
+            Route::get('/active-jobs', 'activeJobs');
+            Route::get('/failed-jobs', 'failedJobs');
+            Route::post('/failed-jobs/retry-all', 'retryAllFailedJobs');
+            Route::post('/failed-jobs/{id}/retry', 'retryFailedJob');
+            Route::delete('/failed-jobs/flush', 'flushFailedJobs');
+            Route::delete('/failed-jobs/{id}', 'forgetFailedJob');
+            Route::post('/test-dispatch', 'testDispatch');
+        });
 
         // Admin Order Management
         Route::prefix('orders')->controller(OrderController::class)->group(function () {

@@ -3,17 +3,19 @@ import { User } from '@/features/auth/domain/model/response/user_response';
 import { RouteInfo, Theme } from '@/features/dashboard/domain/model/resource_model';
 import { navigate } from '@/shared/utils/format_utils';
 import {
+    IconCategories,
     IconDashboard,
+    IconGateways,
+    IconHistory,
     IconLogs,
     IconLogout,
     IconMenu,
+    IconMethods,
     IconMoon,
     IconOrders,
     IconProjects,
-    IconGateways,
+    IconQueue,
     IconRepositories,
-    IconMethods,
-    IconCategories,
     IconSettings,
     IconSun,
     IconX,
@@ -102,14 +104,21 @@ export function Shell({ user, route, children, theme, onToggleTheme, onLogout }:
             ],
         },
         {
-            title: 'SYSTEM',
+            title: 'TOOLS',
             items: [
                 {
-                    key: 'settings',
-                    label: 'Settings',
-                    icon: <IconSettings />,
-                    active: activeResource === 'settings',
-                    path: '/admin/settings',
+                    key: 'queue',
+                    label: 'Queue',
+                    icon: <IconQueue />,
+                    active: (route.page as string) === 'queue',
+                    path: '/admin/queue',
+                },
+                {
+                    key: 'gateway-history',
+                    label: 'Gateway History',
+                    icon: <IconHistory />,
+                    active: (route.page as string) === 'gateway-history',
+                    path: '/admin/gateway-history',
                 },
                 {
                     key: 'logs',
@@ -120,10 +129,23 @@ export function Shell({ user, route, children, theme, onToggleTheme, onLogout }:
                 },
             ],
         },
+        {
+            title: 'SYSTEM',
+            items: [
+                {
+                    key: 'settings',
+                    label: 'Settings',
+                    icon: <IconSettings />,
+                    active: activeResource === 'settings',
+                    path: '/admin/settings',
+                },
+            ],
+        },
     ];
 
     const getPageTitle = () => {
         if (route.page === 'dashboard') return 'Dashboard';
+        if ((route.page as string) === 'queue') return 'Queue Monitor';
         if (route.page === 'logs') return 'System Logs';
         if ((route.page as string) === 'gateway-history') return 'Gateway Live History';
         if (activeResource) {
