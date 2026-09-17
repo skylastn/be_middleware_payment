@@ -25,6 +25,7 @@ In the Backoffice under **Payment Repositories**, configure a repository with th
   "api_client": "paprika_api_client_xxx",
   "api_secret": "paprika_api_secret_xxx",
   "base_url": "https://staging-gateway.paprika.co.id",
+  "public_key_paprika": "-----BEGIN PUBLIC KEY-----\n...",
   "private_key": "-----BEGIN PRIVATE KEY-----\n..."
 }
 ```
@@ -37,7 +38,8 @@ In the Backoffice under **Payment Repositories**, configure a repository with th
 | `api_client` | string | Yes | Client ID expected from Paprika when calling SNAP B2B handshake (`X-CLIENT-KEY`) and callback/webhook (`X-PARTNER-ID`). |
 | `api_secret` | string | Yes | Secret used to verify incoming SNAP callback/webhook HMAC-SHA512 signatures. |
 | `base_url` | string | Yes | Upstream Paprika API base URL (e.g. `https://staging-gateway.paprika.co.id`). |
-| `private_key` | string | Yes | RSA private key in PEM format used for B2B token asymmetric signature. |
+| `public_key_paprika` | string | Yes | Paprika's RSA public key in PEM format used to verify inbound SNAP B2B token handshake requests. |
+| `private_key` | string | Yes | Merchant's RSA private key in PEM format used for B2B token asymmetric signature. |
 
 ---
 

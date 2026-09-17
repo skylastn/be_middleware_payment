@@ -78,9 +78,16 @@ class PaprikaService
 
     public static function getPublicKey(string $privateKey): string
     {
-        return openssl_pkey_get_details(
-            openssl_get_privatekey($privateKey)
-        )['key'];
+        $privateKey = str_replace('\n', "\n", $privateKey);
+        $res = openssl_get_privatekey($privateKey);
+        if ($res === false) {
+            throw new RuntimeException(
+                'Invalid private key: ' .
+                    (openssl_error_string() ?: 'Unknown OpenSSL error')
+            );
+        }
+        $details = openssl_pkey_get_details($res);
+        return $details['key'];
     }
 
     public function generateSignature(PaymentRepository $paymentRepo, ?string $timestamp = null): array
@@ -88,7 +95,11 @@ class PaprikaService
         $paymentConfig = $paymentRepo->getValue();
 
         $clientKey = $paymentConfig['api_key_paprika'] ?? null;
-        $privateKey = $paymentConfig['private_key'];
+        $privateKey = $paymentConfig['private_key'] ?? null;
+
+        if (empty($privateKey)) {
+            throw new RuntimeException('Private key not configured in repository');
+        }
 
         $timestamp ??= date('c');
 
@@ -111,7 +122,7 @@ class PaprikaService
         if ($key === false) {
             throw new RuntimeException(
                 'Invalid private key: ' .
-                (openssl_error_string() ?: 'Unknown OpenSSL error')
+                    (openssl_error_string() ?: 'Unknown OpenSSL error')
             );
         }
 
@@ -125,7 +136,7 @@ class PaprikaService
         if ($result === false) {
             throw new RuntimeException(
                 'Failed to generate signature: ' .
-                (openssl_error_string() ?: 'Unknown OpenSSL error')
+                    (openssl_error_string() ?: 'Unknown OpenSSL error')
             );
         }
 
@@ -232,8 +243,7 @@ class PaprikaService
         }
 
         $config = $paymentRepo->getValue();
-        $publicKeyPem = $config['public_key']
-            ?? (isset($config['private_key']) ? self::getPublicKey($config['private_key']) : null);
+        $publicKeyPem = $config['public_key_paprika'] ?? '';
 
         if (empty($publicKeyPem)) {
             return $this->errorResponse(

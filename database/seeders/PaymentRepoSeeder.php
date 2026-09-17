@@ -178,14 +178,15 @@ class PaymentRepoSeeder extends Seeder
             }
 
             $paprikaDefaultConfig = [
-                'api_key_paprika' => env('PAPRIKA_API_KEY_PAPRIKA', 'paprika_api_key_xxx'),
-                'api_secret_paprika' => env('PAPRIKA_API_SECRET_PAPRIKA', 'paprika_api_secret_xxx'),
-                'api_client' => env('PAPRIKA_API_CLIENT', 'paprika_api_client_xxx'),
-                'api_secret' => env('PAPRIKA_API_SECRET', 'paprika_api_secret_xxx'),
+                'api_key_paprika' => 'paprika_api_key_xxx',
+                'api_secret_paprika' => 'paprika_api_secret_xxx',
+                'api_client' => 'paprika_api_client_xxx',
+                'api_secret' => 'paprika_api_secret_xxx',
                 'base_url' => $mode === PaymentModeType::sandbox
                     ? 'https://staging-gateway.paprika.co.id'
                     : 'https://gateway.paprika.co.id',
-                'private_key' => env('PAPRIKA_PRIVATE_KEY', '-----BEGIN RSA PRIVATE KEY-----...'),
+                'public_key_paprika' => '-----BEGIN PUBLIC KEY-----...',
+                'private_key' => '-----BEGIN PRIVATE KEY-----...',
             ];
 
             $paprikaRepo = PaymentRepository::firstOrCreate(

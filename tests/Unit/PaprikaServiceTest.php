@@ -453,4 +453,59 @@ class PaprikaServiceTest extends TestCase
             $newRepo->forceDelete();
         }
     }
+
+    public function test_paprika_service_supports_private_key_and_public_key_paprika(): void
+    {
+        $repo = PaymentRepository::create([
+            'payment_gateway_id' => $this->gateway->id,
+            'key' => 'paprika_keys_test_' . uniqid(),
+            'mode' => PaymentModeType::sandbox->value,
+            'value' => [
+                'api_key_paprika' => 'test-api-key-paprika',
+                'api_secret_paprika' => 'test-api-secret-paprika',
+                'api_client' => 'test-api-client-snap',
+                'api_secret' => 'test-api-secret-snap',
+                'base_url' => 'https://staging-gateway.paprika.co.id',
+                'private_key' => $this->privateKeyPem,
+                'public_key_paprika' => $this->publicKeyPem,
+            ],
+        ]);
+
+        try {
+            // 1. generateSignature should read private_key_paprika
+            $sigData = $this->service->generateSignature($repo, '2026-09-17T00:00:00+00:00');
+            $this->assertNotEmpty($sigData['X-SIGNATURE']);
+            $this->assertEquals('test-api-key-paprika', $sigData['X-CLIENT-KEY']);
+
+            // 2. generateB2BAccessToken should read public_key_paprika
+            $clientKey = 'test-api-client-snap';
+            $timestamp = now()->toIso8601String();
+            $stringToSign = "{$clientKey}|{$timestamp}";
+            $privKey = openssl_pkey_get_private($this->privateKeyPem);
+            openssl_sign($stringToSign, $rawSig, $privKey, OPENSSL_ALGO_SHA256);
+
+            $request = Request::create(
+                '/api/paprika/snap/v1.0/access-token/b2b',
+                'POST',
+                ['grantType' => 'client_credentials'],
+                [],
+                [],
+                [
+                    'HTTP_X_CLIENT_KEY' => $clientKey,
+                    'HTTP_X_TIMESTAMP' => $timestamp,
+                    'HTTP_X_SIGNATURE' => base64_encode($rawSig),
+                    'CONTENT_TYPE' => 'application/json',
+                ],
+                json_encode(['grantType' => 'client_credentials'])
+            );
+
+            $response = $this->service->generateB2BAccessToken($request);
+            $this->assertEquals(200, $response->getStatusCode());
+            $json = json_decode($response->getContent(), true);
+            $this->assertEquals('2007300', $json['responseCode']);
+            $this->assertNotEmpty($json['accessToken']);
+        } finally {
+            $repo->forceDelete();
+        }
+    }
 }

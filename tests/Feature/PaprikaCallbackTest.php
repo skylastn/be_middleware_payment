@@ -53,7 +53,7 @@ class PaprikaCallbackTest extends TestCase
                 'api_secret_paprika' => 'test-api-secret-paprika',
                 'api_client' => $this->clientKey,
                 'api_secret' => $this->clientSecret,
-                'public_key' => $this->publicKey,
+                'public_key_paprika' => $this->publicKey,
                 'private_key' => $this->privateKey,
                 'base_url' => 'https://sandbox.paprika.test',
             ],
