@@ -40,7 +40,7 @@ class PaymentMethodSeeder extends Seeder
                 'bankCode' => '',
             ],
             [
-                'key' => 'PAPRIKA_QRIS',
+                'key' => 'QRIS',
                 'name' => 'Paprika QRIS',
                 'category_key' => 'qris',
                 'from' => 'paprika',

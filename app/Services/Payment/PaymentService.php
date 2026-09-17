@@ -366,7 +366,9 @@ class PaymentService
         if ($amount <= 0) {
             throw new Exception('Test amount must be greater than 0');
         }
-        $currency = strtolower($params['currency'] ?? ($slug === ProjectSlug::STRIPE ? 'myr' : 'idr'));
+        $currency = $slug === ProjectSlug::STRIPE
+            ? strtolower($params['currency'] ?? 'myr')
+            : strtoupper($params['currency'] ?? 'IDR');
         $email = $params['email'] ?? 'test-buyer@example.com';
         $customerName = $params['name'] ?? 'Test Buyer';
         $paymentMethod = $params['paymentMethod'] ?? $params['payment_method'] ?? '';

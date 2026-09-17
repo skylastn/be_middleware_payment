@@ -560,7 +560,7 @@ class PaprikaService
             'trxId' => $reference,
             'totalAmount' => [
                 'value' => number_format($amount, 2, '.', ''),
-                'currency' => $request->currency ?? 'IDR',
+                'currency' => strtoupper($request->currency ?: 'IDR'),
             ],
             'virtualAccountTrxType' => 'C',
             // TODO: nextnya ini bisa dipake kalo dari paprika expiredDate udah oke
