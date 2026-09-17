@@ -38,6 +38,7 @@ class OrderResource extends ResponseResource
             'payment_repository' => new PaymentRepositoryResource($this->whenLoaded('payment_repository')),
             'project' => new ProjectResource($this->whenLoaded('project')),
             'histories' => OrderHistoryResource::collection($this->whenLoaded('histories')),
+            'expired_at' => $this->formatDate($this->expired_at),
             'created_at' => $this->formatDate($this->created_at),
             'updated_at' => $this->formatDate($this->updated_at),
         ];

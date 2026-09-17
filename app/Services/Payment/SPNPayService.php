@@ -15,6 +15,7 @@ use App\Model\Entity\PaymentMethod;
 use App\Model\Entity\PaymentRepository;
 use App\Model\Entity\Project;
 use App\Repository\Payment\SPNPayRepository;
+use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
@@ -77,7 +78,9 @@ class SPNPayService
         $params['type'] = 'ClosedAmount';
         $params['reference'] = $req['reference'];
         $params['amount'] = $paymentAmount;
-        $params['expiryMinutes'] = 60;
+        $expiryMinutes = (int) ($request->expiryMinutes ?? 60);
+        $params['expiryMinutes'] = $expiryMinutes;
+        $req['expired_at'] = Carbon::now()->addMinutes($expiryMinutes);
         $userName = $request->firstName ?? 'AndalanSoftware';
         if (FormatHelper::isNotEmpty($request->lastName)) {
             $userName = $userName.' '.$request->lastName;

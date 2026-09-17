@@ -26,7 +26,7 @@ class OrderGlobalValueTest extends TestCase
                 'slug' => 'duitku',
                 'key' => 'gvkey123',
                 'secure' => 'gvsecure123',
-                'value' => 'gv_token_' . Str::random(32),
+                'value' => 'gv_token_'.Str::random(32),
                 'callback' => 'https://example.com/callback',
             ]
         );
@@ -76,7 +76,7 @@ class OrderGlobalValueTest extends TestCase
         ]);
 
         $resource = new OrderResource($order);
-        $array = $resource->toArray(Request::create('/admin/orders/' . $order->id));
+        $array = $resource->toArray(Request::create('/admin/orders/'.$order->id));
 
         $this->assertArrayHasKey('value', $array);
         $this->assertEquals('https://checkout.stripe.com/c/pay/cs_test_123', $array['value']);
@@ -102,7 +102,7 @@ class OrderGlobalValueTest extends TestCase
         $this->assertEquals('https://merchant.example.com/checkout/success', $fresh->getReturnUrl());
 
         $resource = new OrderResource($fresh);
-        $array = $resource->toArray(Request::create('/admin/orders/' . $fresh->id));
+        $array = $resource->toArray(Request::create('/admin/orders/'.$fresh->id));
 
         $this->assertArrayHasKey('return_url', $array);
         $this->assertEquals('https://merchant.example.com/checkout/success', $array['return_url']);
@@ -127,7 +127,7 @@ class OrderGlobalValueTest extends TestCase
         $this->assertEquals(50000.50, $fresh->getAmount());
 
         $resource = new OrderResource($fresh);
-        $array = $resource->toArray(Request::create('/admin/orders/' . $fresh->id));
+        $array = $resource->toArray(Request::create('/admin/orders/'.$fresh->id));
 
         $this->assertArrayHasKey('amount', $array);
         $this->assertEquals(50000.50, $array['amount']);
@@ -152,5 +152,24 @@ class OrderGlobalValueTest extends TestCase
 
         $order->refresh();
         $this->assertEquals('Budi Santoso', $order->getName());
+    }
+
+    public function test_order_entity_persists_and_serializes_expired_at(): void
+    {
+        $order = Order::create([
+            'id' => 'ORDER-GV-006',
+            'type' => 'GV',
+            'reference' => 'GV-TEST-006',
+            'status' => OrderStatus::PENDING->value,
+            'mode' => PaymentModeType::sandbox->value,
+        ]);
+
+        $this->assertNotNull($order->getExpiredAt());
+
+        $resource = new OrderResource($order);
+        $array = $resource->toArray(Request::create('/admin/orders/'.$order->id));
+
+        $this->assertArrayHasKey('expired_at', $array);
+        $this->assertNotNull($array['expired_at']);
     }
 }

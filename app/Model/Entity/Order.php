@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Order extends Model
 {
-    use HasFactory, BaseModelTrait;
+    use BaseModelTrait, HasFactory;
 
     public $incrementing = false;
 
@@ -22,6 +22,7 @@ class Order extends Model
         'mode' => PaymentModeType::class,
         'status' => OrderStatus::class,
         'amount' => 'float',
+        'expired_at' => 'datetime',
     ];
 
     protected $fillable = [
@@ -33,6 +34,7 @@ class Order extends Model
         'name',
         'payment_method',
         'amount',
+        'expired_at',
         'value',
         'status',
         'request',
@@ -45,6 +47,17 @@ class Order extends Model
         'phone',
         'email',
     ];
+
+    protected static function boot(): void
+    {
+        parent::boot();
+
+        static::creating(function (self $order): void {
+            if (! $order->expired_at) {
+                $order->expired_at = now()->addHour();
+            }
+        });
+    }
 
     // Keep the original eager-loaded relationships.
     protected $with = ['payment_methods', 'project', 'payment_repository'];
@@ -155,6 +168,7 @@ class Order extends Model
         $parts = explode('-', $ref);
         if (count($parts) > 1) {
             array_shift($parts);
+
             return implode('-', $parts);
         }
 
@@ -179,6 +193,16 @@ class Order extends Model
     public function setAmount(float|int|string|null $amount): void
     {
         $this->amount = (float) ($amount ?? 0);
+    }
+
+    public function getExpiredAt(): mixed
+    {
+        return $this->expired_at;
+    }
+
+    public function setExpiredAt(mixed $expiredAt): void
+    {
+        $this->expired_at = $expiredAt;
     }
 
     public function getValue(): ?string
