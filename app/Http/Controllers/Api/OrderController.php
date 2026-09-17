@@ -6,7 +6,9 @@ use App\Enums\ProjectSlug;
 use App\Http\Controllers\Controller;
 use App\Http\Helper\FormatHelper;
 use App\Http\Helper\LogHelper;
+use App\Http\Helper\RequestHelper;
 use App\Http\Helper\ResponseHelper;
+use App\Interface\RedisServiceInterface;
 use App\Services\Payment\DuitkuService;
 use App\Services\Payment\MidtransService;
 use App\Services\Payment\OrderService;
@@ -24,35 +26,55 @@ use Illuminate\Support\Facades\Log;
 class OrderController extends Controller
 {
     private OrderService $service;
+
     private ProjectService $projectService;
+
     private DuitkuService $duitkuService;
+
     private MidtransService $midtransService;
+
     private XenditService $xenditService;
+
     private SPNPayService $spnPayService;
+
     private StripeService $stripeService;
+
     private PaprikaService $paprikaService;
 
-    public function __construct()
-    {
-        $this->service = new OrderService();
-        $this->projectService = new ProjectService();
-        $this->duitkuService = new DuitkuService();
-        $this->midtransService = new MidtransService();
-        $this->xenditService = new XenditService();
-        $this->spnPayService = new SPNPayService();
-        $this->stripeService = new StripeService();
-        $this->paprikaService = new PaprikaService();
+    private RedisServiceInterface $redisService;
+
+    public function __construct(
+        ?OrderService $service = null,
+        ?ProjectService $projectService = null,
+        ?DuitkuService $duitkuService = null,
+        ?MidtransService $midtransService = null,
+        ?XenditService $xenditService = null,
+        ?SPNPayService $spnPayService = null,
+        ?StripeService $stripeService = null,
+        ?PaprikaService $paprikaService = null,
+        ?RedisServiceInterface $redisService = null
+    ) {
+        $this->service = $service ?? new OrderService;
+        $this->projectService = $projectService ?? new ProjectService;
+        $this->duitkuService = $duitkuService ?? new DuitkuService;
+        $this->midtransService = $midtransService ?? new MidtransService;
+        $this->xenditService = $xenditService ?? new XenditService;
+        $this->spnPayService = $spnPayService ?? new SPNPayService;
+        $this->stripeService = $stripeService ?? new StripeService;
+        $this->paprikaService = $paprikaService ?? new PaprikaService;
+        $this->redisService = $redisService ?? app(RedisServiceInterface::class);
     }
 
     public function index(Request $request): JsonResponse
     {
         try {
             return ResponseHelper::formatPagination($this->service->getListOrder($request));
-        } catch (\Exception $ex) {
-            $error['line']      = $ex->getLine();
-            $error['message']   = $ex->getMessage();
-            $error['file']      = $ex->getFile();
+        } catch (Exception $ex) {
+            $error['line'] = $ex->getLine();
+            $error['message'] = $ex->getMessage();
+            $error['file'] = $ex->getFile();
             Log::error($error);
+
             return ResponseHelper::failedResponse($ex->getMessage());
         }
     }
@@ -60,17 +82,19 @@ class OrderController extends Controller
     public function detail(Request $request): JsonResponse
     {
         try {
-            $project    = $this->projectService->checkKey();
-            $response   = $this->service->detailByReferenceAndKey($request->reference, $project->type);
-            if (!FormatHelper::isNotEmpty($response)) {
-                throw new Exception("Unknown Order", 400);
+            $project = $this->projectService->checkKey();
+            $response = $this->service->detailByReferenceAndKey($request->reference, $project->type);
+            if (! FormatHelper::isNotEmpty($response)) {
+                throw new Exception('Unknown Order', 400);
             }
+
             return ResponseHelper::successResponse($response);
         } catch (Exception $ex) {
-            $error['line']      = $ex->getLine();
-            $error['message']   = $ex->getMessage();
-            $error['file']      = $ex->getFile();
+            $error['line'] = $ex->getLine();
+            $error['message'] = $ex->getMessage();
+            $error['file'] = $ex->getFile();
             Log::error($error);
+
             return ResponseHelper::failedResponse($ex->getMessage());
         }
     }
@@ -103,15 +127,32 @@ class OrderController extends Controller
             return ResponseHelper::successResponse($result);
         } catch (Exception $ex) {
             LogHelper::sendErrorLog($ex);
+
             return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400, $ex->getLine());
         }
     }
 
     public function store(Request $request): JsonResponse
     {
+        $lockKey = null;
         try {
-            DB::beginTransaction();
             $project = $this->projectService->checkKey();
+            $reference = $request->input('reference')
+                ?? $request->input('merchantOrderId')
+                ?? $request->input('order_id');
+
+            if ($reference) {
+                $lockKey = "lock:order:create:{$project->type}:{$reference}";
+                if (! $this->redisService->lock($lockKey, 5)) {
+                    return ResponseHelper::failedResponse(
+                        'Duplicate order request detected. Please wait a few seconds before retrying.',
+                        'Duplicate Order Request',
+                        409
+                    );
+                }
+            }
+
+            DB::beginTransaction();
             $response = match ($project->getSlug()) {
                 ProjectSlug::XENDIT => $this->xenditService->order($request, $project),
                 ProjectSlug::MIDTRANS => $this->midtransService->orderMidtrans($request, $project),
@@ -122,8 +163,12 @@ class OrderController extends Controller
                 default => throw new Exception('Undefined Project'),
             };
             DB::commit();
+
             return ResponseHelper::successResponse($response);
         } catch (Exception $ex) {
+            if ($lockKey) {
+                $this->redisService->unlock($lockKey);
+            }
             if (DB::transactionLevel() > 0) {
                 DB::rollback();
             }
@@ -131,6 +176,7 @@ class OrderController extends Controller
             if ($ex->getMessage() === 'Unauthorized') {
                 return ResponseHelper::unauthorizedResponse($ex->getMessage());
             }
+
             return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400, $ex->getLine(), $ex->getFile());
         }
     }
@@ -145,12 +191,14 @@ class OrderController extends Controller
             }
             $response = $this->stripeService->confirmCardPayment($request, $project);
             DB::commit();
+
             return ResponseHelper::successResponse($response);
         } catch (Exception $ex) {
             if (DB::transactionLevel() > 0) {
                 DB::rollback();
             }
             LogHelper::sendErrorLog($ex);
+
             return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400, $ex->getLine(), $ex->getFile());
         }
     }
@@ -237,7 +285,7 @@ class OrderController extends Controller
             $referenceParts = explode('-', (string) $order->reference);
             array_shift($referenceParts);
 
-            \App\Http\Helper\RequestHelper::sendCallback(
+            RequestHelper::sendCallback(
                 $project->value,
                 [
                     'merchantOrderId' => implode('-', $referenceParts),

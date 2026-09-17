@@ -98,6 +98,26 @@ class RedisService implements RedisServiceInterface
             : $this->getClient()->decrby($key, $amount));
     }
 
+    public function lock(string $key, int $ttl = 5): bool
+    {
+        try {
+            $result = $this->getClient()->set($key, 1, 'EX', $ttl, 'NX');
+
+            return (bool) $result;
+        } catch (\Throwable) {
+            return true; // fail-open so Redis error does not block transactions
+        }
+    }
+
+    public function unlock(string $key): bool
+    {
+        try {
+            return (bool) $this->del($key);
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
     public function generatePaymentToken(int $projectId, string $projectValue, string $reference, int $ttl = self::DEFAULT_TTL): string
     {
         $token = Str::random(40);

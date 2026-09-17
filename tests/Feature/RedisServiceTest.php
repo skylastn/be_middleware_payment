@@ -74,4 +74,18 @@ class RedisServiceTest extends TestCase
         $redis->deletePaymentToken($token);
         $this->assertNull($redis->getPaymentToken($token));
     }
+
+    public function test_redis_service_lock_and_unlock(): void
+    {
+        $redis = app(RedisServiceInterface::class);
+        $lockKey = 'test:lock:'.uniqid();
+
+        $this->assertTrue($redis->lock($lockKey, 5));
+        $this->assertFalse($redis->lock($lockKey, 5)); // Second attempt within TTL fails
+
+        $this->assertTrue($redis->unlock($lockKey));
+        $this->assertTrue($redis->lock($lockKey, 5)); // After unlock, acquire succeeds
+
+        $redis->unlock($lockKey);
+    }
 }

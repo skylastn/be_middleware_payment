@@ -7,6 +7,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Helper\FormatHelper;
 use App\Http\Helper\LogHelper;
 use App\Http\Helper\ResponseHelper;
+use App\Interface\RedisServiceInterface;
+use App\Model\Response\Order\OrderResource;
 use App\Model\Response\Payment\PaymentMethod\PaymentMethodResource;
 use App\Services\Payment\DuitkuService;
 use App\Services\Payment\OrderService;
@@ -23,20 +25,35 @@ use Illuminate\Support\Facades\Log;
 class ClientPaymentController extends Controller
 {
     private OrderService $orderService;
+
     private PaymentService $paymentService;
+
     private DuitkuService $duitkuService;
+
     private StripeService $stripeService;
+
     private SPNPayService $spnPayService;
+
     private PaprikaService $paprikaService;
 
-    public function __construct()
-    {
-        $this->orderService = new OrderService();
-        $this->paymentService = new PaymentService();
-        $this->duitkuService = new DuitkuService();
-        $this->stripeService = new StripeService();
-        $this->spnPayService = new SPNPayService();
-        $this->paprikaService = new PaprikaService();
+    private RedisServiceInterface $redisService;
+
+    public function __construct(
+        ?OrderService $orderService = null,
+        ?PaymentService $paymentService = null,
+        ?DuitkuService $duitkuService = null,
+        ?StripeService $stripeService = null,
+        ?SPNPayService $spnPayService = null,
+        ?PaprikaService $paprikaService = null,
+        ?RedisServiceInterface $redisService = null
+    ) {
+        $this->orderService = $orderService ?? new OrderService;
+        $this->paymentService = $paymentService ?? new PaymentService;
+        $this->duitkuService = $duitkuService ?? new DuitkuService;
+        $this->stripeService = $stripeService ?? new StripeService;
+        $this->spnPayService = $spnPayService ?? new SPNPayService;
+        $this->paprikaService = $paprikaService ?? new PaprikaService;
+        $this->redisService = $redisService ?? app(RedisServiceInterface::class);
     }
 
     public function detail(Request $request): JsonResponse
@@ -49,7 +66,7 @@ class ClientPaymentController extends Controller
                 throw new Exception('Unknown Order', 400);
             }
 
-            return ResponseHelper::successResponse(new \App\Model\Response\Order\OrderResource($response));
+            return ResponseHelper::successResponse(new OrderResource($response));
         } catch (Exception $ex) {
             $error['line'] = $ex->getLine();
             $error['message'] = $ex->getMessage();
@@ -85,7 +102,20 @@ class ClientPaymentController extends Controller
 
     public function createPayment(Request $request): JsonResponse
     {
+        $lockKey = null;
         try {
+            $reference = $request->reference ?? $request->input('reference');
+            if ($reference) {
+                $lockKey = "lock:client:payment:{$reference}";
+                if (! $this->redisService->lock($lockKey, 5)) {
+                    return ResponseHelper::failedResponse(
+                        'Payment request is already being processed. Please wait.',
+                        'Duplicate Payment Request',
+                        409
+                    );
+                }
+            }
+
             DB::beginTransaction();
 
             $project = $request->attributes->get('project');
@@ -106,6 +136,9 @@ class ClientPaymentController extends Controller
 
             return ResponseHelper::successResponse($result);
         } catch (Exception $ex) {
+            if ($lockKey) {
+                $this->redisService->unlock($lockKey);
+            }
             DB::rollBack();
             LogHelper::sendErrorLog($ex);
 
