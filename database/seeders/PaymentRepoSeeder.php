@@ -185,6 +185,7 @@ class PaymentRepoSeeder extends Seeder
                 'base_url' => $mode === PaymentModeType::sandbox
                     ? 'https://staging-gateway.paprika.co.id'
                     : 'https://gateway.paprika.co.id',
+                'public_key' => '-----BEGIN PUBLIC KEY-----...',
                 'public_key_paprika' => '-----BEGIN PUBLIC KEY-----...',
                 'private_key' => '-----BEGIN PRIVATE KEY-----...',
             ];

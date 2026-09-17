@@ -466,6 +466,7 @@ class PaprikaServiceTest extends TestCase
                 'api_client' => 'test-api-client-snap',
                 'api_secret' => 'test-api-secret-snap',
                 'base_url' => 'https://staging-gateway.paprika.co.id',
+                'public_key' => $this->publicKeyPem,
                 'private_key' => $this->privateKeyPem,
                 'public_key_paprika' => $this->publicKeyPem,
             ],
