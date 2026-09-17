@@ -884,7 +884,7 @@ class PaprikaService
         // SNAP v1.0.2: {HTTP_METHOD}:{URL_PATH}:{accessToken}:{SHA256_hex(body)}:{X-TIMESTAMP}
         $method = strtoupper($request->method());
         $path = $request->getPathInfo();
-        $rawBody = $request->getContent() ?: json_encode($request->all(), JSON_UNESCAPED_SLASHES);
+        $rawBody = json_encode($request->all(), JSON_UNESCAPED_SLASHES);
         $bodyHash = hash('sha256', $rawBody);
 
         $stringToSign = "{$method}:{$path}:{$accessToken}:{$bodyHash}:{$timestamp}";
