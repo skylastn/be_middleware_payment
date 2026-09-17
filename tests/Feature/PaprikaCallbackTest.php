@@ -4,13 +4,14 @@ namespace Tests\Feature;
 
 use App\Enums\OrderStatus;
 use App\Enums\PaymentModeType;
+use App\Http\Helper\LogHelper;
 use App\Jobs\SendMerchantCallback;
 use App\Jobs\SendNotificationJob;
 use App\Model\Entity\Order;
 use App\Model\Entity\PaymentGateway;
 use App\Model\Entity\PaymentRepository;
 use App\Model\Entity\Project;
-use App\Http\Helper\LogHelper;
+use App\Services\System\RedisService;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -18,12 +19,17 @@ use Tests\TestCase;
 class PaprikaCallbackTest extends TestCase
 {
     private PaymentGateway $gateway;
+
     private PaymentRepository $repo;
+
     private Project $project;
 
     private string $clientKey = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
+
     private string $clientSecret = 'test-client-secret-cb';
+
     private string $privateKey = '';
+
     private string $publicKey = '';
 
     protected function setUp(): void
@@ -46,7 +52,7 @@ class PaprikaCallbackTest extends TestCase
 
         $this->repo = PaymentRepository::create([
             'payment_gateway_id' => $this->gateway->id,
-            'key' => 'paprika_sandbox_cb_' . uniqid(),
+            'key' => 'paprika_sandbox_cb_'.uniqid(),
             'mode' => PaymentModeType::sandbox->value,
             'value' => [
                 'api_key_paprika' => 'test-api-key-paprika',
@@ -87,7 +93,7 @@ class PaprikaCallbackTest extends TestCase
     private function generateCallbackSignature(array $body, string $path = '/api/paprika/callback', ?string $token = 'test-bearer-token'): array
     {
         // Store test token in redis so bearer token validation passes
-        $redis = new \App\Services\System\RedisService;
+        $redis = new RedisService;
         $redis->storeSnapAccessToken($token, $this->clientKey, 900);
 
         $timestamp = '2026-08-24T12:00:00+00:00';
@@ -107,7 +113,7 @@ class PaprikaCallbackTest extends TestCase
     public function test_callback_paprika_success_updates_order_status(): void
     {
         $order = Order::create([
-            'id' => date('Ymd') . '-00201',
+            'id' => date('Ymd').'-00201',
             'type' => 'AD',
             'reference' => 'AD-FM-0000100',
             'status' => OrderStatus::PENDING,
@@ -138,6 +144,8 @@ class PaprikaCallbackTest extends TestCase
 
             $order->refresh();
             $this->assertEquals(OrderStatus::SUCCESS, $order->getStatus());
+            $this->assertNotNull($order->getCallback());
+            $this->assertStringContainsString('AD-FM-0000100', $order->getCallback());
 
             Queue::assertPushed(SendMerchantCallback::class);
             Queue::assertPushed(SendNotificationJob::class);
@@ -149,7 +157,7 @@ class PaprikaCallbackTest extends TestCase
     public function test_callback_paprika_failed_updates_order_status(): void
     {
         $order = Order::create([
-            'id' => date('Ymd') . '-00202',
+            'id' => date('Ymd').'-00202',
             'type' => 'AD',
             'reference' => 'AD-FM-0000101',
             'status' => OrderStatus::PENDING,
@@ -205,7 +213,7 @@ class PaprikaCallbackTest extends TestCase
     public function test_callback_paprika_missing_fields_returns_error(): void
     {
         $order = Order::create([
-            'id' => date('Ymd') . '-00203',
+            'id' => date('Ymd').'-00203',
             'type' => 'AD',
             'reference' => 'AD-FM-0000102',
             'status' => OrderStatus::PENDING,
@@ -234,11 +242,11 @@ class PaprikaCallbackTest extends TestCase
 
     public function test_callback_paprika_invalid_signature_returns_error(): void
     {
-        $redis = new \App\Services\System\RedisService;
+        $redis = new RedisService;
         $redis->storeSnapAccessToken('test-bearer-token', $this->clientKey, 900);
 
         $order = Order::create([
-            'id' => date('Ymd') . '-00204',
+            'id' => date('Ymd').'-00204',
             'type' => 'AD',
             'reference' => 'AD-FM-0000103',
             'status' => OrderStatus::PENDING,
@@ -273,7 +281,7 @@ class PaprikaCallbackTest extends TestCase
     public function test_callback_paprika_missing_signature_headers_returns_error(): void
     {
         $order = Order::create([
-            'id' => date('Ymd') . '-00205',
+            'id' => date('Ymd').'-00205',
             'type' => 'AD',
             'reference' => 'AD-FM-0000104',
             'status' => OrderStatus::PENDING,
@@ -303,7 +311,7 @@ class PaprikaCallbackTest extends TestCase
     public function test_callback_paprika_idempotent_on_terminal_status(): void
     {
         $order = Order::create([
-            'id' => date('Ymd') . '-00206',
+            'id' => date('Ymd').'-00206',
             'type' => 'AD',
             'reference' => 'AD-FM-0000105',
             'status' => OrderStatus::SUCCESS,
@@ -467,7 +475,7 @@ class PaprikaCallbackTest extends TestCase
 
         // 2. Create order
         $order = Order::create([
-            'id' => date('Ymd') . '-00207',
+            'id' => date('Ymd').'-00207',
             'type' => 'AD',
             'reference' => 'AD-FM-0000106',
             'status' => OrderStatus::PENDING,
@@ -516,7 +524,7 @@ class PaprikaCallbackTest extends TestCase
     public function test_webhook_paprika_endpoint_for_qris_success(): void
     {
         $order = Order::create([
-            'id' => date('Ymd') . '-00208',
+            'id' => date('Ymd').'-00208',
             'type' => 'AD',
             'reference' => 'AD-FM-0000107',
             'status' => OrderStatus::PENDING,
@@ -554,7 +562,7 @@ class PaprikaCallbackTest extends TestCase
     public function test_paprika_controller_group_routes_work(): void
     {
         $order = Order::create([
-            'id' => date('Ymd') . '-00209',
+            'id' => date('Ymd').'-00209',
             'type' => 'AD',
             'reference' => 'AD-FM-0000108',
             'status' => OrderStatus::PENDING,
@@ -584,6 +592,102 @@ class PaprikaCallbackTest extends TestCase
 
             $order->refresh();
             $this->assertEquals(OrderStatus::SUCCESS, $order->getStatus());
+            $this->assertNotNull($order->getCallback());
+        } finally {
+            $order->forceDelete();
+        }
+    }
+
+    public function test_api_callback_paprika_endpoint_works(): void
+    {
+        $order = Order::create([
+            'id' => date('Ymd').'-00210',
+            'type' => 'AD',
+            'reference' => 'AD-FM-0000109',
+            'status' => OrderStatus::PENDING,
+            'mode' => PaymentModeType::sandbox,
+            'payment_repository_id' => $this->repo->id,
+            'request' => '{"partnerReferenceNo":"AD-FM-0000109"}',
+        ]);
+
+        Queue::fake();
+
+        try {
+            $body = [
+                'originalPartnerReferenceNo' => 'AD-FM-0000109',
+                'originalReferenceNo' => 'AD-FM-0000109',
+                'latestTransactionStatus' => '00',
+                'amount' => ['value' => '100000.00', 'currency' => 'IDR'],
+            ];
+            $headers = $this->generateCallbackSignature($body, '/api/callback/paprika');
+
+            $response = $this->postJson('/api/callback/paprika', $body, $headers);
+
+            $response->assertStatus(200);
+            $response->assertJson([
+                'responseCode' => '2002600',
+                'responseMessage' => 'Success',
+            ]);
+
+            $order->refresh();
+            $this->assertEquals(OrderStatus::SUCCESS, $order->getStatus());
+            $this->assertNotNull($order->getCallback());
+            $this->assertStringContainsString('AD-FM-0000109', $order->getCallback());
+        } finally {
+            $order->forceDelete();
+        }
+    }
+
+    public function test_va_callback_matches_by_trx_id_with_different_payment_request_id(): void
+    {
+        $order = Order::create([
+            'id' => date('Ymd').'-00211',
+            'type' => 'AD',
+            'reference' => 'TEST-PAPRIKA-178963531921',
+            'status' => OrderStatus::PENDING,
+            'mode' => PaymentModeType::sandbox,
+            'payment_repository_id' => $this->repo->id,
+            'url' => '759170913403177',
+            'value' => '759170913403177',
+            'request' => '{"trxId":"TEST-PAPRIKA-178963531921"}',
+        ]);
+
+        Queue::fake();
+
+        try {
+            $body = [
+                'partnerServiceId' => '709',
+                'customerNo' => null,
+                'virtualAccountNo' => '759170913403177',
+                'virtualAccountName' => 'Test Buyer QA',
+                'virtualAccountEmail' => 'test-buyer@example.com',
+                'virtualAccountPhone' => '08123456789',
+                'trxId' => 'TEST-PAPRIKA-178963531921',
+                'paymentRequestId' => 'VA-PAY-REF-001',
+                'channelCode' => null,
+                'hashedSourceAccountNo' => null,
+                'sourceBankCode' => null,
+                'paidAmount' => [
+                    'value' => '10000.00',
+                    'currency' => 'IDR',
+                ],
+                'trxDateTime' => '20260917T171204Z',
+            ];
+            $headers = $this->generateCallbackSignature($body, '/api/paprika/callback');
+
+            $response = $this->postJson('/api/paprika/callback', $body, $headers);
+
+            $response->assertStatus(200);
+            $response->assertJson([
+                'responseCode' => '2002600',
+                'responseMessage' => 'Success',
+            ]);
+
+            $order->refresh();
+            $this->assertEquals(OrderStatus::SUCCESS, $order->getStatus());
+            $this->assertNotNull($order->getCallback());
+            $this->assertStringContainsString('TEST-PAPRIKA-178963531921', $order->getCallback());
+            $this->assertStringContainsString('759170913403177', $order->getCallback());
         } finally {
             $order->forceDelete();
         }

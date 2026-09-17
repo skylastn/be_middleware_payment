@@ -83,6 +83,7 @@ Route::middleware('throttle:api')->group(function () {
         Route::post('/spnpay', [CallbackController::class, 'callbackSPNPay']);
         Route::post('/stripe', [CallbackController::class, 'callbackStripe']);
         Route::post('/payout/stripe', [CallbackController::class, 'callbackPayoutStripe']);
+        Route::post('/paprika', [CallbackController::class, 'callbackPaprika']);
     });
 
     // Route::prefix('webhook')->controller(WebhookController::class)->group(function () {

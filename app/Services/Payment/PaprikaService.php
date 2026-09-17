@@ -696,10 +696,13 @@ class PaprikaService
 
         $now = Carbon::now();
         $dateBefore = date('Y-m-d', strtotime('-1 week'));
+
+        // Match reference from callback payload:
+        // - QRIS: 'originalPartnerReferenceNo'
+        // - VA:   'trxId'
         $reference = $request->input('originalPartnerReferenceNo')
-            ?: $request->input('originalReferenceNo')
-            ?: $request->input('paymentRequestId')
-            ?: $request->input('trxId');
+            ?: $request->input('trxId')
+            ?: $request->input('originalReferenceNo');
 
         $order = null;
         if (! empty($reference)) {
@@ -710,22 +713,13 @@ class PaprikaService
             );
         }
 
-        if (! $order && ! empty($request->input('originalReferenceNo'))) {
-            $order = $this->orderService->findRecentByReference(
-                $request->input('originalReferenceNo'),
-                $dateBefore,
-                $now->toDateTimeString()
-            );
-        }
-
-        $valueLookup = $request->input('virtualAccountNo') ?: $request->input('qrString') ?: $request->input('qrContent');
-        if (! $order && ! empty($valueLookup)) {
-            $order = $this->orderService->findOneByValue($valueLookup);
-        }
-
         if (! $order) {
             throw new Exception('Order not found');
         }
+
+        $rawCallback = ! empty($request->all())
+            ? json_encode($request->all(), JSON_UNESCAPED_SLASHES)
+            : (string) $request->getContent();
 
         $required = ['originalPartnerReferenceNo', 'latestTransactionStatus', 'originalReferenceNo'];
         if (empty($request->input('virtualAccountNo')) && empty($request->input('paidAmount'))) {
@@ -740,6 +734,11 @@ class PaprikaService
 
         $currentStatus = $order->getStatus();
         if ($currentStatus !== null && ($currentStatus->isSuccess() || $currentStatus->isFailed())) {
+            if (! empty($rawCallback) && empty($order->getCallback())) {
+                $order->setCallback($rawCallback);
+                $order->save();
+            }
+
             LogHelper::sendLog('callback_paprika_idempotent', [
                 'reference' => $order->getReference(),
                 'status' => $currentStatus->value,
@@ -771,7 +770,7 @@ class PaprikaService
         }
 
         $previousStatus = $order->status;
-        $order->setCallback(json_encode($request->all()));
+        $order->setCallback($rawCallback);
 
         if ($status !== null) {
             $order->setStatus($status);
@@ -800,23 +799,24 @@ class PaprikaService
 
         $reference = $order->getReference();
         $split = explode('-', $reference);
-        $project = $this->projectService->getByType($split[0]);
+        $project = $order->project ?: $this->projectService->getByType($split[0]) ?: $this->projectService->getByType($order->type);
         if (! FormatHelper::isNotEmpty($project)) {
-            throw new Exception('Project Not Found');
+            Log::warning("Paprika callback: Project not found for order reference {$reference}");
+        } else {
+            LogHelper::sendLog(
+                'Callback Paprika',
+                (string) $order->getCallback(),
+                $project->id,
+                'callback_order_paprika'
+            );
+
+            $params['merchantOrderId'] = $order->getMerchantOrderId();
+            $params['paymentCode'] = $order->getPaymentMethod();
+            $params['resultCode'] = $transactionStatus ?? '00';
+
+            SendMerchantCallback::dispatch($project->value, $params, $project->callback);
         }
 
-        LogHelper::sendLog(
-            'Callback Paprika',
-            json_encode($order->getCallback()),
-            $project->id,
-            'callback_order_paprika'
-        );
-
-        $params['merchantOrderId'] = $order->getMerchantOrderId();
-        $params['paymentCode'] = $order->getPaymentMethod();
-        $params['resultCode'] = $transactionStatus ?? '00';
-
-        SendMerchantCallback::dispatch($project->value, $params, $project->callback);
         SendNotificationJob::dispatch($reference);
 
         return response()->json([
