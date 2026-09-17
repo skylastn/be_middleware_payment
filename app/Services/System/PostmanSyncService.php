@@ -97,7 +97,7 @@ class PostmanSyncService
             ])->put($url, $payload);
         } else {
             // Create new collection
-            $url = 'https://api.getpostman.com/collections' . ($workspaceId ? "?workspace={$workspaceId}" : '');
+            $url = 'https://api.getpostman.com/collections'.($workspaceId ? "?workspace={$workspaceId}" : '');
             $response = Http::withHeaders([
                 'X-Api-Key' => $apiKey,
                 'Content-Type' => 'application/json',
@@ -105,7 +105,7 @@ class PostmanSyncService
         }
 
         if (! $response->successful()) {
-            throw new Exception("Postman Sync failed with HTTP {$response->status()}: " . $response->body());
+            throw new Exception("Postman Sync failed with HTTP {$response->status()}: ".$response->body());
         }
 
         return $response->json();
@@ -197,7 +197,7 @@ class PostmanSyncService
                             'raw' => json_encode([
                                 'paymentAmount' => '50000',
                                 'paymentMethod' => 'VC',
-                                'merchantOrderId' => 'INV-' . time(),
+                                'merchantOrderId' => 'INV-'.time(),
                                 'productDetails' => 'Order Item 1, Order Item 2',
                                 'email' => 'customer@example.com',
                                 'phoneNumber' => '08123456789',
@@ -248,7 +248,7 @@ class PostmanSyncService
                             'mode' => 'raw',
                             'raw' => json_encode([
                                 'paymentRepositoryId' => '{{paymentRepositoryId}}',
-                                'merchantOrderId' => 'INV-' . time(),
+                                'merchantOrderId' => 'INV-'.time(),
                                 'paymentAmount' => 50000,
                                 'paymentMethod' => 'SP',
                                 'productDetails' => 'Pembayaran Layanan',
@@ -281,7 +281,7 @@ class PostmanSyncService
                             'mode' => 'raw',
                             'raw' => json_encode([
                                 'paymentRepositoryId' => '{{paymentRepositoryId}}',
-                                'merchantOrderId' => 'INV-STRIPE-' . time(),
+                                'merchantOrderId' => 'INV-STRIPE-'.time(),
                                 'paymentAmount' => 50000,
                                 'productDetails' => 'Subscription Service',
                                 'currency' => 'myr',
@@ -316,7 +316,7 @@ class PostmanSyncService
                             'mode' => 'raw',
                             'raw' => json_encode([
                                 'paymentRepositoryId' => '{{paymentRepositoryId}}',
-                                'merchantOrderId' => 'INV-DIRECT-' . time(),
+                                'merchantOrderId' => 'INV-DIRECT-'.time(),
                                 'paymentAmount' => 50000,
                                 'productDetails' => 'Direct Card Payment',
                                 'currency' => 'myr',
@@ -554,6 +554,18 @@ class PostmanSyncService
         return [
             'name' => '11. Webhooks & Gateway Callbacks',
             'item' => [
+                [
+                    'name' => 'Test Callback',
+                    'request' => [
+                        'method' => 'POST',
+                        'header' => [['key' => 'Content-Type', 'value' => 'application/json']],
+                        'body' => [
+                            'mode' => 'raw',
+                            'raw' => "{\n  \"merchantOrderId\": \"TEST-001\",\n  \"status\": \"SUCCESS\",\n  \"amount\": 50000\n}",
+                        ],
+                        'url' => ['raw' => '{{base_url}}/api/callback/test', 'host' => ['{{base_url}}'], 'path' => ['api', 'callback', 'test']],
+                    ],
+                ],
                 [
                     'name' => 'Duitku Callback',
                     'request' => [

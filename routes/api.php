@@ -75,6 +75,7 @@ Route::middleware('throttle:api')->group(function () {
     // 3. Webhooks & Callbacks
     // ---------------------------------------------------------------------
     Route::prefix('callback')->controller(CallbackController::class)->group(function () {
+        Route::match(['get', 'post'], '/test', [CallbackController::class, 'callbackTest']);
         Route::post('/duitku', [CallbackController::class, 'callbackDuitku']);
         Route::post('/midtrans', [CallbackController::class, 'callbackMidtrans']);
         Route::post('/xendit', [CallbackController::class, 'callbackXendit']);
@@ -107,7 +108,7 @@ Route::middleware('throttle:api')->group(function () {
         Route::post('/queue', [TestController::class, 'testQueue']);
     });
 
-    Route::middleware('auth:sanctum')->get('/user', fn(Request $request) => $request->user());
+    Route::middleware('auth:sanctum')->get('/user', fn (Request $request) => $request->user());
 
     // Admin login API (Rate-limited to 10 attempts / min)
     Route::middleware([EncryptCookies::class, AddQueuedCookiesToResponse::class, 'throttle:10,1'])

@@ -45,6 +45,22 @@ class CallbackController extends Controller
         $this->paprikaService = new PaprikaService;
     }
 
+    public function callbackTest(Request $request): JsonResponse
+    {
+        LogHelper::sendLog('Test Callback Received', [
+            'method' => $request->method(),
+            'body' => $request->all(),
+            'query' => $request->query(),
+        ]);
+
+        return ResponseHelper::successResponse([
+            'received' => true,
+            'timestamp' => now()->toIso8601String(),
+            'method' => $request->method(),
+            'data' => $request->all(),
+        ], 'Success Callback Test');
+    }
+
     public function callbackSPNPay(Request $request): JsonResponse
     {
         try {

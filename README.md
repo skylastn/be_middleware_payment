@@ -87,6 +87,24 @@ php artisan migrate && make initSeeder
 bun run build && make run
 ```
 
+### 🐳 3-Container Cluster Deployment (Dual Web + Dedicated Worker)
+
+For high-concurrency production deployments running 2 Web replicas load-balanced by Nginx + 1 dedicated Queue Worker:
+
+```bash
+# Launch cluster (payment-web-1, payment-web-2, payment-worker)
+make cluster-up
+
+# Check status of cluster containers
+make cluster-status
+
+# Stop cluster
+make cluster-down
+```
+
+> [!TIP]
+> Nginx load balancer / upstream configuration template is available in **`nginx/cluster-upstream.conf`** (exposing port `2000` to the world and balancing across ports `2001` & `2002`).
+
 > [!NOTE]
 > For complete instructions regarding Docker deployment, Supervisor process management, Telescope, and aaPanel Nginx reverse proxy configuration, consult **[`docs/installation.md`](docs/installation.md)**.
 
@@ -139,6 +157,7 @@ The platform cleanly separates responsibilities between a high-throughput Larave
   - `GET /api/payment/getPaymentMethod` — Retrieve active payment methods (supports `categoriesKey[]`, `payment_gateway_key`, `payment_gateway_id`).
   - `GET /api/payment/getDetailPaymentMethod` — Get details for a specific payment method (supports `key`, `payment_gateway_key`, `payment_gateway_id`).
 - **Gateway Webhooks:**
+  - `GET|POST /api/callback/test` — Mock / test callback endpoint returning HTTP 200 success response.
   - `POST /api/callback/duitku` — Webhook handler for Duitku.
   - `POST /api/callback/midtrans` — Webhook handler for Midtrans.
   - `POST /api/callback/xendit` — Webhook handler for Xendit.

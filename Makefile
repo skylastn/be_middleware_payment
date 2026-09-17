@@ -54,3 +54,19 @@ running:
 # 	> docker-compose.log
 # 	> deploy.log
 # 	nohup ./deploy.sh > deploy.log 2>&1 &
+
+cluster-up:
+	chmod +x scripts/docker-run-cluster.sh
+	./scripts/docker-run-cluster.sh
+
+cluster-build:
+	chmod +x scripts/docker-run-cluster.sh
+	./scripts/docker-run-cluster.sh --build
+
+cluster-down:
+	chmod +x scripts/docker-stop-cluster.sh
+	./scripts/docker-stop-cluster.sh
+
+cluster-status:
+	docker ps --filter "name=payment-" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+
