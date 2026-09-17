@@ -3,7 +3,7 @@
 namespace App\Services\Payment;
 
 use App\Enums\ProjectSlug;
-use App\Http\Helper\FormatHelper;
+use App\Interface\RedisServiceInterface;
 use App\Model\Entity\Order;
 use App\Model\Entity\PaymentCategory;
 use App\Model\Entity\PaymentGateway;
@@ -11,12 +11,10 @@ use App\Model\Entity\PaymentMethod;
 use App\Model\Entity\PaymentRepository;
 use App\Model\Entity\Project;
 use App\Model\Entity\Setting;
-use App\Repository\Payment\OrderRepository;
 use App\Repository\Payment\PaymentCategoryRepository;
 use App\Repository\Payment\PaymentGatewayRepository;
 use App\Repository\Payment\PaymentMethodRepository;
 use App\Repository\Payment\PaymentRepositoryRepository;
-use App\Repository\System\ProjectRepository;
 use App\Repository\System\SettingRepository;
 use App\Services\System\ProjectService;
 use Exception;
@@ -24,6 +22,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class PaymentService
 {
@@ -39,13 +38,16 @@ class PaymentService
 
     private ProjectService $projectService;
 
+    private RedisServiceInterface $redisService;
+
     public function __construct(
         ?PaymentCategoryRepository $paymentCategories = null,
         ?PaymentMethodRepository $paymentMethods = null,
         ?PaymentGatewayRepository $paymentGateways = null,
         ?PaymentRepositoryRepository $paymentRepositories = null,
         ?SettingRepository $settings = null,
-        ?ProjectService $projectService = null
+        ?ProjectService $projectService = null,
+        ?RedisServiceInterface $redisService = null
     ) {
         $this->paymentCategories = $paymentCategories ?? new PaymentCategoryRepository;
         $this->paymentMethods = $paymentMethods ?? new PaymentMethodRepository;
@@ -53,6 +55,7 @@ class PaymentService
         $this->paymentRepositories = $paymentRepositories ?? new PaymentRepositoryRepository;
         $this->settings = $settings ?? new SettingRepository;
         $this->projectService = $projectService ?? new ProjectService;
+        $this->redisService = $redisService ?? app(RedisServiceInterface::class);
     }
 
     public function getBankCodeMapByGatewayKey(string $gatewayKey): array
@@ -65,9 +68,29 @@ class PaymentService
         return $this->paymentMethods->findByKeyAndGatewayKey($key, $gatewayKey);
     }
 
+    public function invalidateCategoryCache(): void
+    {
+        try {
+            $this->redisService->increment('payment:categories:version');
+        } catch (\Throwable) {
+            $this->redisService->set('payment:categories:version', time());
+        }
+    }
+
+    public function invalidateMethodCache(): void
+    {
+        try {
+            $this->redisService->increment('payment:methods:version');
+        } catch (\Throwable) {
+            $this->redisService->set('payment:methods:version', time());
+        }
+    }
+
     public function getListPaymentCategory(): Collection
     {
-        return $this->paymentCategories->all();
+        $version = (int) ($this->redisService->get('payment:categories:version') ?: 1);
+
+        return $this->redisService->remember("payment:categories:all:v{$version}", 86400, fn () => $this->paymentCategories->all());
     }
 
     public function getPaginatedPaymentCategory(Request $request): LengthAwarePaginator
@@ -85,7 +108,11 @@ class PaymentService
 
     public function createPaymentCategory(array $data): PaymentCategory
     {
-        return $this->paymentCategories->create($data);
+        $category = $this->paymentCategories->create($data);
+        $this->invalidateCategoryCache();
+        $this->invalidateMethodCache();
+
+        return $category;
     }
 
     public function updatePaymentCategory(int|string $id, array $data): PaymentCategory
@@ -95,7 +122,11 @@ class PaymentService
             throw new Exception('Payment Category Not Found', 404);
         }
 
-        return $this->paymentCategories->update($category, $data);
+        $updated = $this->paymentCategories->update($category, $data);
+        $this->invalidateCategoryCache();
+        $this->invalidateMethodCache();
+
+        return $updated;
     }
 
     public function deletePaymentCategory(int|string $id): bool
@@ -105,7 +136,11 @@ class PaymentService
             throw new Exception('Payment Category Not Found', 404);
         }
 
-        return $this->paymentCategories->delete($category);
+        $deleted = $this->paymentCategories->delete($category);
+        $this->invalidateCategoryCache();
+        $this->invalidateMethodCache();
+
+        return $deleted;
     }
 
     public function getListPaymentMethod(Request $request, ?bool $onlyActive = null): Collection
@@ -113,8 +148,21 @@ class PaymentService
         $gatewayId = $request->query('payment_gateway_id', $request->query('paymentGatewayId'));
         $gatewayKey = $request->query('payment_gateway_key', $request->query('paymentGatewayKey', $request->query('from')));
         $isActive = $onlyActive ?? ($request->has('is_active') ? $request->boolean('is_active') : null);
+        $categoriesKey = $request->categoriesKey;
 
-        return $this->paymentMethods->filtered($request->categoriesKey, $gatewayId, $isActive, $gatewayKey);
+        $version = (int) ($this->redisService->get('payment:methods:version') ?: 1);
+        $cacheKey = sprintf(
+            'payment:methods:v%d:%s:%s:%s:%s',
+            $version,
+            is_array($categoriesKey) ? implode(',', $categoriesKey) : (string) $categoriesKey,
+            (string) $gatewayId,
+            $isActive === null ? 'all' : ($isActive ? '1' : '0'),
+            (string) $gatewayKey
+        );
+
+        return $this->redisService->remember($cacheKey, 86400, function () use ($categoriesKey, $gatewayId, $isActive, $gatewayKey) {
+            return $this->paymentMethods->filtered($categoriesKey, $gatewayId, $isActive, $gatewayKey);
+        });
     }
 
     public function getPaginatedPaymentMethod(Request $request): LengthAwarePaginator
@@ -131,7 +179,19 @@ class PaymentService
 
     public function getDetailPaymentMethod(?string $key, ?string $paymentGatewayId = null, ?bool $onlyActive = null, ?string $paymentGatewayKey = null): ?PaymentMethod
     {
-        return $this->paymentMethods->detail($key, $paymentGatewayId, $onlyActive, $paymentGatewayKey);
+        $version = (int) ($this->redisService->get('payment:methods:version') ?: 1);
+        $cacheKey = sprintf(
+            'payment:method:detail:v%d:%s:%s:%s:%s',
+            $version,
+            (string) $key,
+            (string) $paymentGatewayId,
+            $onlyActive === null ? 'all' : ($onlyActive ? '1' : '0'),
+            (string) $paymentGatewayKey
+        );
+
+        return $this->redisService->remember($cacheKey, 86400, function () use ($key, $paymentGatewayId, $onlyActive, $paymentGatewayKey) {
+            return $this->paymentMethods->detail($key, $paymentGatewayId, $onlyActive, $paymentGatewayKey);
+        });
     }
 
     public function getPaymentMethodById(int|string $id): ?PaymentMethod
@@ -147,19 +207,19 @@ class PaymentService
                 if (count($imageParts) === 2) {
                     $header = strtolower($imageParts[0]);
                     $imageType = 'png';
-                    if (\Illuminate\Support\Str::contains($header, 'svg')) {
+                    if (Str::contains($header, 'svg')) {
                         $imageType = 'svg';
-                    } elseif (\Illuminate\Support\Str::contains($header, ['jpeg', 'jpg'])) {
+                    } elseif (Str::contains($header, ['jpeg', 'jpg'])) {
                         $imageType = 'jpg';
-                    } elseif (\Illuminate\Support\Str::contains($header, 'webp')) {
+                    } elseif (Str::contains($header, 'webp')) {
                         $imageType = 'webp';
                     }
                     $imageBase64 = base64_decode($imageParts[1]);
-                    $fileName = 'payment-methods/' . uniqid('pm_') . '.' . $imageType;
+                    $fileName = 'payment-methods/'.uniqid('pm_').'.'.$imageType;
                     Storage::disk('public')->put($fileName, $imageBase64);
                     $data['image'] = $fileName;
                 }
-            } elseif (\Illuminate\Support\Str::contains($data['image'], '/storage/')) {
+            } elseif (Str::contains($data['image'], '/storage/')) {
                 $parts = explode('/storage/', $data['image']);
                 $data['image'] = end($parts);
             }
@@ -176,7 +236,10 @@ class PaymentService
             $data['is_active'] = true;
         }
 
-        return $this->paymentMethods->create($data)->load(['category', 'payment_gateway']);
+        $method = $this->paymentMethods->create($data)->load(['category', 'payment_gateway']);
+        $this->invalidateMethodCache();
+
+        return $method;
     }
 
     public function updatePaymentMethod(int|string $id, array $data): PaymentMethod
@@ -194,7 +257,10 @@ class PaymentService
             $data['is_active'] = (bool) $data['is_active'];
         }
 
-        return $this->paymentMethods->update($method, $data)->load(['category', 'payment_gateway']);
+        $updated = $this->paymentMethods->update($method, $data)->load(['category', 'payment_gateway']);
+        $this->invalidateMethodCache();
+
+        return $updated;
     }
 
     public function deletePaymentMethod(int|string $id): bool
@@ -204,7 +270,10 @@ class PaymentService
             throw new Exception('Payment Method Not Found', 404);
         }
 
-        return $this->paymentMethods->delete($method);
+        $deleted = $this->paymentMethods->delete($method);
+        $this->invalidateMethodCache();
+
+        return $deleted;
     }
 
     public function togglePaymentMethod(int|string $id, ?bool $isActive = null): PaymentMethod
@@ -216,7 +285,10 @@ class PaymentService
 
         $newStatus = $isActive !== null ? $isActive : ! $method->getIsActive();
 
-        return $this->paymentMethods->update($method, ['is_active' => $newStatus])->load(['category', 'payment_gateway']);
+        $updated = $this->paymentMethods->update($method, ['is_active' => $newStatus])->load(['category', 'payment_gateway']);
+        $this->invalidateMethodCache();
+
+        return $updated;
     }
 
     public function getPaginatedPaymentGateway(Request $request): LengthAwarePaginator
@@ -337,8 +409,7 @@ class PaymentService
     /**
      * Prepare test order request and project model for gateway execution.
      *
-     * @param PaymentRepository $repository
-     * @param array<string, mixed> $params
+     * @param  array<string, mixed>  $params
      * @return array<string, mixed>
      */
     public function testCreateOrder(PaymentRepository $repository, array $params = []): array
@@ -367,7 +438,7 @@ class PaymentService
                 'slug' => $slug->value,
                 'key' => 'test_key',
                 'secure' => 'test_secure',
-                'callback' => env('APP_URL', 'http://localhost:8000') . '/api/callback/' . $slug->value,
+                'callback' => env('APP_URL', 'http://localhost:8000').'/api/callback/'.$slug->value,
                 'value' => 'test_project_token_system',
             ]
         );
@@ -388,7 +459,7 @@ class PaymentService
             $paymentMethod = 'qris';
         }
         $mode = $repository->mode?->value ?? (string) $repository->mode;
-        $orderNumber = strtoupper($slug->value) . '-' . time() . rand(10, 99);
+        $orderNumber = strtoupper($slug->value).'-'.time().rand(10, 99);
         $version = isset($params['version']) && $params['version'] !== '' ? (string) $params['version'] : '1';
 
         $requestData = [
@@ -405,8 +476,8 @@ class PaymentService
             'customerVaName' => $customerName,
             'currency' => $currency,
             'mode' => $mode,
-            'returnUrl' => $params['returnUrl'] ?? $params['return_url'] ?? (env('APP_URL', 'http://localhost:8000') . '/admin/payment-repositories'),
-            'callbackUrl' => env('APP_URL', 'http://localhost:8000') . '/api/callback/' . $slug->value,
+            'returnUrl' => $params['returnUrl'] ?? $params['return_url'] ?? (env('APP_URL', 'http://localhost:8000').'/admin/payment-repositories'),
+            'callbackUrl' => env('APP_URL', 'http://localhost:8000').'/api/callback/'.$slug->value,
             'expiryPeriod' => 60,
             'version' => $version,
         ];

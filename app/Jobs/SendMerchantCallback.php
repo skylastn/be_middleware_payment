@@ -41,6 +41,6 @@ class SendMerchantCallback implements ShouldQueue
             $payload['paymentCode'] = '';
         }
 
-        RequestHelper::sendCallback($this->token, $payload, $this->urlCallback);
+        RequestHelper::sendCallback($this->token, $payload, $this->urlCallback, throwOnError: true);
     }
 }

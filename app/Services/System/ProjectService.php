@@ -3,13 +3,14 @@
 namespace App\Services\System;
 
 use App\Enums\ProjectSlug;
-use App\Repository\System\ProjectRepository;
-use Illuminate\Pagination\LengthAwarePaginator;
-use Illuminate\Http\Request;
 use App\Model\Entity\Project;
 use App\Model\Response\Project\ProjectLogResource;
+use App\Repository\System\ProjectRepository;
 use Exception;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -18,20 +19,21 @@ class ProjectService
 {
     public function __construct(private ?ProjectRepository $projects = null)
     {
-        $this->projects ??= new ProjectRepository();
+        $this->projects ??= new ProjectRepository;
     }
 
     public function checkKey(): Project
     {
         $token = request()->header('Token');
-        if (!$token) {
+        if (! $token) {
             throw new Exception('Unauthorized');
         }
 
         $project = $this->projects->findByToken($token);
-        if (!isset($project)) {
+        if (! isset($project)) {
             throw new Exception('Unauthorized');
         }
+
         return $project;
     }
 
@@ -63,13 +65,13 @@ class ProjectService
     {
         $payload = $this->payload($request);
 
-        $data['name']       = $payload['name'];
-        $data['type']       = $payload['type'];
-        $data['slug']       = ProjectSlug::fromName($payload['slug']);
-        $data['key']        = Str::random(10);
-        $data['secure']     = Str::random(20);
-        $data['callback']   = $payload['callback'];
-        $data['value']      = Str::random(60);
+        $data['name'] = $payload['name'];
+        $data['type'] = $payload['type'];
+        $data['slug'] = ProjectSlug::fromName($payload['slug']);
+        $data['key'] = Str::random(10);
+        $data['secure'] = Str::random(20);
+        $data['callback'] = $payload['callback'];
+        $data['value'] = Str::random(60);
         /** @var Project $project */
         $project = $this->projects->create($data);
 
@@ -118,16 +120,25 @@ class ProjectService
     {
         $payload = $this->payload($request);
         $project = Project::findOrFailCustom($id);
+        $oldValue = $project->getValue();
+
         $project->setName($payload['name']);
         $project->setType($payload['type']);
         $project->setSlug(ProjectSlug::fromName($payload['slug']));
         $project->setCallback($payload['callback']);
-        return $this->projects->update($project, [
+
+        $updated = $this->projects->update($project, [
             'name' => $payload['name'],
             'type' => $payload['type'],
             'slug' => ProjectSlug::fromName($payload['slug']),
             'callback' => $payload['callback'],
         ]);
+
+        if ($oldValue) {
+            Cache::forget('project:token:'.hash('sha256', $oldValue));
+        }
+
+        return $updated;
     }
 
     public function getProjectLogs(int|string $id, Request $request): LengthAwarePaginator
@@ -162,6 +173,10 @@ class ProjectService
     {
         $project = Project::findOrFailCustom($id);
         $this->projects->delete($project);
+
+        if ($project->getValue()) {
+            Cache::forget('project:token:'.hash('sha256', $project->getValue()));
+        }
 
         return $project;
     }

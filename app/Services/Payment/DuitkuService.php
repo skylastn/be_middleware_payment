@@ -7,7 +7,7 @@ use App\Enums\PaymentModeType;
 use App\Http\Helper\FormatHelper;
 use App\Http\Helper\LogHelper;
 use App\Http\Helper\OrderIdGenerator;
-use App\Http\Helper\RequestHelper;
+use App\Interface\RedisServiceInterface;
 use App\Jobs\SendMerchantCallback;
 use App\Jobs\SendNotificationJob;
 use App\Model\Entity\Order;
@@ -16,7 +16,6 @@ use App\Model\Entity\PaymentMethod;
 use App\Model\Entity\PaymentRepository;
 use App\Model\Entity\Project;
 use App\Repository\Payment\DuitkuRepository;
-use App\Services\System\RedisService;
 use Carbon\Carbon;
 use Duitku\Config;
 use Duitku\Pop;
@@ -28,16 +27,23 @@ use stdClass;
 class DuitkuService
 {
     private PaymentRepositoryService $paymentRepositoryService;
-    private RedisService $redisService;
+
+    private RedisServiceInterface $redisService;
+
     private OrderHistoryService $orderHistoryService;
+
     private DuitkuRepository $duitkuRepository;
 
-    public function __construct()
-    {
-        $this->paymentRepositoryService = new PaymentRepositoryService;
-        $this->redisService = new RedisService;
-        $this->orderHistoryService = new OrderHistoryService;
-        $this->duitkuRepository = new DuitkuRepository;
+    public function __construct(
+        ?PaymentRepositoryService $paymentRepositoryService = null,
+        ?RedisServiceInterface $redisService = null,
+        ?OrderHistoryService $orderHistoryService = null,
+        ?DuitkuRepository $duitkuRepository = null
+    ) {
+        $this->paymentRepositoryService = $paymentRepositoryService ?? new PaymentRepositoryService;
+        $this->redisService = $redisService ?? app(RedisServiceInterface::class);
+        $this->orderHistoryService = $orderHistoryService ?? new OrderHistoryService;
+        $this->duitkuRepository = $duitkuRepository ?? new DuitkuRepository;
     }
 
     public function getPaymentRepo(string|PaymentModeType|null $mode, int|string|null $id): ?PaymentRepository
@@ -96,19 +102,19 @@ class DuitkuService
         $paymentAmount = $request->paymentAmount; // Amount
 
         $req['id'] = $idSystem;
-        $req['reference'] = $project->type . '-' . $request->merchantOrderId;
+        $req['reference'] = $project->type.'-'.$request->merchantOrderId;
         $req['type'] = $project->type;
         $req['mode'] = $mode->value;
         $req['payment_method'] = $request->paymentMethod ?? '';
         $req['amount'] = (float) $paymentAmount;
-        $customerName = trim(($request->firstName ?? '') . ' ' . ($request->lastName ?? ''));
+        $customerName = trim(($request->firstName ?? '').' '.($request->lastName ?? ''));
         $req['name'] = $customerName ?: ($request->customerVaName ?? $request->name ?? null);
 
-        $defaultUrl = env('APP_URL') . '/api/callback/duitku';
+        $defaultUrl = env('APP_URL').'/api/callback/duitku';
         $email = $request->email ?? 'admin@ngudek.com'; // your customer email
         $phoneNumber = $request->phone ?? '081512356123'; // your customer phone number (optional)
         $productDetails = $request->productDetails;
-        $merchantOrderId = $req['reference'] ?? $project->type . '-' . $req['id']; // from merchant, unique
+        $merchantOrderId = $req['reference'] ?? $project->type.'-'.$req['id']; // from merchant, unique
         $additionalParam = ''; // optional
         $merchantUserInfo = ''; // optional
         $customerVaName = $request->firstName ?? ''; // display name on bank confirmation display
@@ -157,7 +163,7 @@ class DuitkuService
             $item1,
         ];
 
-        $signature = md5($duitkuConfig->getMerchantCode() . $merchantOrderId . $paymentAmount . $duitkuConfig->getApiKey());
+        $signature = md5($duitkuConfig->getMerchantCode().$merchantOrderId.$paymentAmount.$duitkuConfig->getApiKey());
         // dd($signature);
 
         $params = [
@@ -229,9 +235,9 @@ class DuitkuService
         if (FormatHelper::isNotEmpty($request->version) && $request->version == '2') {
             $token = $this->redisService->generatePaymentToken($project->id, $project->value, $order->reference);
             if (FormatHelper::isNotEmpty($request->paymentMethod)) {
-                $result['link'] = env('PAYMENT_URL') . '/detailpayment?token=' . $token . '&reference=' . $order->reference;
+                $result['link'] = env('PAYMENT_URL').'/detailpayment?token='.$token.'&reference='.$order->reference;
             } else {
-                $result['link'] = env('PAYMENT_URL') . '/home?token=' . $token . '&reference=' . $order->reference;
+                $result['link'] = env('PAYMENT_URL').'/home?token='.$token.'&reference='.$order->reference;
             }
         }
         $result['result'] = $response;
@@ -253,7 +259,7 @@ class DuitkuService
         $paymentMethod = $request->paymentMethod ?? $request->input('payment_method');
         $params['paymentMethod'] = $paymentMethod;
 
-        $signature = md5($duitkuConfig->getMerchantCode() . $params['merchantOrderId'] . $params['paymentAmount'] . $duitkuConfig->getApiKey());
+        $signature = md5($duitkuConfig->getMerchantCode().$params['merchantOrderId'].$params['paymentAmount'].$duitkuConfig->getApiKey());
         $params['signature'] = $signature;
 
         $order->setRequest(json_encode($params));
@@ -319,6 +325,7 @@ class DuitkuService
                 'reference' => $order->getReference(),
                 'status' => $currentStatus->value,
             ]);
+
             return $order;
         }
 
@@ -335,7 +342,7 @@ class DuitkuService
         $incomingSig = (string) ($request->input('signature') ?? '');
 
         if (! empty($apiKey) && ! empty($merchantCode) && ! empty($incomingSig)) {
-            $expectedSig = md5($merchantCode . $amount . $merchantOrderId . $apiKey);
+            $expectedSig = md5($merchantCode.$amount.$merchantOrderId.$apiKey);
             if (! hash_equals($expectedSig, $incomingSig)) {
                 throw new Exception('Invalid Duitku callback signature', 403);
             }
@@ -361,7 +368,7 @@ class DuitkuService
             ->first();
 
         if (! FormatHelper::isNotEmpty($paymentMethod)) {
-            throw new Exception('Payment not found : ' . $request->paymentCode);
+            throw new Exception('Payment not found : '.$request->paymentCode);
         }
 
         $order->setPaymentMethod($paymentMethod->key);
@@ -448,18 +455,17 @@ class DuitkuService
         $dateNow = date('Y-m-d H:i:s');
         $result['date'] = $dateNow;
         $result['request'] = $request->all();
-        $result['signature'] = hash('sha256', $request->merchantCode . $request->paymentAmount . $dateNow . $request->apiKey);
+        $result['signature'] = hash('sha256', $request->merchantCode.$request->paymentAmount.$dateNow.$request->apiKey);
 
         if ($request->type == 'callback') {
-            $result['signature'] = hash('sha256', $request->merchantCode . $request->paymentAmount . $request->merchantOrderId . $request->apiKey);
+            $result['signature'] = hash('sha256', $request->merchantCode.$request->paymentAmount.$request->merchantOrderId.$request->apiKey);
         }
 
         return $result;
     }
 
     /**
-     * @param PaymentRepository $repository
-     * @param array<string, mixed> $filters
+     * @param  array<string, mixed>  $filters
      * @return array<string, mixed>
      */
     public function fetchHistory(PaymentRepository $repository, array $filters = []): array

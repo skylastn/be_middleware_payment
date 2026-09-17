@@ -3,18 +3,25 @@
 namespace App\Http\Middleware;
 
 use App\Http\Helper\ResponseHelper;
+use App\Interface\RedisServiceInterface;
 use App\Repository\System\ProjectRepository;
-use App\Services\System\RedisService;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 class AuthenticateClientPaymentToken
 {
+    private RedisServiceInterface $redisService;
+
+    private ProjectRepository $projects;
+
     public function __construct(
-        private RedisService $redisService = new RedisService(),
-        private ProjectRepository $projects = new ProjectRepository()
-    ) {}
+        ?RedisServiceInterface $redisService = null,
+        ?ProjectRepository $projects = null
+    ) {
+        $this->redisService = $redisService ?? app(RedisServiceInterface::class);
+        $this->projects = $projects ?? new ProjectRepository;
+    }
 
     public function handle(Request $request, Closure $next): Response
     {

@@ -8,13 +8,13 @@ use App\Http\Helper\FormatHelper;
 use App\Http\Helper\LogHelper;
 use App\Http\Helper\OrderIdGenerator;
 use App\Http\Helper\RequestHelper;
+use App\Interface\RedisServiceInterface;
 use App\Jobs\SendNotificationJob;
 use App\Model\Entity\Order;
 use App\Model\Entity\PaymentMethod;
 use App\Model\Entity\PaymentRepository;
 use App\Model\Entity\Project;
 use App\Repository\Payment\SPNPayRepository;
-use App\Services\System\RedisService;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
@@ -22,14 +22,19 @@ use Illuminate\Support\Facades\Http;
 class SPNPayService
 {
     private PaymentRepositoryService $paymentRepositoryService;
-    private RedisService $redisService;
+
+    private RedisServiceInterface $redisService;
+
     private OrderHistoryService $orderHistoryService;
 
-    public function __construct()
-    {
-        $this->paymentRepositoryService = new PaymentRepositoryService;
-        $this->redisService = new RedisService;
-        $this->orderHistoryService = new OrderHistoryService;
+    public function __construct(
+        ?PaymentRepositoryService $paymentRepositoryService = null,
+        ?RedisServiceInterface $redisService = null,
+        ?OrderHistoryService $orderHistoryService = null
+    ) {
+        $this->paymentRepositoryService = $paymentRepositoryService ?? new PaymentRepositoryService;
+        $this->redisService = $redisService ?? app(RedisServiceInterface::class);
+        $this->orderHistoryService = $orderHistoryService ?? new OrderHistoryService;
     }
 
     public function getPaymentRepo(string|PaymentModeType|null $mode, int|string|null $id): ?PaymentRepository
@@ -53,7 +58,7 @@ class SPNPayService
         $mode = PaymentModeType::fromName($request->mode) ?? PaymentModeType::sandbox;
         $req['mode'] = $mode->value;
         $req['amount'] = (float) $paymentAmount;
-        $customerName = trim(($request->firstName ?? '') . ' ' . ($request->lastName ?? ''));
+        $customerName = trim(($request->firstName ?? '').' '.($request->lastName ?? ''));
         $req['name'] = $customerName ?: ($request->customerVaName ?? $request->name ?? null);
         $token = $this->redisService->generatePaymentToken($project->id, $project->value, $req['reference']);
         if (FormatHelper::isNotEmpty($request->paymentMethod)) {
@@ -248,8 +253,8 @@ class SPNPayService
 
             if (! empty($secretKey) && ! empty($token) && ! empty($incomingSignature)) {
                 $rawContent = $request->getContent();
-                $expectedSig1 = hash_hmac('sha512', $secretKey . $rawContent, $token);
-                $expectedSig2 = hash_hmac('sha512', $secretKey . json_encode($request->all()), $token);
+                $expectedSig1 = hash_hmac('sha512', $secretKey.$rawContent, $token);
+                $expectedSig2 = hash_hmac('sha512', $secretKey.json_encode($request->all()), $token);
 
                 if (! hash_equals($expectedSig1, $incomingSignature) && ! hash_equals($expectedSig2, $incomingSignature)) {
                     throw new Exception('Invalid SPNPay callback signature', 403);
@@ -321,8 +326,7 @@ class SPNPayService
     }
 
     /**
-     * @param PaymentRepository $repository
-     * @param array<string, mixed> $filters
+     * @param  array<string, mixed>  $filters
      * @return array<string, mixed>
      */
     public function fetchHistory(PaymentRepository $repository, array $filters = []): array
