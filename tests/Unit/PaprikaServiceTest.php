@@ -505,6 +505,68 @@ class PaprikaServiceTest extends TestCase
             $json = json_decode($response->getContent(), true);
             $this->assertEquals('2007300', $json['responseCode']);
             $this->assertNotEmpty($json['accessToken']);
+
+            // 3. callback signature verification when Paprika signed /paprika/callback (without /api)
+            $cbBody = [
+                'originalPartnerReferenceNo' => 'REF-SNAP-TEST-01',
+                'originalReferenceNo' => 'PROJ-REF-SNAP-TEST-01',
+                'latestTransactionStatus' => '00',
+            ];
+            $cbJson = json_encode($cbBody);
+            $cbBodyHash = hash('sha256', $cbJson);
+            $cbToken = 'test-token-without-api';
+            $redis = new \App\Services\System\RedisService;
+            $redis->storeSnapAccessToken($cbToken, 'test-api-client-snap', 900);
+
+            $cbTimestamp = '2026-09-17T14:41:54+07:00';
+            // Signature computed using /paprika/callback
+            $signedStringToSign = "POST:/paprika/callback:{$cbToken}:{$cbBodyHash}:{$cbTimestamp}";
+            $cbSignature = base64_encode(hash_hmac('sha512', $signedStringToSign, 'test-api-secret-snap', true));
+
+            $order = Order::create([
+                'id' => date('Ymd') . '-00888',
+                'type' => 'PROJ',
+                'reference' => 'PROJ-REF-SNAP-TEST-01',
+                'status' => OrderStatus::PENDING,
+                'mode' => PaymentModeType::sandbox,
+                'payment_repository_id' => $repo->id,
+                'request' => '{}',
+            ]);
+
+            $project = Project::create([
+                'name' => 'Snap Project',
+                'type' => 'PROJ',
+                'slug' => 'paprika',
+                'key' => 'projkey888',
+                'secure' => 'projsec888',
+                'value' => Str::random(60),
+                'callback' => 'https://example.com/callback',
+            ]);
+
+            Queue::fake();
+
+            // Incoming HTTP request arrives at /api/paprika/callback
+            $cbRequest = Request::create(
+                '/api/paprika/callback',
+                'POST',
+                [],
+                [],
+                [],
+                [
+                    'HTTP_AUTHORIZATION' => "Bearer {$cbToken}",
+                    'HTTP_X_SIGNATURE' => $cbSignature,
+                    'HTTP_X_TIMESTAMP' => $cbTimestamp,
+                    'HTTP_X_PARTNER_ID' => 'test-api-client-snap',
+                    'CONTENT_TYPE' => 'application/json',
+                ],
+                $cbJson
+            );
+
+            $cbResponse = $this->service->callback($cbRequest);
+            $this->assertEquals(200, $cbResponse->getStatusCode());
+
+            $order->forceDelete();
+            $project->delete();
         } finally {
             $repo->forceDelete();
         }

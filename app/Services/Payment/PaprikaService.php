@@ -884,31 +884,46 @@ class PaprikaService
         // SNAP v1.0.2: {HTTP_METHOD}:{URL_PATH}:{accessToken}:{SHA256_hex(body)}:{X-TIMESTAMP}
         $method = strtoupper($request->method());
         $path = $request->getPathInfo();
-        $rawBody = json_encode($request->all(), JSON_UNESCAPED_SLASHES);
-        $bodyHash = hash('sha256', $rawBody);
+        $candidatePaths = array_unique([
+            $path,
+            preg_replace('#^/api#', '', $path),
+        ]);
 
-        $stringToSign = "{$method}:{$path}:{$accessToken}:{$bodyHash}:{$timestamp}";
+        $rawBody = $request->getContent();
+        $candidateBodies = array_filter(array_unique([
+            $rawBody,
+            json_encode($request->all(), JSON_UNESCAPED_SLASHES),
+            json_encode($request->except('X-SIGNATURE'), JSON_UNESCAPED_SLASHES),
+        ]));
+
         $clientSecret = $paymentConfig['api_secret'] ?? null;
         if (empty($clientSecret)) {
             throw new Exception('API secret not configured for signature verification');
         }
-        $expectedSignature = base64_encode(hash_hmac('sha512', $stringToSign, $clientSecret, true));
-        Log::info('Paprika Callback Signature Verification', [
-            'stringToSign' => $stringToSign,
-            'clientSecret' => $clientSecret,
-            'signature' => $signature,
-            'expectedSignature' => $expectedSignature,
-        ]);
-        if (! hash_equals($expectedSignature, $signature)) {
-            // Also try with minified JSON payload (as noted in SNAP v1.0.2 / documentation)
-            $fallbackBody = json_encode($request->all(), JSON_UNESCAPED_SLASHES);
-            $fallbackHash = hash('sha256', $fallbackBody);
-            $fallbackStringToSign = "{$method}:{$path}:{$accessToken}:{$fallbackHash}:{$timestamp}";
-            $fallbackSignature = base64_encode(hash_hmac('sha512', $fallbackStringToSign, $clientSecret, true));
 
-            if (! hash_equals($fallbackSignature, $signature)) {
-                throw new Exception('Invalid callback signature');
+        $isValid = false;
+        $lastExpected = null;
+        foreach ($candidatePaths as $candidatePath) {
+            foreach ($candidateBodies as $bodyPayload) {
+                $bodyHash = hash('sha256', (string) $bodyPayload);
+                $stringToSign = "{$method}:{$candidatePath}:{$accessToken}:{$bodyHash}:{$timestamp}";
+                $expectedSignature = base64_encode(hash_hmac('sha512', $stringToSign, $clientSecret, true));
+                $lastExpected = $expectedSignature;
+
+                if (hash_equals($expectedSignature, $signature)) {
+                    $isValid = true;
+                    break 2;
+                }
             }
+        }
+
+        if (! $isValid) {
+            Log::warning('Paprika Callback Signature Mismatch', [
+                'signature' => $signature,
+                'expectedSignature' => $lastExpected,
+                'candidatePaths' => $candidatePaths,
+            ]);
+            throw new Exception('Invalid callback signature');
         }
     }
 
