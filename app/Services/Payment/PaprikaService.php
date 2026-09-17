@@ -895,7 +895,7 @@ class PaprikaService
         $expectedSignature = base64_encode(hash_hmac('sha512', $stringToSign, $clientSecret, true));
         Log::info('Paprika Callback Signature Verification', [
             'stringToSign' => $stringToSign,
-            'clientSecret' => $clientSecret ? '***' : null,
+            'clientSecret' => $clientSecret,
             'signature' => $signature,
         ]);
         if (! hash_equals($expectedSignature, $signature)) {
