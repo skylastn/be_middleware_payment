@@ -136,6 +136,7 @@ class OrderController extends Controller
     {
         $lockKey = null;
         try {
+            LogHelper::sendLog('Request Create Order', $request->all());
             $project = $this->projectService->checkKey();
             $reference = $request->input('reference')
                 ?? $request->input('merchantOrderId')

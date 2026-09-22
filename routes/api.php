@@ -51,12 +51,12 @@ Route::middleware('throttle:api')->group(function () {
     // 2. Merchant Server-to-Server API (Protected by Project Token)
     // ---------------------------------------------------------------------
     Route::prefix('order')->middleware('project.auth')->controller(OrderController::class)->group(function () {
-        Route::get('/', 'index');
-        Route::get('/detail', 'detail');
-        Route::get('/checkOrderStatus', 'checkOrderStatus');
-        Route::post('/create', 'store');
-        Route::post('/set-success', 'setSuccessMerchant');
-        Route::post('/stripe/confirm', 'confirmStripe');
+        Route::get('/', [OrderController::class, 'index']);
+        Route::get('/detail', [OrderController::class, 'detail']);
+        Route::get('/checkOrderStatus', [OrderController::class, 'checkOrderStatus']);
+        Route::post('/create', [OrderController::class, 'store']);
+        Route::post('/set-success',  [OrderController::class, 'setSuccessMerchant']);
+        Route::post('/stripe/confirm', [OrderController::class, 'confirmStripe']);
     });
 
     Route::prefix('payment')->controller(PaymentController::class)->group(function () {
@@ -110,7 +110,7 @@ Route::middleware('throttle:api')->group(function () {
         Route::post('/queue', [TestController::class, 'testQueue']);
     });
 
-    Route::middleware('auth:sanctum')->get('/user', fn (Request $request) => $request->user());
+    Route::middleware('auth:sanctum')->get('/user', fn(Request $request) => $request->user());
 
     // Admin login API (Rate-limited to 10 attempts / min)
     Route::middleware([EncryptCookies::class, AddQueuedCookiesToResponse::class, 'throttle:10,1'])
