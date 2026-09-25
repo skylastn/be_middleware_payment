@@ -10,10 +10,12 @@ class CreatePaymentRepositoryRequest extends BaseRequest
 {
     public function rules(): array
     {
+        $isUpdate = $this->isMethod('put') || $this->isMethod('patch');
+
         return [
-            'payment_gateway_id' => ['required', 'string'],
+            'payment_gateway_id' => [$isUpdate ? 'sometimes' : 'required', 'string'],
             'key' => ['nullable', 'string', 'max:100'],
-            'mode' => ['required', 'string', Rule::in(array_map(fn (PaymentModeType $m) => $m->value, PaymentModeType::cases()))],
+            'mode' => [$isUpdate ? 'sometimes' : 'required', 'string', Rule::in(array_map(fn (PaymentModeType $m) => $m->value, PaymentModeType::cases()))],
             'value' => ['required'],
         ];
     }

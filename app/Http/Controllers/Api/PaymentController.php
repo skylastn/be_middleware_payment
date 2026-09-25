@@ -31,12 +31,19 @@ use Illuminate\Validation\ValidationException;
 class PaymentController extends Controller
 {
     private PaymentService $paymentService;
+
     private OrderService $orderService;
+
     private DuitkuService $duitkuService;
+
     private MidtransService $midtransService;
+
     private XenditService $xenditService;
+
     private SPNPayService $spnPayService;
+
     private StripeService $stripeService;
+
     private PaprikaService $paprikaService;
 
     public function __construct(
@@ -49,14 +56,14 @@ class PaymentController extends Controller
         ?StripeService $stripeService = null,
         ?PaprikaService $paprikaService = null
     ) {
-        $this->paymentService = $paymentService ?? new PaymentService();
-        $this->orderService = $orderService ?? new OrderService();
-        $this->duitkuService = $duitkuService ?? new DuitkuService();
-        $this->midtransService = $midtransService ?? new MidtransService();
-        $this->xenditService = $xenditService ?? new XenditService();
-        $this->spnPayService = $spnPayService ?? new SPNPayService();
-        $this->stripeService = $stripeService ?? new StripeService();
-        $this->paprikaService = $paprikaService ?? new PaprikaService();
+        $this->paymentService = $paymentService ?? new PaymentService;
+        $this->orderService = $orderService ?? new OrderService;
+        $this->duitkuService = $duitkuService ?? new DuitkuService;
+        $this->midtransService = $midtransService ?? new MidtransService;
+        $this->xenditService = $xenditService ?? new XenditService;
+        $this->spnPayService = $spnPayService ?? new SPNPayService;
+        $this->stripeService = $stripeService ?? new StripeService;
+        $this->paprikaService = $paprikaService ?? new PaprikaService;
     }
 
     public function getPaymentCategory(Request $request): JsonResponse
@@ -388,7 +395,7 @@ class PaymentController extends Controller
                 'gateway' => $testData['gateway'],
                 'mode' => $testData['mode'],
                 'repository_id' => $repository->id,
-                'order_reference' => 'TEST-' . $testData['order_number'],
+                'order_reference' => 'TEST-'.$testData['order_number'],
                 'amount' => $testData['amount'],
                 'currency' => strtoupper($testData['currency']),
                 'version' => $testData['version'],
@@ -525,26 +532,29 @@ class PaymentController extends Controller
 
     /**
      * @return array<string, mixed>
+     *
      * @throws ValidationException
      */
     private function paymentRepositoryPayload(Request $request): array
     {
+        $isUpdate = $request->isMethod('put') || $request->isMethod('patch');
+
         $data = $request->validate([
-            'payment_gateway_id' => ['required'],
+            'payment_gateway_id' => [$isUpdate ? 'sometimes' : 'required'],
             'key' => ['nullable'],
-            'mode' => ['required'],
+            'mode' => [$isUpdate ? 'sometimes' : 'required'],
             'value' => ['required'],
         ]);
 
         if (is_string($data['value'])) {
             $decoded = json_decode($data['value'], true);
-            if (json_last_error() !== JSON_ERROR_NONE || !is_array($decoded)) {
+            if (json_last_error() !== JSON_ERROR_NONE || ! is_array($decoded)) {
                 throw ValidationException::withMessages([
                     'value' => ['The value field must be a valid JSON string or object.'],
                 ]);
             }
             $data['value'] = $decoded;
-        } elseif (!is_array($data['value'])) {
+        } elseif (! is_array($data['value'])) {
             throw ValidationException::withMessages([
                 'value' => ['The value field must be a valid JSON object or array.'],
             ]);

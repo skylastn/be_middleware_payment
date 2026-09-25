@@ -50,26 +50,36 @@ Route::middleware('throttle:api')->group(function () {
     // ---------------------------------------------------------------------
     // 2. Merchant Server-to-Server API (Protected by Project Token)
     // ---------------------------------------------------------------------
-    Route::prefix('order')->middleware('project.auth')->controller(OrderController::class)->group(function () {
-        Route::get('/', [OrderController::class, 'index']);
-        Route::get('/detail', [OrderController::class, 'detail']);
-        Route::get('/checkOrderStatus', [OrderController::class, 'checkOrderStatus']);
-        Route::post('/create', [OrderController::class, 'store']);
-        Route::post('/set-success',  [OrderController::class, 'setSuccessMerchant']);
-        Route::post('/stripe/confirm', [OrderController::class, 'confirmStripe']);
+    Route::middleware('project.auth')->group(function () {
+        Route::prefix('order')->controller(OrderController::class)->group(function () {
+            Route::get('/', 'index');
+            Route::get('/detail', 'detail');
+            Route::get('/checkOrderStatus', 'checkOrderStatus');
+            Route::post('/create', 'store');
+            Route::post('/set-success', 'setSuccessMerchant');
+            Route::post('/stripe/confirm', 'confirmStripe');
+        });
+
+        Route::prefix('payment')->controller(PaymentController::class)->group(function () {
+            Route::post('/createPayment', 'createPayment');
+        });
+
+        Route::prefix('payout')->controller(PayoutController::class)->group(function () {
+            Route::post('/create', 'create');
+        });
+
+        Route::prefix('payment-repositories')->controller(PaymentController::class)->group(function () {
+            Route::get('/{id}', 'showPaymentRepository');
+            Route::put('/{id}', 'updatePaymentRepository');
+        });
     });
 
     Route::prefix('payment')->controller(PaymentController::class)->group(function () {
-        Route::post('/createPayment', [PaymentController::class, 'createPayment'])->middleware('project.auth');
         Route::get('/getPaymentCategory', [PaymentController::class, 'getPaymentCategory']);
         Route::get('/getPaymentMethod', [PaymentController::class, 'getPaymentMethod']);
         Route::get('/getDetailPaymentMethod', [PaymentController::class, 'getDetailPaymentMethod']);
         Route::get('/category/{id}', [PaymentController::class, 'showPaymentCategory']);
         Route::get('/method/{id}', [PaymentController::class, 'showPaymentMethod']);
-    });
-
-    Route::prefix('payout')->controller(PayoutController::class)->group(function () {
-        Route::post('/create', [PayoutController::class, 'create'])->middleware('project.auth');
     });
 
     // ---------------------------------------------------------------------
@@ -110,7 +120,7 @@ Route::middleware('throttle:api')->group(function () {
         Route::post('/queue', [TestController::class, 'testQueue']);
     });
 
-    Route::middleware('auth:sanctum')->get('/user', fn(Request $request) => $request->user());
+    Route::middleware('auth:sanctum')->get('/user', fn (Request $request) => $request->user());
 
     // Admin login API (Rate-limited to 10 attempts / min)
     Route::middleware([EncryptCookies::class, AddQueuedCookiesToResponse::class, 'throttle:10,1'])

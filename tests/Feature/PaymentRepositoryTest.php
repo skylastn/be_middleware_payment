@@ -122,4 +122,40 @@ class PaymentRepositoryTest extends TestCase
         $response->assertJsonPath('data.version', '2');
         $this->assertStringContainsString('/detailpayment?token=', $response->json('data.checkout_url'));
     }
+
+    public function test_merchant_can_show_and_update_payment_repository(): void
+    {
+        $token = 'test-merchant-token-' . uniqid();
+        $project = Project::create([
+            'name' => 'Test Project',
+            'type' => 'TEST',
+            'key' => 'test_key',
+            'secure' => 'test_secure',
+            'value' => $token,
+            'callback' => 'https://example.com/callback',
+            'slug' => \App\Enums\ProjectSlug::STRIPE,
+        ]);
+
+        $showResponse = $this->withHeader('Token', $token)
+            ->getJson("/api/payment-repositories/{$this->repo->id}");
+
+        $showResponse->assertStatus(200);
+        $showResponse->assertJsonPath('status', true);
+        $showResponse->assertJsonPath('data.id', $this->repo->id);
+
+        $updateResponse = $this->withHeader('Token', $token)
+            ->putJson("/api/payment-repositories/{$this->repo->id}", [
+                'mode' => 'sandbox',
+                'value' => [
+                    'stripe_publishablekey' => 'pk_test_updated',
+                    'stripe_secretkey' => 'sk_test_updated',
+                ],
+            ]);
+
+        $updateResponse->assertStatus(200);
+        $updateResponse->assertJsonPath('status', true);
+        $updateResponse->assertJsonPath('data.value.stripe_publishablekey', 'pk_test_updated');
+
+        $project->forceDelete();
+    }
 }

@@ -463,6 +463,40 @@ class PostmanSyncService
                     ],
                 ],
                 [
+                    'name' => 'Show Payment Repository (Project Token)',
+                    'request' => [
+                        'method' => 'GET',
+                        'header' => [
+                            ['key' => 'Token', 'value' => '{{merchant_token}}'],
+                            ['key' => 'Accept', 'value' => 'application/json'],
+                        ],
+                        'url' => ['raw' => '{{base_url}}/api/payment-repositories/:id', 'host' => ['{{base_url}}'], 'path' => ['api', 'payment-repositories', ':id']],
+                    ],
+                ],
+                [
+                    'name' => 'Update Payment Repository (Project Token)',
+                    'request' => [
+                        'method' => 'PUT',
+                        'header' => [
+                            ['key' => 'Token', 'value' => '{{merchant_token}}'],
+                            ['key' => 'Content-Type', 'value' => 'application/json'],
+                            ['key' => 'Accept', 'value' => 'application/json'],
+                        ],
+                        'body' => [
+                            'mode' => 'raw',
+                            'raw' => json_encode([
+                                'mode' => 'sandbox',
+                                'value' => [
+                                    'stripe_publishablekey' => 'pk_test_...',
+                                    'stripe_secretkey' => 'sk_test_...',
+                                    'stripe_webhooksecret' => 'whsec_...',
+                                ],
+                            ], JSON_PRETTY_PRINT),
+                        ],
+                        'url' => ['raw' => '{{base_url}}/api/payment-repositories/:id', 'host' => ['{{base_url}}'], 'path' => ['api', 'payment-repositories', ':id']],
+                    ],
+                ],
+                [
                     'name' => 'Test Create Order on Gateway Repository',
                     'request' => [
                         'method' => 'POST',
