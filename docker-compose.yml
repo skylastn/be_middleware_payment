@@ -18,6 +18,18 @@ services:
     # DOCKER_*_HOST provides optional remapping inside the container. Network join (when using external Docker networks) is in deploy.sh.
     ports:
       - "${SERVER_PORT}:8000"
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1024M
+          cpus: '2.0'
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
+        mode: non-blocking
     volumes:
       # Source code that changes during development (hot-reload via Octane)
       - ./app:/app/app
