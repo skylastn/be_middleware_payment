@@ -3,14 +3,14 @@
 namespace Tests\Feature;
 
 use App\Enums\OrderStatus;
-use App\Http\Controllers\Api\AgiController;
+use App\Http\Controllers\Api\BankAgiController;
 use App\Jobs\SendMerchantCallback;
 use App\Jobs\SendNotificationJob;
 use App\Model\Entity\Order;
 use App\Model\Entity\PaymentGateway;
 use App\Model\Entity\PaymentRepository;
 use App\Model\Entity\Project;
-use App\Services\Payment\AgiService;
+use App\Services\Payment\BankAgiService;
 use App\Services\Payment\OrderHistoryService;
 use App\Services\Payment\PaymentService;
 use App\Services\System\RedisService;
@@ -28,7 +28,7 @@ use Mockery;
 use RuntimeException;
 use Tests\TestCase;
 
-class AgiIntegrationTest extends TestCase
+class BankAgiIntegrationTest extends TestCase
 {
     private PaymentRepository $repository;
 
@@ -479,7 +479,7 @@ class AgiIntegrationTest extends TestCase
         $token = $this->issueToken();
         $history = Mockery::mock(OrderHistoryService::class);
         $history->shouldReceive('log')->once()->andThrow(new RuntimeException('History database unavailable'));
-        $this->app->instance(AgiController::class, new AgiController(new AgiService(orderHistoryService: $history)));
+        $this->app->instance(BankAgiController::class, new BankAgiController(new BankAgiService(orderHistoryService: $history)));
 
         $this->notify($this->notification(), $token)->assertStatus(500)->assertExactJson([
             'responseCode' => '5001901',

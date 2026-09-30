@@ -4,7 +4,7 @@ use App\Http\Controllers\Api\AdminAuthController;
 use App\Http\Controllers\Api\AdminDashboardController;
 use App\Http\Controllers\Api\AdminGatewayHistoryController;
 use App\Http\Controllers\Api\AdminQueueController;
-use App\Http\Controllers\Api\AgiController;
+use App\Http\Controllers\Api\BankAgiController;
 use App\Http\Controllers\Api\CallbackController;
 use App\Http\Controllers\Api\ClientPaymentController;
 use App\Http\Controllers\Api\OrderController;
@@ -109,7 +109,7 @@ Route::middleware('throttle:api')->group(function () {
     });
 
     Route::prefix('bank')->group(function () {
-        Route::prefix('agi')->controller(AgiController::class)->group(function () {
+        Route::prefix('agi')->controller(BankAgiController::class)->group(function () {
             Route::post('/access-token', 'snapAccessTokenB2B');
             Route::post('/notify-va', 'webhook');
             Route::post('/notify-qris', 'callback');

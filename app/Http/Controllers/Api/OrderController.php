@@ -9,7 +9,7 @@ use App\Http\Helper\LogHelper;
 use App\Http\Helper\RequestHelper;
 use App\Http\Helper\ResponseHelper;
 use App\Interface\RedisServiceInterface;
-use App\Services\Payment\AgiService;
+use App\Services\Payment\BankAgiService;
 use App\Services\Payment\DuitkuService;
 use App\Services\Payment\MidtransService;
 use App\Services\Payment\OrderService;
@@ -42,7 +42,7 @@ class OrderController extends Controller
 
     private PaprikaService $paprikaService;
 
-    private AgiService $agiService;
+    private BankAgiService $bankAgiService;
 
     private RedisServiceInterface $redisService;
 
@@ -56,7 +56,7 @@ class OrderController extends Controller
         ?StripeService $stripeService = null,
         ?PaprikaService $paprikaService = null,
         ?RedisServiceInterface $redisService = null,
-        ?AgiService $agiService = null,
+        ?BankAgiService $bankAgiService = null,
     ) {
         $this->service = $service ?? new OrderService;
         $this->projectService = $projectService ?? new ProjectService;
@@ -66,7 +66,7 @@ class OrderController extends Controller
         $this->spnPayService = $spnPayService ?? new SPNPayService;
         $this->stripeService = $stripeService ?? new StripeService;
         $this->paprikaService = $paprikaService ?? new PaprikaService;
-        $this->agiService = $agiService ?? new AgiService;
+        $this->bankAgiService = $bankAgiService ?? new BankAgiService;
         $this->redisService = $redisService ?? app(RedisServiceInterface::class);
     }
 
@@ -126,7 +126,7 @@ class OrderController extends Controller
             $result = match ($project->getSlug()) {
                 ProjectSlug::DUITKU => $this->duitkuService->checkStatus($order),
                 ProjectSlug::STRIPE => $this->stripeService->checkStatus($order),
-                ProjectSlug::BANK_AGI => $this->agiService->checkStatus($order),
+                ProjectSlug::BANK_AGI => $this->bankAgiService->checkStatus($order),
                 default => throw new Exception('Undefined Project'),
             };
 
@@ -167,7 +167,7 @@ class OrderController extends Controller
                 ProjectSlug::SPNPAY => $this->spnPayService->createOrderSPNPay($request, $project),
                 ProjectSlug::STRIPE => $this->stripeService->order($request, $project),
                 ProjectSlug::PAPRIKA => $this->paprikaService->orderPaprika($request, $project),
-                ProjectSlug::BANK_AGI => $this->agiService->order($request, $project),
+                ProjectSlug::BANK_AGI => $this->bankAgiService->order($request, $project),
                 default => throw new Exception('Undefined Project'),
             };
             DB::commit();

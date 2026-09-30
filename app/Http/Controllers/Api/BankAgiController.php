@@ -2,24 +2,24 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Exceptions\AgiException;
+use App\Exceptions\BankAgiException;
 use App\Http\Controllers\Controller;
 use App\Http\Helper\LogHelper;
 use App\Http\Helper\ResponseHelper;
-use App\Services\Payment\AgiService;
+use App\Services\Payment\BankAgiService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
-class AgiController extends Controller
+class BankAgiController extends Controller
 {
-    private AgiService $service;
+    private BankAgiService $service;
 
-    public function __construct(?AgiService $service = null)
+    public function __construct(?BankAgiService $service = null)
     {
-        $this->service = $service ?? new AgiService;
+        $this->service = $service ?? new BankAgiService;
     }
 
     public function snapAccessTokenB2B(Request $request): JsonResponse
@@ -75,7 +75,7 @@ class AgiController extends Controller
 
     private function errorResponse(Throwable $exception, string $serviceCode): JsonResponse
     {
-        if ($exception instanceof AgiException) {
+        if ($exception instanceof BankAgiException) {
             return ResponseHelper::payload([
                 'responseCode' => $exception->responseCode,
                 'responseMessage' => $exception->getMessage(),

@@ -117,7 +117,7 @@ Successful notifications return the bank's required top level SNAP payload, `{"r
 ## Verification
 
 ```sh
-php vendor/bin/phpunit tests/Unit/AgiSignatureTest.php tests/Feature/AgiIntegrationTest.php
+php vendor/bin/phpunit tests/Unit/BankAgiSignatureTest.php tests/Feature/BankAgiIntegrationTest.php
 bun run lint
 ```
 

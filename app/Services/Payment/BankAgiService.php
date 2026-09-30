@@ -4,7 +4,7 @@ namespace App\Services\Payment;
 
 use App\Enums\OrderStatus;
 use App\Enums\PaymentModeType;
-use App\Exceptions\AgiException;
+use App\Exceptions\BankAgiException;
 use App\Http\Helper\LogHelper;
 use App\Http\Helper\OrderIdGenerator;
 use App\Interface\RedisServiceInterface;
@@ -20,7 +20,7 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use RuntimeException;
 
-class AgiService
+class BankAgiService
 {
     private const TOKEN_PATH = '/api/v1/bisnap/access-token';
 
@@ -85,18 +85,18 @@ class AgiService
 
         $repository = $this->paymentRepositoryService->getByGatewayKeyAndClientKey('bank_agi', $clientId);
         if (! $repository) {
-            throw new AgiException('4017300', 'Unauthorized [Unknown Client Key]', 401);
+            throw new BankAgiException('4017300', 'Unauthorized [Unknown Client Key]', 401);
         }
 
         $config = $repository->getValue();
         if ($clientId !== ($config['bank_client_id'] ?? $config['client_id'] ?? null)) {
-            throw new AgiException('4017300', 'Unauthorized [Invalid Client Key]', 401);
+            throw new BankAgiException('4017300', 'Unauthorized [Invalid Client Key]', 401);
         }
 
         $publicKey = openssl_pkey_get_public(str_replace('\\n', "\n", $config['bank_public_key'] ?? ''));
         $decodedSignature = base64_decode($signature, true);
         if ($publicKey === false || $decodedSignature === false || openssl_verify($clientId.'|'.$timestamp, $decodedSignature, $publicKey, OPENSSL_ALGO_SHA256) !== 1) {
-            throw new AgiException('4017300', 'Unauthorized [Signature]', 401);
+            throw new BankAgiException('4017300', 'Unauthorized [Signature]', 401);
         }
 
         $token = bin2hex(random_bytes(32));
@@ -313,17 +313,17 @@ class AgiService
             (string) $request->input('additionalInfo.billNumber'),
         );
         if (! $order) {
-            throw new AgiException('4041901', 'Transaction Not Found', 404);
+            throw new BankAgiException('4041901', 'Transaction Not Found', 404);
         }
 
         $originalRequest = json_decode((string) $order->getRequest(), true, 512, JSON_THROW_ON_ERROR);
         if ($request->input('additionalInfo.merchantId') !== ($originalRequest['merchantId'] ?? null)
             || $request->input('additionalInfo.merchantUser') !== ($originalRequest['additionalInfo']['merchantUser'] ?? null)) {
-            throw new AgiException('4011900', 'Unauthorized [Merchant]', 401);
+            throw new BankAgiException('4011900', 'Unauthorized [Merchant]', 401);
         }
 
         if ($request->has('amount') && (number_format((float) $request->input('amount.value'), 2, '.', '') !== number_format($order->getAmount(), 2, '.', '') || $request->input('amount.currency') !== 'IDR')) {
-            throw new AgiException('4001901', 'Invalid Field Format [amount]', 400);
+            throw new BankAgiException('4001901', 'Invalid Field Format [amount]', 400);
         }
 
         $previousStatus = $order->getStatus();
@@ -369,29 +369,29 @@ class AgiService
         $channelId = $this->requiredHeader($request, 'CHANNEL_ID', '19');
         $this->validateTimestamp($timestamp, '19');
         if (! preg_match('/^\d{1,36}$/', $externalId) || ! preg_match('/^\d{5}$/', $channelId)) {
-            throw new AgiException('4001901', 'Invalid Field Format [X_EXTERNAL_ID or CHANNEL_ID]', 400);
+            throw new BankAgiException('4001901', 'Invalid Field Format [X_EXTERNAL_ID or CHANNEL_ID]', 400);
         }
 
         $token = $request->bearerToken();
         if (! $token) {
-            throw new AgiException('4011903', 'Token Not Found (B2B)', 401);
+            throw new BankAgiException('4011903', 'Token Not Found (B2B)', 401);
         }
 
         $storedToken = $this->redisService->get($this->tokenKey($token));
         if (! is_array($storedToken) || ($storedToken['client_key'] ?? null) !== $partnerId || empty($storedToken['repository_id'])) {
-            throw new AgiException('4011901', 'Invalid Token (B2B)', 401);
+            throw new BankAgiException('4011901', 'Invalid Token (B2B)', 401);
         }
 
         $repository = $this->getPaymentRepo(null, $storedToken['repository_id']);
         $config = $repository->getValue();
         if ($partnerId !== ($config['bank_client_id'] ?? $config['client_id'] ?? null)) {
-            throw new AgiException('4011900', 'Unauthorized [Partner ID]', 401);
+            throw new BankAgiException('4011900', 'Unauthorized [Partner ID]', 401);
         }
 
         $secret = $config['bank_client_secret'] ?? $this->requiredConfig($config, 'client_secret');
         $expected = $this->signSymmetric($secret, $request->method(), $request->getPathInfo(), $token, $request->getContent(), $timestamp);
         if (! hash_equals($expected, $signature)) {
-            throw new AgiException('4011900', 'Unauthorized [Signature]', 401);
+            throw new BankAgiException('4011900', 'Unauthorized [Signature]', 401);
         }
 
         return $repository;
@@ -466,7 +466,7 @@ class AgiService
     {
         $value = $request->header($header, $request->header(str_replace('_', '-', $header)));
         if (! is_string($value) || trim($value) === '') {
-            throw new AgiException('400'.$serviceCode.'02', 'Invalid Mandatory Field ['.$header.']', 400);
+            throw new BankAgiException('400'.$serviceCode.'02', 'Invalid Mandatory Field ['.$header.']', 400);
         }
 
         return $value;
@@ -475,17 +475,17 @@ class AgiService
     private function validateTimestamp(string $timestamp, string $serviceCode): void
     {
         if (! preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/', $timestamp)) {
-            throw new AgiException('400'.$serviceCode.'01', 'Invalid Field Format [X_TIMESTAMP]', 400);
+            throw new BankAgiException('400'.$serviceCode.'01', 'Invalid Field Format [X_TIMESTAMP]', 400);
         }
 
         try {
             $parsed = Carbon::parse($timestamp);
         } catch (\Throwable) {
-            throw new AgiException('400'.$serviceCode.'01', 'Invalid Field Format [X_TIMESTAMP]', 400);
+            throw new BankAgiException('400'.$serviceCode.'01', 'Invalid Field Format [X_TIMESTAMP]', 400);
         }
 
         if (abs(now()->diffInSeconds($parsed, false)) > 300) {
-            throw new AgiException('401'.$serviceCode.'00', 'Unauthorized [Timestamp expired]', 401);
+            throw new BankAgiException('401'.$serviceCode.'00', 'Unauthorized [Timestamp expired]', 401);
         }
     }
 
