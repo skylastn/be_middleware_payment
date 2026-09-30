@@ -9,6 +9,7 @@ use App\Http\Helper\LogHelper;
 use App\Http\Helper\RequestHelper;
 use App\Http\Helper\ResponseHelper;
 use App\Interface\RedisServiceInterface;
+use App\Services\Payment\AgiService;
 use App\Services\Payment\DuitkuService;
 use App\Services\Payment\MidtransService;
 use App\Services\Payment\OrderService;
@@ -41,6 +42,8 @@ class OrderController extends Controller
 
     private PaprikaService $paprikaService;
 
+    private AgiService $agiService;
+
     private RedisServiceInterface $redisService;
 
     public function __construct(
@@ -52,7 +55,8 @@ class OrderController extends Controller
         ?SPNPayService $spnPayService = null,
         ?StripeService $stripeService = null,
         ?PaprikaService $paprikaService = null,
-        ?RedisServiceInterface $redisService = null
+        ?RedisServiceInterface $redisService = null,
+        ?AgiService $agiService = null,
     ) {
         $this->service = $service ?? new OrderService;
         $this->projectService = $projectService ?? new ProjectService;
@@ -62,6 +66,7 @@ class OrderController extends Controller
         $this->spnPayService = $spnPayService ?? new SPNPayService;
         $this->stripeService = $stripeService ?? new StripeService;
         $this->paprikaService = $paprikaService ?? new PaprikaService;
+        $this->agiService = $agiService ?? new AgiService;
         $this->redisService = $redisService ?? app(RedisServiceInterface::class);
     }
 
@@ -121,6 +126,7 @@ class OrderController extends Controller
             $result = match ($project->getSlug()) {
                 ProjectSlug::DUITKU => $this->duitkuService->checkStatus($order),
                 ProjectSlug::STRIPE => $this->stripeService->checkStatus($order),
+                ProjectSlug::AGI => $this->agiService->checkStatus($order),
                 default => throw new Exception('Undefined Project'),
             };
 
@@ -161,6 +167,7 @@ class OrderController extends Controller
                 ProjectSlug::SPNPAY => $this->spnPayService->createOrderSPNPay($request, $project),
                 ProjectSlug::STRIPE => $this->stripeService->order($request, $project),
                 ProjectSlug::PAPRIKA => $this->paprikaService->orderPaprika($request, $project),
+                ProjectSlug::AGI => $this->agiService->order($request, $project),
                 default => throw new Exception('Undefined Project'),
             };
             DB::commit();

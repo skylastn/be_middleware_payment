@@ -10,6 +10,12 @@ enum ProjectSlug: string
     case SPNPAY = 'spnpay';
     case STRIPE = 'stripe';
     case PAPRIKA = 'paprika';
+    case AGI = 'bank_agi';
+
+    public static function values(): array
+    {
+        return array_map(fn (self $slug): string => $slug->value, self::cases());
+    }
 
     public static function toArray(): array
     {
@@ -19,7 +25,8 @@ enum ProjectSlug: string
             self::DUITKU,
             self::SPNPAY,
             self::STRIPE,
-            self::PAPRIKA
+            self::PAPRIKA,
+            self::AGI,
         ];
     }
 
@@ -38,6 +45,8 @@ enum ProjectSlug: string
                 return 'Stripe';
             case self::PAPRIKA:
                 return 'Paprika';
+            case self::AGI:
+                return 'Bank Artha Graha Internasional';
             default:
                 return 'Duitku';
                 break;
@@ -50,7 +59,7 @@ enum ProjectSlug: string
             return $value;
         }
 
-        switch ($value) {
+        switch (strtolower(trim($value))) {
             case self::MIDTRANS->value:
                 return ProjectSlug::MIDTRANS;
             case self::XENDIT->value:
@@ -63,6 +72,11 @@ enum ProjectSlug: string
                 return ProjectSlug::STRIPE;
             case self::PAPRIKA->value:
                 return ProjectSlug::PAPRIKA;
+            case self::AGI->value:
+            case 'agi':
+            case 'artha-graha':
+            case 'bank-artha-graha':
+                return ProjectSlug::AGI;
             default:
                 return ProjectSlug::DUITKU;
         }

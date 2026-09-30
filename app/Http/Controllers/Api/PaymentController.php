@@ -14,6 +14,7 @@ use App\Model\Request\Payment\PaymentMethod\CreatePaymentMethodRequest;
 use App\Model\Request\Payment\PaymentRepository\CreatePaymentRepositoryRequest;
 use App\Model\Request\Payment\Setting\CreateSettingRequest;
 use App\Model\Response\Payment\PaymentMethod\PaymentMethodResource;
+use App\Services\Payment\AgiService;
 use App\Services\Payment\DuitkuService;
 use App\Services\Payment\MidtransService;
 use App\Services\Payment\OrderService;
@@ -46,6 +47,8 @@ class PaymentController extends Controller
 
     private PaprikaService $paprikaService;
 
+    private AgiService $agiService;
+
     public function __construct(
         ?PaymentService $paymentService = null,
         ?OrderService $orderService = null,
@@ -54,7 +57,8 @@ class PaymentController extends Controller
         ?XenditService $xenditService = null,
         ?SPNPayService $spnPayService = null,
         ?StripeService $stripeService = null,
-        ?PaprikaService $paprikaService = null
+        ?PaprikaService $paprikaService = null,
+        ?AgiService $agiService = null,
     ) {
         $this->paymentService = $paymentService ?? new PaymentService;
         $this->orderService = $orderService ?? new OrderService;
@@ -64,6 +68,7 @@ class PaymentController extends Controller
         $this->spnPayService = $spnPayService ?? new SPNPayService;
         $this->stripeService = $stripeService ?? new StripeService;
         $this->paprikaService = $paprikaService ?? new PaprikaService;
+        $this->agiService = $agiService ?? new AgiService;
     }
 
     public function getPaymentCategory(Request $request): JsonResponse
@@ -110,6 +115,7 @@ class PaymentController extends Controller
                 ProjectSlug::SPNPAY => $this->spnPayService->createOrderPaymentSPNPay($request, $project, $order),
                 ProjectSlug::STRIPE => $this->stripeService->order($request, $project),
                 ProjectSlug::PAPRIKA => $this->paprikaService->orderPaprika($request, $project),
+                ProjectSlug::AGI => $this->agiService->order($request, $project, $order),
                 default => throw new Exception('Undefined Project'),
             };
 
@@ -385,6 +391,7 @@ class PaymentController extends Controller
                 ProjectSlug::SPNPAY => $this->spnPayService->createOrderSPNPay($simulatedRequest, $project),
                 ProjectSlug::STRIPE => $this->stripeService->order($simulatedRequest, $project),
                 ProjectSlug::PAPRIKA => $this->paprikaService->orderPaprika($simulatedRequest, $project),
+                ProjectSlug::AGI => $this->agiService->order($simulatedRequest, $project),
                 default => throw new Exception('Undefined Project'),
             };
 

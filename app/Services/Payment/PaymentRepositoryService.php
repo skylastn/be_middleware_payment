@@ -39,6 +39,8 @@ class PaymentRepositoryService
             return null;
         }
 
-        return $this->paymentRepositories->findByGatewayAndClientKey($pg->id, $clientKey);
+        return $gatewayKey === 'bank_agi'
+            ? $this->paymentRepositories->findByGatewayAndSnapClientId($pg->id, $clientKey)
+            : $this->paymentRepositories->findByGatewayAndClientKey($pg->id, $clientKey);
     }
 }

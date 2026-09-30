@@ -31,6 +31,8 @@ class Order extends Model
     protected $fillable = [
         'id',
         'payment_repository_id',
+        'gateway_reference',
+        'gateway_bill_number',
         'mode',
         'type',
         'reference',
@@ -118,6 +120,26 @@ class Order extends Model
         return $this->mode instanceof PaymentModeType
             ? $this->mode
             : PaymentModeType::fromName($this->mode);
+    }
+
+    public function getGatewayReference(): ?string
+    {
+        return $this->getAttribute('gateway_reference');
+    }
+
+    public function setGatewayReference(?string $reference): void
+    {
+        $this->setAttribute('gateway_reference', $reference);
+    }
+
+    public function getGatewayBillNumber(): ?string
+    {
+        return $this->getAttribute('gateway_bill_number');
+    }
+
+    public function setGatewayBillNumber(?string $billNumber): void
+    {
+        $this->setAttribute('gateway_bill_number', $billNumber);
     }
 
     public function setMode(string|PaymentModeType|null $mode): void
