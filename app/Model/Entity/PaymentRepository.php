@@ -15,6 +15,8 @@ class PaymentRepository extends Model
 
     protected $table = 'payment_repositories';
 
+    protected $hidden = ['value'];
+
     protected $fillable = [
         'payment_gateway_id',
         'key',

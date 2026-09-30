@@ -30,6 +30,8 @@ class BankAgiService
 
     private const TOKEN_TTL = 900;
 
+    private const MAX_BODY_BYTES = 65536;
+
     private PaymentRepositoryService $paymentRepositoryService;
 
     private RedisServiceInterface $redisService;
@@ -116,6 +118,18 @@ class BankAgiService
         ];
     }
 
+    public function validatePayload(Request $request, string $serviceCode): void
+    {
+        $body = $request->getContent();
+        if (strlen($body) > self::MAX_BODY_BYTES) {
+            throw new BankAgiException('413'.$serviceCode.'00', 'Payload Too Large', 413);
+        }
+
+        if (! $request->isJson() || ! json_validate($body)) {
+            throw new BankAgiException('400'.$serviceCode.'01', 'Invalid Field Format [body]', 400);
+        }
+    }
+
     public function signAsymmetric(string $clientId, string $timestamp, string $privateKey): string
     {
         $key = openssl_pkey_get_private(str_replace('\\n', "\n", $privateKey));
@@ -142,23 +156,49 @@ class BankAgiService
     public function getB2BToken(PaymentRepository $repository): array
     {
         $config = $repository->getValue();
-        $timestamp = $this->timestamp();
         $clientId = $this->requiredConfig($config, 'client_id');
+        $privateKey = $this->requiredConfig($config, 'private_key');
+        $url = $this->baseUrl($repository);
+        $cacheKey = 'bank_agi:outbound_token:'.hash('sha256', json_encode([
+            $repository->getAttribute('id'), $url, $clientId, $privateKey, $config['client_secret'] ?? null,
+        ], JSON_THROW_ON_ERROR));
+        try {
+            $cached = $this->redisService->get($cacheKey);
+            if (is_array($cached) && ($cached['expires_at'] ?? 0) > now()->getTimestamp()
+                && is_string($cached['response']['accessToken'] ?? null) && $cached['response']['accessToken'] !== '') {
+                return $cached['response'];
+            }
+        } catch (\Throwable) {
+        }
+
+        $requestedAt = now()->getTimestamp();
+        $timestamp = $this->timestamp();
         $headers = [
             'Content-Type' => 'application/json',
             'X_CLIENT_KEY' => $clientId,
             'X_TIMESTAMP' => $timestamp,
-            'X_SIGNATURE' => $this->signAsymmetric($clientId, $timestamp, $this->requiredConfig($config, 'private_key')),
+            'X_SIGNATURE' => $this->signAsymmetric($clientId, $timestamp, $privateKey),
         ];
 
         $response = $this->decodeResponse($this->networkService->post(
-            $this->baseUrl($repository).self::TOKEN_PATH,
+            $url.self::TOKEN_PATH,
             $headers,
             ['grantType' => 'client_credentials', 'additionalInfo' => (object) []],
+            ['allow_redirects' => false],
         ), '2007300');
 
         if (empty($response['accessToken']) || ! is_string($response['accessToken'])) {
             throw new RuntimeException('AGI access token response is missing accessToken');
+        }
+
+        $expiresIn = $response['expiresIn'] ?? '';
+        $expiresIn = is_string($expiresIn) || is_int($expiresIn) ? (string) $expiresIn : '';
+        $ttl = ctype_digit($expiresIn) ? min(60, max(0, (int) $expiresIn - 5 - (now()->getTimestamp() - $requestedAt))) : 0;
+        if ($ttl > 0) {
+            try {
+                $this->redisService->set($cacheKey, ['response' => $response, 'expires_at' => now()->getTimestamp() + $ttl], $ttl);
+            } catch (\Throwable) {
+            }
         }
 
         return $response;
@@ -178,7 +218,7 @@ class BankAgiService
 
             $request->merge([
                 'merchantOrderId' => $existingOrder->getMerchantOrderId(),
-                'paymentAmount' => $existingOrder->getAmount(),
+                'paymentAmount' => number_format($existingOrder->getAmount(), 2, '.', ''),
                 'mode' => $existingOrder->getMode()?->value,
                 'paymentRepositoryId' => $request->input('paymentRepositoryId', $existingOrder->getAttribute('payment_repository_id')),
             ]);
@@ -186,7 +226,7 @@ class BankAgiService
 
         $request->validate([
             'merchantOrderId' => ['required', 'string', 'max:100'],
-            'paymentAmount' => ['required', 'numeric', 'min:0.01', 'max:99999999999999.99'],
+            'paymentAmount' => ['required', 'numeric', 'decimal:0,2', 'min:0.01', 'max:9999999999999.99'],
             'paymentMethod' => ['required', 'string'],
             'paymentRepositoryId' => ['sometimes', 'nullable', 'string', 'uuid'],
             'mode' => ['sometimes', 'nullable', 'in:sandbox,prod'],
@@ -210,10 +250,10 @@ class BankAgiService
             throw new RuntimeException('AGI validity period must be between 1 and 1440 minutes');
         }
 
-        $amount = (float) $request->input('paymentAmount');
+        $amount = $this->formatAmount($request->input('paymentAmount'));
         $body = [
             'partnerReferenceNo' => $reference,
-            'amount' => ['value' => number_format($amount, 2, '.', ''), 'currency' => 'IDR'],
+            'amount' => ['value' => $amount, 'currency' => 'IDR'],
             'merchantId' => $this->requiredConfig($config, 'merchant_id'),
             'validityPeriod' => (string) $validity,
             'additionalInfo' => $this->additionalInfo($config),
@@ -322,7 +362,7 @@ class BankAgiService
             throw new BankAgiException('4011900', 'Unauthorized [Merchant]', 401);
         }
 
-        if ($request->has('amount') && (number_format((float) $request->input('amount.value'), 2, '.', '') !== number_format($order->getAmount(), 2, '.', '') || $request->input('amount.currency') !== 'IDR')) {
+        if ($request->has('amount') && ($this->formatAmount($request->input('amount.value')) !== ($originalRequest['amount']['value'] ?? null) || $request->input('amount.currency') !== 'IDR')) {
             throw new BankAgiException('4001901', 'Invalid Field Format [amount]', 400);
         }
 
@@ -376,6 +416,9 @@ class BankAgiService
         if (! $token) {
             throw new BankAgiException('4011903', 'Token Not Found (B2B)', 401);
         }
+        if (strlen($token) > 128) {
+            throw new BankAgiException('4011901', 'Invalid Token (B2B)', 401);
+        }
 
         $storedToken = $this->redisService->get($this->tokenKey($token));
         if (! is_array($storedToken) || ($storedToken['client_key'] ?? null) !== $partnerId || empty($storedToken['repository_id'])) {
@@ -417,7 +460,7 @@ class BankAgiService
             'X_SIGNATURE' => $this->signSymmetric($this->requiredConfig($config, 'client_secret'), 'POST', $path, $token, json_encode($body, JSON_THROW_ON_ERROR), $timestamp),
         ];
 
-        return $this->decodeResponse($this->networkService->post($this->baseUrl($repository).$path, $headers, $body), $successCode);
+        return $this->decodeResponse($this->networkService->post($this->baseUrl($repository).$path, $headers, $body, ['allow_redirects' => false]), $successCode);
     }
 
     private function decodeResponse(?string $rawResponse, string $successCode): array
@@ -446,8 +489,12 @@ class BankAgiService
     {
         $url = rtrim($this->requiredConfig($repository->getValue(), 'base_url'), '/');
         if (parse_url($url, PHP_URL_SCHEME) !== 'https' || ! parse_url($url, PHP_URL_HOST)
-            || parse_url($url, PHP_URL_PATH) || parse_url($url, PHP_URL_QUERY) || parse_url($url, PHP_URL_FRAGMENT)) {
+            || parse_url($url, PHP_URL_PATH) || parse_url($url, PHP_URL_QUERY) || parse_url($url, PHP_URL_FRAGMENT)
+            || parse_url($url, PHP_URL_USER) !== null || parse_url($url, PHP_URL_PASS) !== null) {
             throw new RuntimeException('AGI base_url must be an HTTPS origin without a path or query');
+        }
+        if (! in_array(strtolower(parse_url($url, PHP_URL_HOST)), config('services.bank_agi.allowed_hosts', []), true)) {
+            throw new RuntimeException('AGI base_url host is not in BANK_AGI_ALLOWED_HOSTS');
         }
 
         return $url;
@@ -462,11 +509,29 @@ class BankAgiService
         return $config[$key];
     }
 
+    private function formatAmount(mixed $amount): string
+    {
+        [$whole, $fraction] = array_pad(explode('.', ltrim((string) $amount, '+'), 2), 2, '');
+
+        return (ltrim($whole, '0') ?: '0').'.'.str_pad($fraction, 2, '0');
+    }
+
     private function requiredHeader(Request $request, string $header, string $serviceCode): string
     {
         $value = $request->header($header, $request->header(str_replace('_', '-', $header)));
         if (! is_string($value) || trim($value) === '') {
             throw new BankAgiException('400'.$serviceCode.'02', 'Invalid Mandatory Field ['.$header.']', 400);
+        }
+
+        $maxLength = match ($header) {
+            'X_TIMESTAMP' => 35,
+            'X_SIGNATURE' => 2048,
+            'X_EXTERNAL_ID' => 36,
+            'CHANNEL_ID' => 5,
+            default => 128,
+        };
+        if (strlen($value) > $maxLength) {
+            throw new BankAgiException('400'.$serviceCode.'01', 'Invalid Field Format ['.$header.']', 400);
         }
 
         return $value;
@@ -475,6 +540,9 @@ class BankAgiService
     private function validateTimestamp(string $timestamp, string $serviceCode): void
     {
         if (! preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/', $timestamp)) {
+            throw new BankAgiException('400'.$serviceCode.'01', 'Invalid Field Format [X_TIMESTAMP]', 400);
+        }
+        if (! checkdate((int) substr($timestamp, 5, 2), (int) substr($timestamp, 8, 2), (int) substr($timestamp, 0, 4))) {
             throw new BankAgiException('400'.$serviceCode.'01', 'Invalid Field Format [X_TIMESTAMP]', 400);
         }
 
@@ -495,11 +563,15 @@ class BankAgiService
             return '';
         }
 
-        json_decode($body, true, 512, JSON_THROW_ON_ERROR);
+        if (! json_validate($body)) {
+            throw new RuntimeException('AGI signature body must be valid JSON');
+        }
         $minified = '';
         $quoted = false;
         $escaped = false;
-        foreach (str_split($body) as $character) {
+        $length = strlen($body);
+        for ($index = 0; $index < $length; $index++) {
+            $character = $body[$index];
             if ($quoted) {
                 $minified .= $character;
                 if ($escaped) {
@@ -512,7 +584,7 @@ class BankAgiService
             } elseif ($character === '"') {
                 $quoted = true;
                 $minified .= $character;
-            } elseif (! in_array($character, [' ', "\t", "\r", "\n"], true)) {
+            } elseif (! str_contains(" \t\r\n", $character)) {
                 $minified .= $character;
             }
         }

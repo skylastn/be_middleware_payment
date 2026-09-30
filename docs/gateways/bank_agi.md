@@ -38,7 +38,9 @@ Create a Payment Repository for gateway key `bank_agi`, then select `bank_agi` a
 }
 ```
 
-All credential values above are placeholders. Replace `channel_id` with the five digit PJP channel ID agreed with AGI. Set the production URL and production credentials in a separate `prod` repository; the supplied document only specifies the sandbox URL. `base_url` must contain the HTTPS host and optional port, without an API path or query.
+All credential values above are placeholders. Replace `channel_id` with the five digit PJP channel ID agreed with AGI. Set the production URL and production credentials in a separate `prod` repository; the supplied document only specifies the sandbox URL. `base_url` must contain the HTTPS host and optional port, without credentials, an API path, or a query. Bank requests do not follow redirects.
+
+Set `BANK_AGI_ALLOWED_HOSTS` to the comma separated bank hostnames approved for this deployment. The default permits only `bagiapisandbox.ag.co.id`. Add the production hostname supplied by AGI before enabling production, then rebuild Laravel's configuration cache. URLs pointing to other hosts are rejected before a network request.
 
 | Field | Purpose |
 | --- | --- |
@@ -49,7 +51,9 @@ All credential values above are placeholders. Replace `channel_id` with the five
 | `validity_period` | QR validity in minutes, default 60. A request's `expiryPeriod` can override it. |
 | `sub_merchant_id`, `store_id`, `terminal_id`, `device_id`, `channel` | Optional values passed to the bank payload. |
 
-The inbound token and callback security flow is implemented for the middleware endpoints requested in the work item. Confirm the callback credentials and endpoint registration with AGI during sandbox onboarding. The document's token lifetime table and example use inconsistent units; outbound tokens are requested for each operation rather than cached using `expiresIn`. Middleware callback tokens expire after 900 seconds and are bound to one AGI repository.
+The inbound token and callback security flow is implemented for the middleware endpoints requested in the work item. Confirm the callback credentials and endpoint registration with AGI during sandbox onboarding. The document's token lifetime table and example use inconsistent units. Outbound tokens are cached in Redis for at most 60 seconds, interpreting a positive numeric `expiresIn` as seconds and subtracting a five second margin. This uses the shorter documented interpretation. Tokens with absent or invalid expiry are not cached; rotating the repository's URL or outbound credentials changes the cache key. Failure of this optional cache falls back to requesting a token. Middleware callback tokens expire after 900 seconds and are bound to one AGI repository.
+
+Repository configuration is available through the admin APIs with Sanctum authentication and the admin role. The legacy `/api/payment-repositories/{id}` read and update routes now also require admin authentication; a merchant `Token` no longer grants access. Order responses include repository metadata and project metadata without gateway credentials or the merchant's authentication token.
 
 ## Bank requests and signatures
 
@@ -85,7 +89,7 @@ Send `POST /api/order/create` with the merchant's `Token` header:
 }
 ```
 
-Both `qris` and `AGI_QRIS` select the AGI QRIS method. The middleware sends the project prefixed order reference, formatted IDR amount, configured merchant identity, and QR validity to the bank. It persists the QR content, bank reference, bill number, and expiry, then returns `data.reference`, `data.link`, `data.qr_string`, and the bank response in `data.result`.
+Both `qris` and `AGI_QRIS` select the AGI QRIS method. Amounts must be positive decimal values with at most two decimal places, up to `9999999999999.99`; extra precision and numeric strings using scientific notation are rejected. The middleware sends the project prefixed order reference, formatted IDR amount, configured merchant identity, and QR validity to the bank. It persists the QR content, bank reference, bill number, and expiry, then returns `data.reference`, `data.link`, `data.qr_string`, and the bank response in `data.result`.
 
 With `version: "2"`, `data.link` points to the existing checkout page and includes a Redis payment token. Configure `PAYMENT_URL` before using this version. Client and merchant `createPayment` endpoints reuse an existing unpaid order and reject a second QR generation for the same order. The backoffice's repository test order endpoint also supports AGI and defaults to QRIS.
 
@@ -101,9 +105,11 @@ Register these middleware URLs with AGI:
 | `POST /api/bank/agi/notify-qris` | Verifies the token, partner, timestamp, and HMAC signature, then processes the QRIS notification. |
 | `POST /api/bank/agi/notify-va` | Returns HTTP 501 until the VA contract is available. |
 
-QRIS notifications must include `originalReferenceNo`, `latestTransactionStatus`, and `additionalInfo.merchantId`, `additionalInfo.merchantUser`, and `additionalInfo.billNumber`. If `amount` is supplied, its value must match the order and its currency must be IDR. Required transaction headers include a numeric `X_EXTERNAL_ID` of up to 36 digits and a five digit `CHANNEL_ID`.
+QRIS notifications must include `originalReferenceNo`, `latestTransactionStatus`, and `additionalInfo.merchantId`, `additionalInfo.merchantUser`, and `additionalInfo.billNumber`. If `amount` is supplied, its value must exactly match the amount sent to the bank and its currency must be IDR. Amounts with more than two decimals and numeric strings using scientific notation are rejected. Required transaction headers include a numeric `X_EXTERNAL_ID` of up to 36 digits and a five digit `CHANNEL_ID`. Token and QRIS notification bodies must be valid JSON and no larger than 64 KiB; oversized bodies return HTTP 413.
 
 The middleware locates the order using the bill number within the token's repository and verifies its stored merchant identity. It locks the order while applying the change, records history, and dispatches merchant callbacks and notifications after commit. Duplicate notifications are authenticated and acknowledged without sending duplicate jobs; a late failure cannot downgrade a successful payment.
+
+Bank credentials and access tokens are redacted from structured application logs and Telescope request and response entries in all environments. Telescope excludes credential repository and project SQL queries, plus Redis commands containing bank or checkout token data. Duplicate callbacks load the project only when they need to dispatch a status change.
 
 | Bank status | Middleware behavior |
 | --- | --- |
@@ -117,7 +123,7 @@ Successful notifications return the bank's required top level SNAP payload, `{"r
 ## Verification
 
 ```sh
-php vendor/bin/phpunit tests/Unit/BankAgiSignatureTest.php tests/Feature/BankAgiIntegrationTest.php
+php vendor/bin/phpunit tests/Unit/BankAgiSignatureTest.php tests/Unit/BankAgiLogRedactionTest.php tests/Feature/BankAgiIntegrationTest.php tests/Feature/PaymentRepositoryTest.php
 bun run lint
 ```
 

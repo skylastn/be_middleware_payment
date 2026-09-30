@@ -28,9 +28,9 @@ class NetworkService
         string $url,
         NetworkType $method = NetworkType::GET,
         array $header = [],
-        ?array $body = null
+        ?array $body = null,
+        array $options = []
     ): ?string {
-        $options = [];
         if ($body !== null) {
             $options['json'] = $body;
         }
@@ -43,9 +43,9 @@ class NetworkService
         return $response->body();
     }
 
-    public function post(string $url, array $header = [], ?array $body = null): ?string
+    public function post(string $url, array $header = [], ?array $body = null, array $options = []): ?string
     {
-        return $this->send($url, NetworkType::POST, $header, $body);
+        return $this->send($url, NetworkType::POST, $header, $body, $options);
     }
 
     public function get(string $url, array $header = []): ?string

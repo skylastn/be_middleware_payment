@@ -25,6 +25,7 @@ class BankAgiController extends Controller
     public function snapAccessTokenB2B(Request $request): JsonResponse
     {
         try {
+            $this->service->validatePayload($request, '73');
             $request->validate([
                 'grantType' => ['required', 'string', 'in:client_credentials'],
                 'additionalInfo' => ['sometimes', 'array'],
@@ -39,6 +40,7 @@ class BankAgiController extends Controller
     public function callback(Request $request): JsonResponse
     {
         try {
+            $this->service->validatePayload($request, '19');
             $request->validate([
                 'originalReferenceNo' => ['required', 'string', 'max:128'],
                 'latestTransactionStatus' => ['required', 'string', 'in:00,01,02,03,04,05,06,07'],
@@ -47,7 +49,7 @@ class BankAgiController extends Controller
                 'additionalInfo.merchantUser' => ['required', 'string', 'max:64'],
                 'additionalInfo.billNumber' => ['required', 'string', 'max:128'],
                 'amount' => ['sometimes', 'array'],
-                'amount.value' => ['required_with:amount', 'numeric', 'gt:0'],
+                'amount.value' => ['required_with:amount', 'numeric', 'decimal:0,2', 'gt:0', 'max:9999999999999.99'],
                 'amount.currency' => ['required_with:amount', 'in:IDR'],
             ]);
 

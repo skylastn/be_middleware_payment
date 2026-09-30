@@ -14,6 +14,7 @@ use App\Model\Request\Payment\PaymentMethod\CreatePaymentMethodRequest;
 use App\Model\Request\Payment\PaymentRepository\CreatePaymentRepositoryRequest;
 use App\Model\Request\Payment\Setting\CreateSettingRequest;
 use App\Model\Response\Payment\PaymentMethod\PaymentMethodResource;
+use App\Model\Response\Payment\PaymentRepository\PaymentRepositoryResource;
 use App\Services\Payment\BankAgiService;
 use App\Services\Payment\DuitkuService;
 use App\Services\Payment\MidtransService;
@@ -137,7 +138,10 @@ class PaymentController extends Controller
 
     public function getPaymentRepository(Request $request): JsonResponse
     {
-        return ResponseHelper::formatPagination($this->paymentService->getPaginatedPaymentRepository($request));
+        $repositories = $this->paymentService->getPaginatedPaymentRepository($request);
+        $repositories->setCollection($repositories->getCollection()->map(fn ($repository) => new PaymentRepositoryResource($repository, true)));
+
+        return ResponseHelper::formatPagination($repositories);
     }
 
     public function getSetting(Request $request): JsonResponse
@@ -366,7 +370,7 @@ class PaymentController extends Controller
             return ResponseHelper::failedResponse('Payment Repository Not Found', 'Not Found', 404);
         }
 
-        return ResponseHelper::successResponse($repository);
+        return ResponseHelper::successResponse(new PaymentRepositoryResource($repository, true));
     }
 
     public function testOrder(Request $request, int|string $id): JsonResponse
@@ -426,7 +430,7 @@ class PaymentController extends Controller
             $repository = $this->paymentService->createPaymentRepository($this->paymentRepositoryPayload($request));
             DB::commit();
 
-            return ResponseHelper::successResponse($repository, 'Success Create Payment Repository', 201);
+            return ResponseHelper::successResponse(new PaymentRepositoryResource($repository, true), 'Success Create Payment Repository', 201);
         } catch (Exception $ex) {
             if (DB::transactionLevel() > 0) {
                 DB::rollback();
@@ -444,7 +448,7 @@ class PaymentController extends Controller
             $repository = $this->paymentService->updatePaymentRepository($id, $this->paymentRepositoryPayload($request));
             DB::commit();
 
-            return ResponseHelper::successResponse($repository);
+            return ResponseHelper::successResponse(new PaymentRepositoryResource($repository, true));
         } catch (Exception $ex) {
             if (DB::transactionLevel() > 0) {
                 DB::rollback();

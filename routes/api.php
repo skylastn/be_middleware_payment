@@ -68,11 +68,11 @@ Route::middleware('throttle:api')->group(function () {
         Route::prefix('payout')->controller(PayoutController::class)->group(function () {
             Route::post('/create', 'create');
         });
+    });
 
-        Route::prefix('payment-repositories')->controller(PaymentController::class)->group(function () {
-            Route::get('/{id}', 'showPaymentRepository');
-            Route::put('/{id}', 'updatePaymentRepository');
-        });
+    Route::prefix('payment-repositories')->middleware(['auth:sanctum', 'admin'])->controller(PaymentController::class)->group(function () {
+        Route::get('/{id}', 'showPaymentRepository');
+        Route::put('/{id}', 'updatePaymentRepository');
     });
 
     Route::prefix('payment')->controller(PaymentController::class)->group(function () {

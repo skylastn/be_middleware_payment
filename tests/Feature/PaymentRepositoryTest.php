@@ -12,9 +12,9 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Redis;
 use Laravel\Sanctum\Sanctum;
-use Tests\TestCase;
+use Tests\Support\PaymentTestCase;
 
-class PaymentRepositoryTest extends TestCase
+class PaymentRepositoryTest extends PaymentTestCase
 {
     private User $admin;
     private PaymentGateway $gateway;
@@ -123,7 +123,7 @@ class PaymentRepositoryTest extends TestCase
         $this->assertStringContainsString('/detailpayment?token=', $response->json('data.checkout_url'));
     }
 
-    public function test_merchant_can_show_and_update_payment_repository(): void
+    public function test_merchant_cannot_show_or_update_payment_repository(): void
     {
         $token = 'test-merchant-token-' . uniqid();
         $project = Project::create([
@@ -139,9 +139,7 @@ class PaymentRepositoryTest extends TestCase
         $showResponse = $this->withHeader('Token', $token)
             ->getJson("/api/payment-repositories/{$this->repo->id}");
 
-        $showResponse->assertStatus(200);
-        $showResponse->assertJsonPath('status', true);
-        $showResponse->assertJsonPath('data.id', $this->repo->id);
+        $showResponse->assertUnauthorized();
 
         $updateResponse = $this->withHeader('Token', $token)
             ->putJson("/api/payment-repositories/{$this->repo->id}", [
@@ -152,9 +150,8 @@ class PaymentRepositoryTest extends TestCase
                 ],
             ]);
 
-        $updateResponse->assertStatus(200);
-        $updateResponse->assertJsonPath('status', true);
-        $updateResponse->assertJsonPath('data.value.stripe_publishablekey', 'pk_test_updated');
+        $updateResponse->assertUnauthorized();
+        $this->assertSame($this->repo->getValue(), $this->repo->fresh()->getValue());
 
         $project->forceDelete();
     }

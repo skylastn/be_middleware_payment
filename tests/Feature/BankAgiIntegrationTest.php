@@ -3,32 +3,35 @@
 namespace Tests\Feature;
 
 use App\Enums\OrderStatus;
+use App\Enums\UserRole;
 use App\Http\Controllers\Api\BankAgiController;
+use App\Interface\RedisServiceInterface;
 use App\Jobs\SendMerchantCallback;
 use App\Jobs\SendNotificationJob;
 use App\Model\Entity\Order;
 use App\Model\Entity\PaymentGateway;
 use App\Model\Entity\PaymentRepository;
 use App\Model\Entity\Project;
+use App\Model\Entity\User;
 use App\Services\Payment\BankAgiService;
 use App\Services\Payment\OrderHistoryService;
 use App\Services\Payment\PaymentService;
 use App\Services\System\RedisService;
 use Database\Seeders\PaymentGatewaySeeder;
 use Database\Seeders\PaymentMethodSeeder;
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Foundation\Application;
 use Illuminate\Http\Client\Request as ClientRequest;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Testing\TestResponse;
+use Laravel\Sanctum\Sanctum;
 use Mockery;
 use RuntimeException;
-use Tests\TestCase;
+use Tests\Support\PaymentTestCase;
 
-class BankAgiIntegrationTest extends TestCase
+class BankAgiIntegrationTest extends PaymentTestCase
 {
     private PaymentRepository $repository;
 
@@ -40,52 +43,9 @@ class BankAgiIntegrationTest extends TestCase
 
     private array $redisData = [];
 
-    public function createApplication(): Application
-    {
-        $app = parent::createApplication();
-        $app['config']->set('database.default', 'sqlite');
-        $app['config']->set('database.connections.sqlite.database', ':memory:');
-        $app['config']->set('telescope.storage.database.connection', 'sqlite');
-        $app['config']->set('cache.default', 'array');
-        $app['config']->set('queue.default', 'sync');
-
-        return $app;
-    }
-
     protected function setUp(): void
     {
         parent::setUp();
-
-        foreach ([
-            '2022_09_02_195636_create_projects_table.php',
-            '2022_09_03_053052_create_orders_table.php',
-            '2024_02_19_061840_create_payment_categories_table.php',
-            '2025_10_21_144858_create_payment_repositories_table.php',
-            '2025_10_21_153618_create_payment_gateways_table.php',
-            '2025_10_22_223759_add_payment_repository_id_to_order_table.php',
-            '2025_10_23_143825_add_name_to_payment_repositories_table.php',
-            '2026_08_30_000001_create_order_histories_table.php',
-            '2026_08_30_000003_add_value_to_orders_table.php',
-            '2026_09_08_000003_add_return_url_to_orders_table.php',
-            '2026_09_09_000001_add_amount_to_orders_table.php',
-            '2026_09_10_000001_add_name_to_orders_table.php',
-            '2026_09_18_000002_add_expired_at_to_orders_table.php',
-            '2026_09_30_000001_add_gateway_references_to_orders_table.php',
-        ] as $migration) {
-            (require database_path('migrations/'.$migration))->up();
-        }
-
-        Schema::create('payment_methods', function (Blueprint $table) {
-            $table->id();
-            $table->string('key');
-            $table->string('name');
-            $table->unsignedInteger('category_id')->nullable();
-            $table->uuid('payment_gateway_id')->nullable();
-            $table->string('bankCode')->nullable();
-            $table->string('image')->nullable();
-            $table->boolean('is_active')->default(true);
-            $table->timestamps();
-        });
 
         $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
         openssl_pkey_export($key, $privateKey);
@@ -106,6 +66,7 @@ class BankAgiIntegrationTest extends TestCase
         Redis::shouldReceive('del')->andReturn(1);
         Queue::fake();
         Http::preventStrayRequests();
+        config(['services.bank_agi.allowed_hosts' => ['agi.test']]);
 
         $gateway = PaymentGateway::create(['key' => 'bank_agi', 'name' => 'Bank Artha Graha Internasional', 'description' => 'AGI QRIS']);
         $this->repository = PaymentRepository::create([
@@ -525,5 +486,200 @@ class BankAgiIntegrationTest extends TestCase
         $migration->up();
         $this->assertTrue(Schema::hasColumn('orders', 'gateway_bill_number'));
         $this->assertTrue(Schema::hasIndex('orders', 'orders_gateway_bill_number_index'));
+    }
+
+    public function test_checkout_and_merchant_order_details_do_not_expose_credentials(): void
+    {
+        $this->fakeBank();
+        $this->createOrder()->assertOk();
+        $merchant = $this->getJson('/api/order/detail?reference=AGIT-INV-001', ['Token' => $this->project->getValue()])->assertOk();
+        $token = (new RedisService)->generatePaymentToken($this->project->getAttribute('id'), $this->project->getValue(), 'AGIT-INV-001');
+        $checkout = $this->getJson('/api/client/order/detail?reference=AGIT-INV-001', ['Token' => $token])->assertOk();
+
+        foreach ([$merchant, $checkout] as $response) {
+            $response->assertJsonMissingPath('data.payment_repository.value');
+            $response->assertJsonMissingPath('data.project.value');
+            $response->assertJsonMissingPath('data.project.key');
+            $response->assertJsonMissingPath('data.project.secure');
+            $this->assertStringNotContainsString($this->privateKey, $response->getContent());
+            $this->assertStringNotContainsString($this->project->getValue(), $response->getContent());
+        }
+    }
+
+    public function test_merchant_cannot_read_or_overwrite_bank_credentials(): void
+    {
+        $path = '/api/payment-repositories/'.$this->repository->getAttribute('id');
+        $this->getJson($path, ['Token' => $this->project->getValue()])->assertUnauthorized();
+        $this->putJson($path, ['value' => ['bank_client_secret' => 'attacker-secret']], ['Token' => $this->project->getValue()])->assertUnauthorized();
+        $this->assertSame($this->repository->getValue(), $this->repository->fresh()->getValue());
+    }
+
+    public function test_fractional_amount_cannot_be_rounded_into_a_matching_payment(): void
+    {
+        $this->fakeBank();
+        $this->createOrder()->assertOk();
+        $token = $this->issueToken();
+        $this->notify($this->notification(['amount' => ['value' => '3499.999']]), $token)
+            ->assertStatus(400)->assertJsonPath('responseCode', '4001901');
+        $this->notify($this->notification(['amount' => ['value' => '3.5e3']]), $token)
+            ->assertStatus(400)->assertJsonPath('responseCode', '4001901');
+        $this->assertDatabaseHas('orders', ['reference' => 'AGIT-INV-001', 'status' => 'PENDING']);
+        Queue::assertNothingPushed();
+    }
+
+    public function test_order_amount_with_more_than_two_decimals_is_rejected_before_bank_calls(): void
+    {
+        $this->fakeBank();
+        $this->createOrder(['paymentAmount' => '3500.001'])->assertStatus(400);
+        Http::assertNothingSent();
+        $this->assertSame(0, Order::count());
+    }
+
+    public function test_oversized_notification_is_rejected_without_processing_the_order(): void
+    {
+        $this->fakeBank();
+        $this->createOrder()->assertOk();
+        $this->notify($this->notification(['extra' => str_repeat('x', 65536)]))
+            ->assertStatus(413)->assertJsonPath('responseCode', '4131900');
+        $this->assertDatabaseHas('orders', ['reference' => 'AGIT-INV-001', 'status' => 'PENDING']);
+        Queue::assertNothingPushed();
+    }
+
+    public function test_bank_url_with_user_credentials_is_rejected_before_network_calls(): void
+    {
+        $this->fakeBank();
+        $this->repository->setValue(array_replace($this->repository->getValue(), ['base_url' => 'https://user:password@agi.test:38065']));
+        $this->repository->save();
+        $this->createOrder()->assertStatus(400);
+        Http::assertNothingSent();
+    }
+
+    public function test_admin_can_still_read_and_update_repository_credentials(): void
+    {
+        Sanctum::actingAs(new User(['name' => 'Admin', 'role' => UserRole::ADMIN]));
+        $path = '/api/admin/payment-repositories/'.$this->repository->getAttribute('id');
+        $this->getJson($path)->assertOk()->assertJsonPath('data.value.client_id', 'partner-client-id');
+        $this->getJson('/api/admin/payment-repositories')->assertOk()->assertJsonPath('data.0.value.client_id', 'partner-client-id');
+        $config = array_replace($this->repository->getValue(), ['merchant_user' => 'UPDATED-MERCHANT']);
+        $this->putJson($path, ['value' => $config])->assertOk()->assertJsonPath('data.value.merchant_user', 'UPDATED-MERCHANT');
+        $this->assertSame('UPDATED-MERCHANT', $this->repository->fresh()->getValue()['merchant_user']);
+        $this->assertArrayNotHasKey('value', $this->repository->toArray());
+    }
+
+    public function test_non_admin_sanctum_user_cannot_manage_credentials(): void
+    {
+        Sanctum::actingAs(new User(['name' => 'Merchant', 'role' => UserRole::USER]));
+        foreach (['/api/admin/payment-repositories/', '/api/payment-repositories/'] as $prefix) {
+            $path = $prefix.$this->repository->getAttribute('id');
+            $this->getJson($path)->assertForbidden();
+            $this->putJson($path, ['value' => []])->assertForbidden();
+        }
+    }
+
+    public function test_outbound_tokens_are_cached_briefly_and_invalidated_on_credential_rotation(): void
+    {
+        Http::fake(['*/api/v1/bisnap/access-token' => Http::sequence()
+            ->push(['responseCode' => '2007300', 'accessToken' => 'first-token', 'expiresIn' => '900'])
+            ->push(['responseCode' => '2007300', 'accessToken' => 'second-token', 'expiresIn' => '900'])
+            ->push(['responseCode' => '2007300', 'accessToken' => 'third-token', 'expiresIn' => '900']),
+        ]);
+        $service = new BankAgiService;
+        $this->assertSame('first-token', $service->getB2BToken($this->repository)['accessToken']);
+        $this->assertSame('first-token', $service->getB2BToken($this->repository)['accessToken']);
+        Http::assertSentCount(1);
+        $this->repository->setValue(array_replace($this->repository->getValue(), ['client_secret' => base64_encode('rotated-secret')]));
+        $this->assertSame('second-token', $service->getB2BToken($this->repository)['accessToken']);
+        Http::assertSentCount(2);
+        $this->travel(61)->seconds();
+        $this->assertSame('third-token', $service->getB2BToken($this->repository)['accessToken']);
+        Http::assertSentCount(3);
+        $this->travelBack();
+    }
+
+    public function test_token_cache_never_exceeds_short_bank_expiry(): void
+    {
+        Http::fake(['*/api/v1/bisnap/access-token' => Http::sequence()
+            ->push(['responseCode' => '2007300', 'accessToken' => 'short-token', 'expiresIn' => '6'])
+            ->push(['responseCode' => '2007300', 'accessToken' => 'fresh-token', 'expiresIn' => '6']),
+        ]);
+        $service = new BankAgiService;
+        $this->assertSame('short-token', $service->getB2BToken($this->repository)['accessToken']);
+        $this->travel(2)->seconds();
+        $this->assertSame('fresh-token', $service->getB2BToken($this->repository)['accessToken']);
+        Http::assertSentCount(2);
+        $this->travelBack();
+    }
+
+    public function test_optional_outbound_token_cache_failure_does_not_block_bank_requests(): void
+    {
+        Http::fake(['*/api/v1/bisnap/access-token' => Http::response(['responseCode' => '2007300', 'accessToken' => 'bank-token', 'expiresIn' => '900'])]);
+        $redis = Mockery::mock(RedisServiceInterface::class);
+        $redis->shouldReceive('get')->once()->andThrow(new RuntimeException('Redis unavailable'));
+        $redis->shouldReceive('set')->once()->andThrow(new RuntimeException('Redis unavailable'));
+        $this->assertSame('bank-token', (new BankAgiService(redisService: $redis))->getB2BToken($this->repository)['accessToken']);
+    }
+
+    public function test_bank_requests_do_not_follow_redirects(): void
+    {
+        Http::fake(function (ClientRequest $request, array $options) {
+            $this->assertFalse($options['allow_redirects']);
+
+            return str_ends_with($request->url(), '/access-token')
+                ? Http::response(['responseCode' => '2007300', 'accessToken' => 'bank-token'])
+                : Http::response('', 302, ['Location' => 'https://attacker.test/collect']);
+        });
+        $this->createOrder()->assertStatus(400);
+        Http::assertSentCount(2);
+        Http::assertNotSent(fn (ClientRequest $request) => str_contains($request->url(), 'attacker.test'));
+        $this->assertSame(0, Order::count());
+    }
+
+    public function test_unapproved_bank_hosts_and_oversized_headers_are_rejected(): void
+    {
+        $this->fakeBank();
+        foreach (['https://127.0.0.1', 'https://attacker.test', 'https://agi.test.attacker.test'] as $url) {
+            $this->repository->setValue(array_replace($this->repository->getValue(), ['base_url' => $url]));
+            $this->repository->save();
+            $this->createOrder()->assertStatus(400);
+        }
+        Http::assertNothingSent();
+        $this->postJson('/api/bank/agi/access-token', ['grantType' => 'client_credentials'], array_replace($this->tokenHeaders(), ['X_SIGNATURE' => str_repeat('x', 2049)]))
+            ->assertStatus(400)->assertJsonPath('responseCode', '4007301');
+    }
+
+    public function test_duplicate_notification_avoids_loading_unused_order_relations(): void
+    {
+        $this->fakeBank();
+        $this->createOrder()->assertOk();
+        $token = $this->issueToken();
+        $this->notify($this->notification(), $token)->assertOk();
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+        $this->notify($this->notification(), $token)->assertOk();
+        $queries = implode("\n", array_column(DB::getQueryLog(), 'query'));
+        DB::disableQueryLog();
+        $this->assertStringNotContainsString('from "payment_methods"', $queries);
+        $this->assertStringNotContainsString('from "projects"', $queries);
+        Queue::assertPushed(SendMerchantCallback::class, 1);
+    }
+
+    public function test_invalid_calendar_timestamp_is_rejected_even_when_carbon_could_normalize_it(): void
+    {
+        $this->travelTo(now()->setDate(2026, 10, 1)->setTime(12, 0, 0));
+        $this->postJson('/api/bank/agi/access-token', ['grantType' => 'client_credentials'], $this->tokenHeaders('2026-09-31T12:00:00Z'))
+            ->assertStatus(400)->assertJsonPath('responseCode', '4007301');
+        $this->travelBack();
+    }
+
+    public function test_signed_callback_uses_exact_decimal_amount_sent_to_the_bank(): void
+    {
+        $this->fakeBank();
+        $amount = '9999999999999.99';
+        $this->createOrder(['paymentAmount' => $amount])->assertOk();
+        Http::assertSent(fn (ClientRequest $request) => str_ends_with($request->url(), '/qr-mpm-generate') && $request['amount']['value'] === $amount);
+        $this->notify($this->notification(['amount' => ['value' => '9999999999999.98']]))->assertStatus(400);
+        $this->assertDatabaseHas('orders', ['reference' => 'AGIT-INV-001', 'status' => 'PENDING']);
+        $this->notify($this->notification(['amount' => ['value' => $amount]]))->assertOk();
+        $this->assertDatabaseHas('orders', ['reference' => 'AGIT-INV-001', 'status' => 'SUCCESS']);
     }
 }

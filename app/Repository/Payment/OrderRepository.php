@@ -82,7 +82,7 @@ class OrderRepository extends BaseRepository
 
     public function findByGatewayBillNumber(string $repositoryId, string $billNumber): ?Order
     {
-        return Order::where('payment_repository_id', $repositoryId)
+        return Order::withoutEagerLoads()->where('payment_repository_id', $repositoryId)
             ->where('gateway_bill_number', $billNumber)
             ->lockForUpdate()
             ->first();
@@ -90,7 +90,7 @@ class OrderRepository extends BaseRepository
 
     public function findByIdForUpdate(string $id): ?Order
     {
-        return Order::where('id', $id)->lockForUpdate()->first();
+        return Order::withoutEagerLoads()->where('id', $id)->lockForUpdate()->first();
     }
 
     protected function modelClass(): string

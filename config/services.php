@@ -35,4 +35,8 @@ return [
         'api_url' => env('SOCKET_API_URL'),
     ],
 
+    'bank_agi' => [
+        'allowed_hosts' => array_values(array_filter(array_map('trim', explode(',', env('BANK_AGI_ALLOWED_HOSTS', 'bagiapisandbox.ag.co.id'))))),
+    ],
+
 ];

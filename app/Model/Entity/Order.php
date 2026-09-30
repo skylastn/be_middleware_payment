@@ -16,6 +16,8 @@ class Order extends Model
 
     public $incrementing = false;
 
+    protected $hidden = ['project'];
+
     protected function casts(): array
     {
         return [

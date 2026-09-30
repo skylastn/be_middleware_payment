@@ -9,6 +9,7 @@ use App\Http\Helper\LogHelper;
 use App\Http\Helper\RequestHelper;
 use App\Http\Helper\ResponseHelper;
 use App\Interface\RedisServiceInterface;
+use App\Model\Response\Order\OrderResource;
 use App\Services\Payment\BankAgiService;
 use App\Services\Payment\DuitkuService;
 use App\Services\Payment\MidtransService;
@@ -73,7 +74,10 @@ class OrderController extends Controller
     public function index(Request $request): JsonResponse
     {
         try {
-            return ResponseHelper::formatPagination($this->service->getListOrder($request));
+            $orders = $this->service->getListOrder($request);
+            $orders->setCollection($orders->getCollection()->map(fn ($order) => new OrderResource($order)));
+
+            return ResponseHelper::formatPagination($orders);
         } catch (Exception $ex) {
             $error['line'] = $ex->getLine();
             $error['message'] = $ex->getMessage();
@@ -93,7 +97,7 @@ class OrderController extends Controller
                 throw new Exception('Unknown Order', 400);
             }
 
-            return ResponseHelper::successResponse($response);
+            return ResponseHelper::successResponse(new OrderResource($response));
         } catch (Exception $ex) {
             $error['line'] = $ex->getLine();
             $error['message'] = $ex->getMessage();
@@ -111,7 +115,7 @@ class OrderController extends Controller
             return ResponseHelper::failedResponse('Order Not Found', 'Order Not Found', 404);
         }
 
-        return ResponseHelper::successResponse($order);
+        return ResponseHelper::successResponse(new OrderResource($order));
     }
 
     public function checkOrderStatus(Request $request): JsonResponse
