@@ -455,7 +455,7 @@ class PaymentService
         $email = $params['email'] ?? 'test-buyer@example.com';
         $customerName = $params['name'] ?? 'Test Buyer';
         $paymentMethod = $params['paymentMethod'] ?? $params['payment_method'] ?? '';
-        if (in_array($slug, [ProjectSlug::PAPRIKA, ProjectSlug::AGI], true) && $paymentMethod === '') {
+        if (in_array($slug, [ProjectSlug::PAPRIKA, ProjectSlug::BANK_AGI], true) && $paymentMethod === '') {
             $paymentMethod = 'qris';
         }
         $mode = $repository->mode?->value ?? (string) $repository->mode;

@@ -61,9 +61,9 @@ JSON;
 
     public function test_agi_slug_accepts_case_insensitive_aliases(): void
     {
-        $this->assertSame(ProjectSlug::AGI, ProjectSlug::fromName('AGI'));
-        $this->assertSame(ProjectSlug::AGI, ProjectSlug::fromName('BANK-ARTHA-GRAHA'));
-        $this->assertSame(ProjectSlug::AGI, ProjectSlug::fromName('BANK_AGI'));
+        $this->assertSame(ProjectSlug::BANK_AGI, ProjectSlug::fromName('AGI'));
+        $this->assertSame(ProjectSlug::BANK_AGI, ProjectSlug::fromName('BANK-ARTHA-GRAHA'));
+        $this->assertSame(ProjectSlug::BANK_AGI, ProjectSlug::fromName('BANK_AGI'));
         $this->assertContains('bank_agi', ProjectSlug::values());
     }
 }

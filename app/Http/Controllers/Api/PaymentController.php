@@ -115,7 +115,7 @@ class PaymentController extends Controller
                 ProjectSlug::SPNPAY => $this->spnPayService->createOrderPaymentSPNPay($request, $project, $order),
                 ProjectSlug::STRIPE => $this->stripeService->order($request, $project),
                 ProjectSlug::PAPRIKA => $this->paprikaService->orderPaprika($request, $project),
-                ProjectSlug::AGI => $this->agiService->order($request, $project, $order),
+                ProjectSlug::BANK_AGI => $this->agiService->order($request, $project, $order),
                 default => throw new Exception('Undefined Project'),
             };
 
@@ -391,7 +391,7 @@ class PaymentController extends Controller
                 ProjectSlug::SPNPAY => $this->spnPayService->createOrderSPNPay($simulatedRequest, $project),
                 ProjectSlug::STRIPE => $this->stripeService->order($simulatedRequest, $project),
                 ProjectSlug::PAPRIKA => $this->paprikaService->orderPaprika($simulatedRequest, $project),
-                ProjectSlug::AGI => $this->agiService->order($simulatedRequest, $project),
+                ProjectSlug::BANK_AGI => $this->agiService->order($simulatedRequest, $project),
                 default => throw new Exception('Undefined Project'),
             };
 

@@ -126,7 +126,7 @@ class OrderController extends Controller
             $result = match ($project->getSlug()) {
                 ProjectSlug::DUITKU => $this->duitkuService->checkStatus($order),
                 ProjectSlug::STRIPE => $this->stripeService->checkStatus($order),
-                ProjectSlug::AGI => $this->agiService->checkStatus($order),
+                ProjectSlug::BANK_AGI => $this->agiService->checkStatus($order),
                 default => throw new Exception('Undefined Project'),
             };
 
@@ -167,7 +167,7 @@ class OrderController extends Controller
                 ProjectSlug::SPNPAY => $this->spnPayService->createOrderSPNPay($request, $project),
                 ProjectSlug::STRIPE => $this->stripeService->order($request, $project),
                 ProjectSlug::PAPRIKA => $this->paprikaService->orderPaprika($request, $project),
-                ProjectSlug::AGI => $this->agiService->order($request, $project),
+                ProjectSlug::BANK_AGI => $this->agiService->order($request, $project),
                 default => throw new Exception('Undefined Project'),
             };
             DB::commit();

@@ -10,7 +10,7 @@ enum ProjectSlug: string
     case SPNPAY = 'spnpay';
     case STRIPE = 'stripe';
     case PAPRIKA = 'paprika';
-    case AGI = 'bank_agi';
+    case BANK_AGI = 'bank_agi';
 
     public static function values(): array
     {
@@ -26,7 +26,7 @@ enum ProjectSlug: string
             self::SPNPAY,
             self::STRIPE,
             self::PAPRIKA,
-            self::AGI,
+            self::BANK_AGI,
         ];
     }
 
@@ -45,7 +45,7 @@ enum ProjectSlug: string
                 return 'Stripe';
             case self::PAPRIKA:
                 return 'Paprika';
-            case self::AGI:
+            case self::BANK_AGI:
                 return 'Bank Artha Graha Internasional';
             default:
                 return 'Duitku';
@@ -72,11 +72,11 @@ enum ProjectSlug: string
                 return ProjectSlug::STRIPE;
             case self::PAPRIKA->value:
                 return ProjectSlug::PAPRIKA;
-            case self::AGI->value:
+            case self::BANK_AGI->value:
             case 'agi':
             case 'artha-graha':
             case 'bank-artha-graha':
-                return ProjectSlug::AGI;
+                return ProjectSlug::BANK_AGI;
             default:
                 return ProjectSlug::DUITKU;
         }
