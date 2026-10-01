@@ -97,6 +97,7 @@ export function ProjectPage({ mode, id }: ProjectPageProps): React.JSX.Element {
                                 <option value="spnpay">SPNPay</option>
                                 <option value="stripe">Stripe</option>
                                 <option value="paprika">Paprika</option>
+                                <option value="bank_agi">Bank Artha Graha Internasional</option>
                             </select>
                         </label>
 

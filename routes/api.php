@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AdminAuthController;
 use App\Http\Controllers\Api\AdminDashboardController;
 use App\Http\Controllers\Api\AdminGatewayHistoryController;
 use App\Http\Controllers\Api\AdminQueueController;
+use App\Http\Controllers\Api\BankAgiController;
 use App\Http\Controllers\Api\CallbackController;
 use App\Http\Controllers\Api\ClientPaymentController;
 use App\Http\Controllers\Api\OrderController;
@@ -67,11 +68,11 @@ Route::middleware('throttle:api')->group(function () {
         Route::prefix('payout')->controller(PayoutController::class)->group(function () {
             Route::post('/create', 'create');
         });
+    });
 
-        Route::prefix('payment-repositories')->controller(PaymentController::class)->group(function () {
-            Route::get('/{id}', 'showPaymentRepository');
-            Route::put('/{id}', 'updatePaymentRepository');
-        });
+    Route::prefix('payment-repositories')->middleware(['auth:sanctum', 'admin'])->controller(PaymentController::class)->group(function () {
+        Route::get('/{id}', 'showPaymentRepository');
+        Route::put('/{id}', 'updatePaymentRepository');
     });
 
     Route::prefix('payment')->controller(PaymentController::class)->group(function () {
@@ -107,6 +108,14 @@ Route::middleware('throttle:api')->group(function () {
         Route::post('/callback', [PaprikaController::class, 'callback']);
     });
 
+    Route::prefix('bank')->group(function () {
+        Route::prefix('agi')->controller(BankAgiController::class)->group(function () {
+            Route::post('/access-token', 'snapAccessTokenB2B');
+            Route::post('/notify-va', 'webhook');
+            Route::post('/notify-qris', 'callback');
+        });
+    });
+
     // ---------------------------------------------------------------------
     // 4. Utility & Test Endpoints (Restricted to Admin)
     // ---------------------------------------------------------------------
@@ -120,7 +129,7 @@ Route::middleware('throttle:api')->group(function () {
         Route::post('/queue', [TestController::class, 'testQueue']);
     });
 
-    Route::middleware('auth:sanctum')->get('/user', fn (Request $request) => $request->user());
+    Route::middleware('auth:sanctum')->get('/user', fn(Request $request) => $request->user());
 
     // Admin login API (Rate-limited to 10 attempts / min)
     Route::middleware([EncryptCookies::class, AddQueuedCookiesToResponse::class, 'throttle:10,1'])

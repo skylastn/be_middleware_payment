@@ -9,6 +9,8 @@ use App\Http\Helper\LogHelper;
 use App\Http\Helper\RequestHelper;
 use App\Http\Helper\ResponseHelper;
 use App\Interface\RedisServiceInterface;
+use App\Model\Response\Order\OrderResource;
+use App\Services\Payment\BankAgiService;
 use App\Services\Payment\DuitkuService;
 use App\Services\Payment\MidtransService;
 use App\Services\Payment\OrderService;
@@ -41,6 +43,8 @@ class OrderController extends Controller
 
     private PaprikaService $paprikaService;
 
+    private BankAgiService $bankAgiService;
+
     private RedisServiceInterface $redisService;
 
     public function __construct(
@@ -52,7 +56,8 @@ class OrderController extends Controller
         ?SPNPayService $spnPayService = null,
         ?StripeService $stripeService = null,
         ?PaprikaService $paprikaService = null,
-        ?RedisServiceInterface $redisService = null
+        ?RedisServiceInterface $redisService = null,
+        ?BankAgiService $bankAgiService = null,
     ) {
         $this->service = $service ?? new OrderService;
         $this->projectService = $projectService ?? new ProjectService;
@@ -62,13 +67,17 @@ class OrderController extends Controller
         $this->spnPayService = $spnPayService ?? new SPNPayService;
         $this->stripeService = $stripeService ?? new StripeService;
         $this->paprikaService = $paprikaService ?? new PaprikaService;
+        $this->bankAgiService = $bankAgiService ?? new BankAgiService;
         $this->redisService = $redisService ?? app(RedisServiceInterface::class);
     }
 
     public function index(Request $request): JsonResponse
     {
         try {
-            return ResponseHelper::formatPagination($this->service->getListOrder($request));
+            $orders = $this->service->getListOrder($request);
+            $orders->setCollection($orders->getCollection()->map(fn ($order) => new OrderResource($order)));
+
+            return ResponseHelper::formatPagination($orders);
         } catch (Exception $ex) {
             $error['line'] = $ex->getLine();
             $error['message'] = $ex->getMessage();
@@ -88,7 +97,7 @@ class OrderController extends Controller
                 throw new Exception('Unknown Order', 400);
             }
 
-            return ResponseHelper::successResponse($response);
+            return ResponseHelper::successResponse(new OrderResource($response));
         } catch (Exception $ex) {
             $error['line'] = $ex->getLine();
             $error['message'] = $ex->getMessage();
@@ -106,7 +115,7 @@ class OrderController extends Controller
             return ResponseHelper::failedResponse('Order Not Found', 'Order Not Found', 404);
         }
 
-        return ResponseHelper::successResponse($order);
+        return ResponseHelper::successResponse(new OrderResource($order));
     }
 
     public function checkOrderStatus(Request $request): JsonResponse
@@ -121,6 +130,7 @@ class OrderController extends Controller
             $result = match ($project->getSlug()) {
                 ProjectSlug::DUITKU => $this->duitkuService->checkStatus($order),
                 ProjectSlug::STRIPE => $this->stripeService->checkStatus($order),
+                ProjectSlug::BANK_AGI => $this->bankAgiService->checkStatus($order),
                 default => throw new Exception('Undefined Project'),
             };
 
@@ -161,6 +171,7 @@ class OrderController extends Controller
                 ProjectSlug::SPNPAY => $this->spnPayService->createOrderSPNPay($request, $project),
                 ProjectSlug::STRIPE => $this->stripeService->order($request, $project),
                 ProjectSlug::PAPRIKA => $this->paprikaService->orderPaprika($request, $project),
+                ProjectSlug::BANK_AGI => $this->bankAgiService->order($request, $project),
                 default => throw new Exception('Undefined Project'),
             };
             DB::commit();

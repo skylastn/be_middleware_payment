@@ -43,6 +43,11 @@ class PaymentGatewaySeeder extends Seeder
                 'name' => 'Paprika',
                 'description' => 'Paprika Payment Gateway',
             ],
+            [
+                'key' => 'bank_agi',
+                'name' => 'Bank Artha Graha Internasional',
+                'description' => 'AGI BI SNAP QRIS Acquirer',
+            ],
         ];
 
         foreach ($gateways as $gw) {

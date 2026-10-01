@@ -63,6 +63,7 @@ The middleware unifies multiple payment gateways behind standard order and callb
 | **SPNPay** | ✅ `Supported` (Payment Portal URL) | ✅ `Supported` (Direct ClosedAmount) | ClosedAmount QRIS, Virtual Account, Direct Online Debit | [📖 **SPNPay Guide**](docs/gateways/spnpay.md) |
 | **Stripe** | ✅ `Supported` (Hosted Checkout) | ✅ `Supported` (PaymentIntent + SDK) | Credit/Debit Cards (Global), Apple Pay, Google Pay, FPX, 135+ Currencies | [📖 **Stripe Guide**](docs/gateways/stripe.md) |
 | **Paprika** | 🔄 `Via Hosted / Portal` | ✅ `Supported` (SNAP 1.0 QR & VA) | Dynamic QRIS, Permata VA, Maybank VA, Artha Graha VA | [📖 **Paprika Guide**](docs/gateways/paprika.md) |
+| **Bank Artha Graha Internasional** | 🔄 `Via Middleware Checkout` | ✅ `Supported` (BI SNAP QRIS) | Dynamic QRIS, status query, authenticated notifications | [📖 **AGI Guide**](docs/gateways/bank_agi.md) |
 
 > [!TIP]
 > **Select the Integration Mode That Fits Your Product:**

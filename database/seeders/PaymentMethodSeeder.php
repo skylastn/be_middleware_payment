@@ -46,6 +46,13 @@ class PaymentMethodSeeder extends Seeder
                 'from' => 'paprika',
                 'bankCode' => '',
             ],
+            [
+                'key' => 'AGI_QRIS',
+                'name' => 'Bank Artha Graha QRIS',
+                'category_key' => 'qris',
+                'from' => 'bank_agi',
+                'bankCode' => '',
+            ],
 
             // Virtual Account Channels (category: va)
             [

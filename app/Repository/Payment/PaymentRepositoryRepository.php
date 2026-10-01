@@ -34,6 +34,18 @@ class PaymentRepositoryRepository extends BaseRepository
             ->first();
     }
 
+    public function findByGatewayAndSnapClientId(string $paymentGatewayId, string $clientId): ?PaymentRepository
+    {
+        return PaymentRepository::where('payment_gateway_id', $paymentGatewayId)
+            ->where(function ($query) use ($clientId) {
+                $query->where('value->bank_client_id', $clientId)
+                    ->orWhere(function ($query) use ($clientId) {
+                        $query->whereNull('value->bank_client_id')->where('value->client_id', $clientId);
+                    });
+            })
+            ->first();
+    }
+
     public function latestPaginated(int $perPage = 10, ?string $search = null, ?string $mode = null): LengthAwarePaginator
     {
         return PaymentRepository::query()

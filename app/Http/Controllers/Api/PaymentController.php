@@ -14,6 +14,8 @@ use App\Model\Request\Payment\PaymentMethod\CreatePaymentMethodRequest;
 use App\Model\Request\Payment\PaymentRepository\CreatePaymentRepositoryRequest;
 use App\Model\Request\Payment\Setting\CreateSettingRequest;
 use App\Model\Response\Payment\PaymentMethod\PaymentMethodResource;
+use App\Model\Response\Payment\PaymentRepository\PaymentRepositoryResource;
+use App\Services\Payment\BankAgiService;
 use App\Services\Payment\DuitkuService;
 use App\Services\Payment\MidtransService;
 use App\Services\Payment\OrderService;
@@ -46,6 +48,8 @@ class PaymentController extends Controller
 
     private PaprikaService $paprikaService;
 
+    private BankAgiService $bankAgiService;
+
     public function __construct(
         ?PaymentService $paymentService = null,
         ?OrderService $orderService = null,
@@ -54,7 +58,8 @@ class PaymentController extends Controller
         ?XenditService $xenditService = null,
         ?SPNPayService $spnPayService = null,
         ?StripeService $stripeService = null,
-        ?PaprikaService $paprikaService = null
+        ?PaprikaService $paprikaService = null,
+        ?BankAgiService $bankAgiService = null,
     ) {
         $this->paymentService = $paymentService ?? new PaymentService;
         $this->orderService = $orderService ?? new OrderService;
@@ -64,6 +69,7 @@ class PaymentController extends Controller
         $this->spnPayService = $spnPayService ?? new SPNPayService;
         $this->stripeService = $stripeService ?? new StripeService;
         $this->paprikaService = $paprikaService ?? new PaprikaService;
+        $this->bankAgiService = $bankAgiService ?? new BankAgiService;
     }
 
     public function getPaymentCategory(Request $request): JsonResponse
@@ -110,6 +116,7 @@ class PaymentController extends Controller
                 ProjectSlug::SPNPAY => $this->spnPayService->createOrderPaymentSPNPay($request, $project, $order),
                 ProjectSlug::STRIPE => $this->stripeService->order($request, $project),
                 ProjectSlug::PAPRIKA => $this->paprikaService->orderPaprika($request, $project),
+                ProjectSlug::BANK_AGI => $this->bankAgiService->order($request, $project, $order),
                 default => throw new Exception('Undefined Project'),
             };
 
@@ -131,7 +138,10 @@ class PaymentController extends Controller
 
     public function getPaymentRepository(Request $request): JsonResponse
     {
-        return ResponseHelper::formatPagination($this->paymentService->getPaginatedPaymentRepository($request));
+        $repositories = $this->paymentService->getPaginatedPaymentRepository($request);
+        $repositories->setCollection($repositories->getCollection()->map(fn ($repository) => new PaymentRepositoryResource($repository, true)));
+
+        return ResponseHelper::formatPagination($repositories);
     }
 
     public function getSetting(Request $request): JsonResponse
@@ -360,7 +370,7 @@ class PaymentController extends Controller
             return ResponseHelper::failedResponse('Payment Repository Not Found', 'Not Found', 404);
         }
 
-        return ResponseHelper::successResponse($repository);
+        return ResponseHelper::successResponse(new PaymentRepositoryResource($repository, true));
     }
 
     public function testOrder(Request $request, int|string $id): JsonResponse
@@ -385,6 +395,7 @@ class PaymentController extends Controller
                 ProjectSlug::SPNPAY => $this->spnPayService->createOrderSPNPay($simulatedRequest, $project),
                 ProjectSlug::STRIPE => $this->stripeService->order($simulatedRequest, $project),
                 ProjectSlug::PAPRIKA => $this->paprikaService->orderPaprika($simulatedRequest, $project),
+                ProjectSlug::BANK_AGI => $this->bankAgiService->order($simulatedRequest, $project),
                 default => throw new Exception('Undefined Project'),
             };
 
@@ -419,7 +430,7 @@ class PaymentController extends Controller
             $repository = $this->paymentService->createPaymentRepository($this->paymentRepositoryPayload($request));
             DB::commit();
 
-            return ResponseHelper::successResponse($repository, 'Success Create Payment Repository', 201);
+            return ResponseHelper::successResponse(new PaymentRepositoryResource($repository, true), 'Success Create Payment Repository', 201);
         } catch (Exception $ex) {
             if (DB::transactionLevel() > 0) {
                 DB::rollback();
@@ -437,7 +448,7 @@ class PaymentController extends Controller
             $repository = $this->paymentService->updatePaymentRepository($id, $this->paymentRepositoryPayload($request));
             DB::commit();
 
-            return ResponseHelper::successResponse($repository);
+            return ResponseHelper::successResponse(new PaymentRepositoryResource($repository, true));
         } catch (Exception $ex) {
             if (DB::transactionLevel() > 0) {
                 DB::rollback();

@@ -21,7 +21,7 @@ export const resourceDefinitions: Record<ResourceKey, ResourceDefinition> = {
         fields: {
             name: { type: 'text', required: true },
             type: { type: 'text', required: true },
-            slug: { type: 'select', required: true, options: ['midtrans', 'xendit', 'duitku', 'spnpay', 'stripe'] },
+            slug: { type: 'select', required: true, options: ['midtrans', 'xendit', 'duitku', 'spnpay', 'stripe', 'bank_agi'] },
             callback: { type: 'textarea', required: true },
         },
         readonlyFields: {

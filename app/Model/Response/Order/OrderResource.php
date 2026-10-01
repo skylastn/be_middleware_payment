@@ -17,6 +17,8 @@ class OrderResource extends ResponseResource
         return [
             'id' => $this->id,
             'payment_repository_id' => $this->payment_repository_id,
+            'gateway_reference' => $this->gateway_reference,
+            'gateway_bill_number' => $this->gateway_bill_number,
             'mode' => $this->mode instanceof PaymentModeType ? $this->mode->value : $this->mode,
             'type' => $this->type,
             'reference' => $this->reference,
@@ -36,7 +38,9 @@ class OrderResource extends ResponseResource
             'callback' => $this->callback,
             'payment_methods' => new PaymentMethodResource($this->whenLoaded('payment_methods')),
             'payment_repository' => new PaymentRepositoryResource($this->whenLoaded('payment_repository')),
-            'project' => new ProjectResource($this->whenLoaded('project')),
+            'project' => $this->whenLoaded('project', fn () => array_diff_key(
+                (new ProjectResource($this->project))->resolve($request), ['value' => true],
+            )),
             'histories' => OrderHistoryResource::collection($this->whenLoaded('histories')),
             'expired_at' => $this->formatDate($this->expired_at),
             'created_at' => $this->formatDate($this->created_at),
