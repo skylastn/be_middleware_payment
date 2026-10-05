@@ -39,6 +39,7 @@ deploy:
 	#   - Rebuilding assets on the host (for volume-mounted dev)
 	#   - Running before a non-Docker production step
 	php artisan migrate --force
+	php artisan db:seed --class=InitSeeder --force
 	php artisan optimize:clear
 	docker compose -f docker-compose-no-container.yml run --rm pos-build
 
