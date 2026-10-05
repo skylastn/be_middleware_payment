@@ -64,11 +64,8 @@ if [ "${AUTO_SEED:-true}" = "true" ]; then
     echo "Running database seeders..."
     if [ "${SEED_CLASS:-}" != "" ]; then
         php artisan db:seed --class="${SEED_CLASS}" --force --no-interaction || true
-    elif [ "${RUN_INIT_SEEDER:-false}" = "true" ]; then
-        php artisan db:seed --class=InitSeeder --force --no-interaction || true
     else
-        php artisan db:seed --class=PaymentCategorySeeder --force --no-interaction || true
-        php artisan db:seed --class=PaymentMethodSeeder --force --no-interaction || true
+        php artisan db:seed --class=InitSeeder --force --no-interaction || true
     fi
 fi
 

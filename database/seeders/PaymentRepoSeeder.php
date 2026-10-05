@@ -64,6 +64,14 @@ class PaymentRepoSeeder extends Seeder
             ]
         );
 
+        $bankAgi = PaymentGateway::firstOrCreate(
+            ['key' => 'bank_agi'],
+            [
+                'name' => 'Bank Artha Graha Internasional',
+                'description' => 'AGI BI SNAP QRIS Acquirer',
+            ]
+        );
+
         // --- Payment Repositories ---
         foreach (PaymentModeType::cases() as $mode) {
 
@@ -219,6 +227,59 @@ class PaymentRepoSeeder extends Seeder
             if ($needsUpdate || ! is_array($paprikaRepo->value)) {
                 $paprikaRepo->value = $paprikaValue;
                 $paprikaRepo->save();
+            }
+
+            // Variables provided by Bank AGI
+            $bankAgiBankConfig = [
+                'base_url' => 'https://bagiapisandbox.ag.co.id:38065',
+                'client_id' => 'CLIENT_ID_ASSIGNED_BY_AGI',
+                'client_secret' => 'BASE64_SECRET_ASSIGNED_BY_AGI',
+                'bank_public_key' => "-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----",
+                'merchant_id' => 'MERCHANT_ID_ASSIGNED_BY_AGI',
+                'merchant_user' => 'MERCHANT_USER_ASSIGNED_BY_AGI',
+                'channel_id' => '95221',
+                'sub_merchant_id' => '',
+                'store_id' => '',
+                'terminal_id' => '',
+            ];
+
+            // Variables generated/owned by middleware (our side)
+            $bankAgiOurConfig = [
+                'private_key' => "-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----",
+                'bank_client_id' => 'BANK_CALLBACK_CLIENT_ID',
+                'bank_client_secret' => 'BASE64_CALLBACK_SECRET',
+                'validity_period' => 60,
+                'device_id' => '',
+                'channel' => 'API',
+            ];
+
+            $bankAgiDefaultConfig = array_merge($bankAgiBankConfig, $bankAgiOurConfig);
+
+            $bankAgiRepo = PaymentRepository::firstOrCreate(
+                [
+                    'payment_gateway_id' => $bankAgi->id,
+                    'mode' => $mode->value,
+                ],
+                [
+                    'key' => 'default_bank_agi_'.$mode->value,
+                    'value' => $bankAgiDefaultConfig,
+                ]
+            );
+
+            $bankAgiValue = is_array($bankAgiRepo->value) ? $bankAgiRepo->value : (json_decode((string) $bankAgiRepo->value, true) ?: []);
+            if (is_string($bankAgiValue)) {
+                $bankAgiValue = json_decode($bankAgiValue, true) ?: [];
+            }
+            $needsUpdate = false;
+            foreach ($bankAgiDefaultConfig as $cfgKey => $cfgVal) {
+                if (! array_key_exists($cfgKey, $bankAgiValue)) {
+                    $bankAgiValue[$cfgKey] = $cfgVal;
+                    $needsUpdate = true;
+                }
+            }
+            if ($needsUpdate || ! is_array($bankAgiRepo->value)) {
+                $bankAgiRepo->value = $bankAgiValue;
+                $bankAgiRepo->save();
             }
         }
     }
