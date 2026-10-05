@@ -155,4 +155,28 @@ class PaymentRepositoryTest extends PaymentTestCase
 
         $project->forceDelete();
     }
+
+    public function test_payment_repo_seeder_seeds_bank_agi_repositories(): void
+    {
+        $this->seed(\Database\Seeders\PaymentRepoSeeder::class);
+
+        $gateway = PaymentGateway::where('key', 'bank_agi')->first();
+        $this->assertNotNull($gateway);
+
+        foreach (PaymentModeType::cases() as $mode) {
+            $repo = PaymentRepository::where('payment_gateway_id', $gateway->id)
+                ->where('mode', $mode->value)
+                ->first();
+
+            $this->assertNotNull($repo);
+            $this->assertSame('default_bank_agi_'.$mode->value, $repo->key);
+            $value = $repo->getValue();
+            $this->assertArrayHasKey('base_url', $value);
+            $this->assertArrayHasKey('client_id', $value);
+            $this->assertArrayHasKey('merchant_id', $value);
+            $this->assertArrayHasKey('merchant_user', $value);
+            $this->assertArrayHasKey('channel_id', $value);
+            $this->assertArrayHasKey('validity_period', $value);
+        }
+    }
 }
