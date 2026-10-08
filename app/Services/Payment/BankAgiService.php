@@ -182,11 +182,10 @@ class BankAgiService
             'X_SIGNATURE' => $this->signAsymmetric($clientId, $timestamp, $privateKey),
         ];
 
-        $response = $this->decodeResponse($this->networkService->post(
+        $response = $this->decodeResponse($this->postToBank(
             $url.self::TOKEN_PATH,
             $headers,
             ['grantType' => 'client_credentials', 'additionalInfo' => (object) []],
-            ['allow_redirects' => false],
         ), '2007300', ['endpoint' => self::TOKEN_PATH]);
 
         if (empty($response['accessToken']) || ! is_string($response['accessToken'])) {
@@ -462,11 +461,32 @@ class BankAgiService
             'X_SIGNATURE' => $this->signSymmetric($this->requiredConfig($config, 'client_secret'), 'POST', $path, $token, json_encode($body, JSON_THROW_ON_ERROR), $timestamp),
         ];
 
-        return $this->decodeResponse($this->networkService->post($this->baseUrl($repository).$path, $headers, $body, ['allow_redirects' => false]), $successCode, [
+        return $this->decodeResponse($this->postToBank($this->baseUrl($repository).$path, $headers, $body), $successCode, [
             'endpoint' => $path,
             'external_id' => $headers['X_EXTERNAL_ID'],
             'repository_id' => $repository->getAttribute('id'),
         ]);
+    }
+
+    private function postToBank(string $url, array $headers, array $body): ?string
+    {
+        $context = ['url' => $url, 'external_id' => $headers['X_EXTERNAL_ID'] ?? null];
+        LogHelper::sendLog('Request Bank AGI', $context + ['header' => $headers, 'body' => $body], '', 'request_bank_agi');
+
+        try {
+            $rawResponse = $this->networkService->post($url, $headers, $body, ['allow_redirects' => false]);
+        } catch (\Throwable $ex) {
+            Log::error('Bank AGI transport failed', $context + ['exception' => get_class($ex)]);
+            throw $ex;
+        }
+
+        $response = json_decode((string) $rawResponse, true);
+        LogHelper::sendLog('Response Bank AGI', $context + [
+            'body' => is_array($response) ? $response : '[Non-object JSON or non-JSON response omitted]',
+            'response_bytes' => strlen((string) $rawResponse),
+        ], '', 'response_bank_agi');
+
+        return $rawResponse;
     }
 
     private function decodeResponse(?string $rawResponse, string $successCode, array $context = []): array

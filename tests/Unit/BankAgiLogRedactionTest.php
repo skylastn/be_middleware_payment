@@ -15,6 +15,30 @@ use Tests\TestCase;
 
 class BankAgiLogRedactionTest extends TestCase
 {
+    public function test_outbound_exchange_logs_bodies_and_redacts_credentials(): void
+    {
+        \Illuminate\Support\Facades\Http::fake(['agi.test/*' => \Illuminate\Support\Facades\Http::response([
+            'responseCode' => '5007300', 'responseMessage' => 'Internal Server error', 'accessToken' => 'secret-token',
+        ], 500)]);
+        $logs = [];
+        \Illuminate\Support\Facades\Log::shouldReceive('info')->twice()->andReturnUsing(function (array $entry) use (&$logs) {
+            $logs[] = $entry;
+        });
+        $service = (new \ReflectionClass(\App\Services\Payment\BankAgiService::class))->newInstanceWithoutConstructor();
+        (new \ReflectionProperty($service, 'networkService'))->setValue($service, new \App\Services\Network\NetworkService);
+        $raw = (new ReflectionMethod($service, 'postToBank'))->invoke($service, 'https://agi.test/token', [
+            'Authorization' => 'Bearer secret', 'X_SIGNATURE' => 'secret-signature', 'X_EXTERNAL_ID' => 'test-id',
+        ], ['grantType' => 'client_credentials']);
+        $this->assertSame('Request Bank AGI', $logs[0]['message']);
+        $this->assertSame('client_credentials', $logs[0]['data']['body']['grantType']);
+        $this->assertSame('***REDACTED***', $logs[0]['data']['header']['Authorization']);
+        $this->assertSame('***REDACTED***', $logs[0]['data']['header']['X_SIGNATURE']);
+        $this->assertSame('Response Bank AGI', $logs[1]['message']);
+        $this->assertSame('5007300', $logs[1]['data']['body']['responseCode']);
+        $this->assertSame('***REDACTED***', $logs[1]['data']['body']['accessToken']);
+        $this->assertSame('secret-token', json_decode($raw, true)['accessToken']);
+    }
+
     public function test_failed_bank_response_logs_safe_diagnostics(): void
     {
         $context = ['endpoint' => '/qr/qr-mpm-generate', 'external_id' => 'test-id'];
