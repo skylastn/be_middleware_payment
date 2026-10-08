@@ -206,20 +206,23 @@ class BankAgiIntegrationTest extends PaymentTestCase
                 return false;
             }
 
-            return openssl_verify('partner-client-id|'.$request->header('X_TIMESTAMP')[0], base64_decode($request->header('X_SIGNATURE')[0]), $this->publicKey, OPENSSL_ALGO_SHA256) === 1;
+            return $request->header('X-CLIENT-KEY') === ['partner-client-id']
+                && $request->header('X_CLIENT_KEY') === []
+                && openssl_verify('partner-client-id|'.$request->header('X-TIMESTAMP')[0], base64_decode($request->header('X-SIGNATURE')[0]), $this->publicKey, OPENSSL_ALGO_SHA256) === 1;
         });
         Http::assertSent(function (ClientRequest $request) {
             if (! str_ends_with($request->url(), '/snap/api/v1.0/qr/qr-mpm-generate')) {
                 return false;
             }
-            $signature = hash_hmac('sha512', 'POST:/snap/api/v1.0/qr/qr-mpm-generate:agi-bank-token:'.hash('sha256', $request->body()).':'.$request->header('X_TIMESTAMP')[0], 'agi-outbound-secret');
+            $signature = hash_hmac('sha512', 'POST:/snap/api/v1.0/qr/qr-mpm-generate:agi-bank-token:'.hash('sha256', $request->body()).':'.$request->header('X-TIMESTAMP')[0], 'agi-outbound-secret');
 
-            return $request['merchantId'] === 'ID2024000000565'
+            return $request->header('X-PARTNER-ID') === ['partner-client-id']
+                && $request['merchantId'] === 'ID2024000000565'
                 && $request['additionalInfo']['merchantUser'] === 'AGIMERCHANT'
                 && $request['amount']['value'] === '3500.00'
-                && $request->header('X_SIGNATURE')[0] === $signature
-                && preg_match('/^\d{1,36}$/', $request->header('X_EXTERNAL_ID')[0]) === 1
-                && $request->header('CHANNEL_ID')[0] === '95221';
+                && $request->header('X-SIGNATURE')[0] === $signature
+                && preg_match('/^\d{1,36}$/', $request->header('X-EXTERNAL-ID')[0]) === 1
+                && $request->header('CHANNEL-ID')[0] === '95221';
         });
     }
 

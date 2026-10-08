@@ -177,9 +177,9 @@ class BankAgiService
         $timestamp = $this->timestamp();
         $headers = [
             'Content-Type' => 'application/json',
-            'X_CLIENT_KEY' => $clientId,
-            'X_TIMESTAMP' => $timestamp,
-            'X_SIGNATURE' => $this->signAsymmetric($clientId, $timestamp, $privateKey),
+            'X-CLIENT-KEY' => $clientId,
+            'X-TIMESTAMP' => $timestamp,
+            'X-SIGNATURE' => $this->signAsymmetric($clientId, $timestamp, $privateKey),
         ];
 
         $response = $this->decodeResponse($this->postToBank(
@@ -454,23 +454,23 @@ class BankAgiService
         $headers = [
             'Content-Type' => 'application/json',
             'Authorization' => 'Bearer '.$token,
-            'X_TIMESTAMP' => $timestamp,
-            'X_PARTNER_ID' => $this->requiredConfig($config, 'client_id'),
-            'X_EXTERNAL_ID' => now('UTC')->format('YmdHis').sprintf('%018d', random_int(0, 999999999999999999)),
-            'CHANNEL_ID' => $channelId,
-            'X_SIGNATURE' => $this->signSymmetric($this->requiredConfig($config, 'client_secret'), 'POST', $path, $token, json_encode($body, JSON_THROW_ON_ERROR), $timestamp),
+            'X-TIMESTAMP' => $timestamp,
+            'X-PARTNER-ID' => $this->requiredConfig($config, 'client_id'),
+            'X-EXTERNAL-ID' => now('UTC')->format('YmdHis').sprintf('%018d', random_int(0, 999999999999999999)),
+            'CHANNEL-ID' => $channelId,
+            'X-SIGNATURE' => $this->signSymmetric($this->requiredConfig($config, 'client_secret'), 'POST', $path, $token, json_encode($body, JSON_THROW_ON_ERROR), $timestamp),
         ];
 
         return $this->decodeResponse($this->postToBank($this->baseUrl($repository).$path, $headers, $body), $successCode, [
             'endpoint' => $path,
-            'external_id' => $headers['X_EXTERNAL_ID'],
+            'external_id' => $headers['X-EXTERNAL-ID'],
             'repository_id' => $repository->getAttribute('id'),
         ]);
     }
 
     private function postToBank(string $url, array $headers, array $body): ?string
     {
-        $context = ['url' => $url, 'external_id' => $headers['X_EXTERNAL_ID'] ?? null];
+        $context = ['url' => $url, 'external_id' => $headers['X-EXTERNAL-ID'] ?? null];
         LogHelper::sendLog('Request Bank AGI', $context + ['header' => $headers, 'body' => $body], '', 'request_bank_agi');
 
         try {
