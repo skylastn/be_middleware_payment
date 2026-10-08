@@ -18,6 +18,8 @@ use App\Services\Network\NetworkService;
 use App\Services\System\RedisService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use JsonException;
 use RuntimeException;
 
 class BankAgiService
@@ -185,7 +187,7 @@ class BankAgiService
             $headers,
             ['grantType' => 'client_credentials', 'additionalInfo' => (object) []],
             ['allow_redirects' => false],
-        ), '2007300');
+        ), '2007300', ['endpoint' => self::TOKEN_PATH]);
 
         if (empty($response['accessToken']) || ! is_string($response['accessToken'])) {
             throw new RuntimeException('AGI access token response is missing accessToken');
@@ -460,14 +462,31 @@ class BankAgiService
             'X_SIGNATURE' => $this->signSymmetric($this->requiredConfig($config, 'client_secret'), 'POST', $path, $token, json_encode($body, JSON_THROW_ON_ERROR), $timestamp),
         ];
 
-        return $this->decodeResponse($this->networkService->post($this->baseUrl($repository).$path, $headers, $body, ['allow_redirects' => false]), $successCode);
+        return $this->decodeResponse($this->networkService->post($this->baseUrl($repository).$path, $headers, $body, ['allow_redirects' => false]), $successCode, [
+            'endpoint' => $path,
+            'external_id' => $headers['X_EXTERNAL_ID'],
+            'repository_id' => $repository->getAttribute('id'),
+        ]);
     }
 
-    private function decodeResponse(?string $rawResponse, string $successCode): array
+    private function decodeResponse(?string $rawResponse, string $successCode, array $context = []): array
     {
-        $response = json_decode((string) $rawResponse, true, 512, JSON_THROW_ON_ERROR);
+        try {
+            $response = json_decode((string) $rawResponse, true, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException $ex) {
+            Log::error('AGI invalid JSON response', $context + ['expected_code' => $successCode, 'response_bytes' => strlen((string) $rawResponse)]);
+            throw new RuntimeException('AGI returned an invalid JSON response', 0, $ex);
+        }
+
         if (! is_array($response) || ($response['responseCode'] ?? null) !== $successCode) {
-            throw new RuntimeException('AGI request failed: '.(is_array($response) ? ($response['responseMessage'] ?? 'Invalid response') : 'Invalid response'));
+            $code = is_array($response) && is_string($response['responseCode'] ?? null) ? $response['responseCode'] : null;
+            $message = is_array($response) && is_string($response['responseMessage'] ?? null) ? $response['responseMessage'] : 'Invalid response';
+            Log::error('AGI request failed', $context + [
+                'expected_code' => $successCode,
+                'response_code' => $code,
+                'response_message' => $message,
+            ]);
+            throw new RuntimeException('AGI request failed: '.$message);
         }
 
         return $response;
