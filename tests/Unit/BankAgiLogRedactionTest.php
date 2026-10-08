@@ -15,6 +15,22 @@ use Tests\TestCase;
 
 class BankAgiLogRedactionTest extends TestCase
 {
+    public function test_failed_bank_response_logs_safe_diagnostics(): void
+    {
+        $context = ['endpoint' => '/qr/qr-mpm-generate', 'external_id' => 'test-id'];
+        \Illuminate\Support\Facades\Log::shouldReceive('error')->once()->with('AGI request failed', $context + [
+            'expected_code' => '2001700',
+            'response_code' => '5001700',
+            'response_message' => 'Internal Server error',
+        ]);
+        $service = (new \ReflectionClass(\App\Services\Payment\BankAgiService::class))->newInstanceWithoutConstructor();
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('AGI request failed: Internal Server error');
+        (new ReflectionMethod($service, 'decodeResponse'))->invoke($service, json_encode([
+            'responseCode' => '5001700', 'responseMessage' => 'Internal Server error', 'accessToken' => 'must-not-be-logged',
+        ]), '2001700', $context);
+    }
+
     public function test_bank_credentials_are_redacted_in_nested_json_logs(): void
     {
         $data = ['Authorization' => 'Bearer token', 'nested' => json_encode([
