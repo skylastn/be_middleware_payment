@@ -88,6 +88,94 @@ class OrderFilterApiTest extends TestCase
         $this->assertSame('REF-OFT-001', $data[0]['reference']);
     }
 
+    public function test_client_api_filters_by_multiple_emails_comma_separated(): void
+    {
+        $response = $this->withHeader('Token', $this->project->value)
+            ->getJson('/api/order?email=alice@example.com,charlie@domain.org')
+            ->assertOk();
+
+        $references = array_column($response->json('data'), 'reference');
+        $this->assertCount(2, $references);
+        $this->assertContains('REF-OFT-001', $references);
+        $this->assertContains('REF-OFT-003', $references);
+        $this->assertNotContains('REF-OFT-002', $references);
+    }
+
+    public function test_client_api_multiple_emails_accepts_array_param(): void
+    {
+        $response = $this->withHeader('Token', $this->project->value)
+            ->getJson('/api/order?email[]=alice@example.com&email[]=bob@example.com')
+            ->assertOk();
+
+        $references = array_column($response->json('data'), 'reference');
+        $this->assertCount(2, $references);
+        $this->assertContains('REF-OFT-001', $references);
+        $this->assertContains('REF-OFT-002', $references);
+        $this->assertNotContains('REF-OFT-003', $references);
+    }
+
+    public function test_client_api_multiple_emails_ignore_blanks(): void
+    {
+        $response = $this->withHeader('Token', $this->project->value)
+            ->getJson('/api/order?email= alice@example.com ,, charlie@domain.org ,')
+            ->assertOk();
+
+        $references = array_column($response->json('data'), 'reference');
+        $this->assertCount(2, $references);
+        $this->assertContains('REF-OFT-001', $references);
+        $this->assertContains('REF-OFT-003', $references);
+        $this->assertNotContains('REF-OFT-002', $references);
+    }
+
+    public function test_client_api_multiple_emails_use_partial_match(): void
+    {
+        // "example.com" must match both alice and bob, but not charlie.
+        $response = $this->withHeader('Token', $this->project->value)
+            ->getJson('/api/order?email=example.com')
+            ->assertOk();
+
+        $references = array_column($response->json('data'), 'reference');
+        $this->assertCount(2, $references);
+        $this->assertContains('REF-OFT-001', $references);
+        $this->assertContains('REF-OFT-002', $references);
+        $this->assertNotContains('REF-OFT-003', $references);
+    }
+
+    public function test_client_api_multiple_emails_compose_with_hour_filter(): void
+    {
+        // OR across emails must still AND with the other filters.
+        $response = $this->withHeader('Token', $this->project->value)
+            ->getJson('/api/order?email=alice@example.com,bob@example.com&hour=14')
+            ->assertOk();
+
+        $references = array_column($response->json('data'), 'reference');
+        $this->assertCount(1, $references);
+        $this->assertSame('REF-OFT-002', $references[0]);
+    }
+
+    public function test_client_api_multiple_emails_apply_to_summary(): void
+    {
+        $response = $this->withHeader('Token', $this->project->value)
+            ->getJson('/api/order/summary?email=alice@example.com,charlie@domain.org')
+            ->assertOk();
+
+        $this->assertSame(2, $response->json('data.total_orders'));
+    }
+
+    public function test_admin_api_filters_by_multiple_emails(): void
+    {
+        Sanctum::actingAs($this->admin);
+
+        $response = $this->getJson('/api/admin/orders?email=bob@example.com,charlie@domain.org')
+            ->assertOk();
+
+        $references = array_column($response->json('data'), 'reference');
+        $this->assertCount(2, $references);
+        $this->assertContains('REF-OFT-002', $references);
+        $this->assertContains('REF-OFT-003', $references);
+        $this->assertNotContains('REF-OFT-001', $references);
+    }
+
     public function test_client_api_filters_by_single_hour(): void
     {
         $response = $this->withHeader('Token', $this->project->value)

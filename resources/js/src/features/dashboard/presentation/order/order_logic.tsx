@@ -41,7 +41,10 @@ function countActiveFilters(state: OrderFilterState): number {
     if (state.startDate) count++;
     if (state.endDate) count++;
     if (state.repository !== 'all') count++;
-    if (state.email.trim()) count++;
+    if (state.email.trim()) {
+        // Each comma separated address counts as its own filter.
+        count += state.email.split(',').map((e) => e.trim()).filter(Boolean).length;
+    }
     if (state.hourFrom.trim() || state.hourTo.trim()) count++;
     return count;
 }

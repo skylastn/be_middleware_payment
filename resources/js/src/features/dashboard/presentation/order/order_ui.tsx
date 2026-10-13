@@ -73,8 +73,18 @@ function FilterSummaryChips({
     if (state.searchTerm.trim()) {
         chips.push({ label: `Search: "${state.searchTerm.trim()}"`, patch: { searchTerm: '' } });
     }
+    // One chip per email so each address can be dropped on its own.
     if (state.email.trim()) {
-        chips.push({ label: `Email: ${state.email.trim()}`, patch: { email: '' } });
+        const emails = state.email
+            .split(',')
+            .map((e) => e.trim())
+            .filter(Boolean);
+        emails.forEach((address, index) => {
+            chips.push({
+                label: `Email: ${address}`,
+                patch: { email: emails.filter((_, i) => i !== index).join(',') },
+            });
+        });
     }
     if (state.startDate || state.endDate) {
         chips.push({
@@ -108,8 +118,8 @@ function FilterSummaryChips({
 
     return (
         <>
-            {chips.map((chip) => (
-                <span key={chip.label} className="active-filter-chip">
+            {chips.map((chip, index) => (
+                <span key={`${chip.label}-${index}`} className="active-filter-chip">
                     {chip.label}
                     <button
                         type="button"
@@ -173,10 +183,11 @@ function FilterDialog({
                     <input
                         type="text"
                         className="filter-dialog-input"
-                        placeholder="order@email..."
+                        placeholder="alice@x.com, bob@y.com"
                         value={draft.email}
                         onChange={(e) => patch({ email: e.target.value })}
                     />
+                    <span className="filter-dialog-hint">Separate multiple emails with commas</span>
                 </div>
 
                 <div className="filter-dialog-field">

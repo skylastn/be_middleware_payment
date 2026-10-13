@@ -1205,6 +1205,11 @@ h1 {
     box-shadow: 0 0 0 3px var(--primary-light);
 }
 
+.filter-dialog-hint {
+    font-size: 11px;
+    color: var(--text-subtle);
+}
+
 @media (max-width: 560px) {
     .filter-dialog-grid {
         grid-template-columns: minmax(0, 1fr);

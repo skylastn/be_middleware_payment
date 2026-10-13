@@ -112,11 +112,35 @@ class OrderService
             'startDate' => $request->query('start_date') ?: $request->query('startDate'),
             'endDate' => $request->query('end_date') ?: $request->query('endDate'),
             'paymentRepositoryId' => $request->query('payment_repository_id') ?: $request->query('paymentRepositoryId'),
-            'email' => ($request->query('email') ?: $request->query('order_email')) ?: null,
+            'email' => $this->normalizeEmailFilter($request),
             'hour' => ($hour !== '' && $hour !== null) ? $hour : null,
             'startTime' => ($request->query('start_time') ?: $request->query('startTime') ?: $request->query('start_hour') ?: $request->query('startHour')) ?: null,
             'endTime' => ($request->query('end_time') ?: $request->query('endTime') ?: $request->query('end_hour') ?: $request->query('endHour')) ?: null,
         ];
+    }
+
+    /**
+     * Accepts `email=a@x.com,b@y.com`, `email[]=a@x.com&email[]=b@y.com`,
+     * or a mix of both, and normalizes to a comma separated string.
+     */
+    private function normalizeEmailFilter(Request $request): ?string
+    {
+        $raw = $request->query('email', $request->query('order_email'));
+        if ($raw === null || $raw === '') {
+            return null;
+        }
+
+        $parts = [];
+        foreach (is_array($raw) ? $raw : [$raw] as $value) {
+            foreach (explode(',', (string) $value) as $piece) {
+                $piece = trim($piece);
+                if ($piece !== '' && ! in_array($piece, $parts, true)) {
+                    $parts[] = $piece;
+                }
+            }
+        }
+
+        return $parts === [] ? null : implode(',', $parts);
     }
 
     public function detailByReferenceAndKey(string $reference, ?string $projectType): ?Order

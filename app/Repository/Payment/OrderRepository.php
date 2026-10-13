@@ -19,7 +19,7 @@ class OrderRepository extends BaseRepository
         ?string $startDate = null,
         ?string $endDate = null,
         ?string $paymentRepositoryId = null,
-        ?string $email = null,
+        string|array|null $email = null,
         string|int|null $hour = null,
         string|int|null $startTime = null,
         string|int|null $endTime = null
@@ -40,7 +40,7 @@ class OrderRepository extends BaseRepository
         ?string $startDate = null,
         ?string $endDate = null,
         ?string $paymentRepositoryId = null,
-        ?string $email = null,
+        string|array|null $email = null,
         string|int|null $hour = null,
         string|int|null $startTime = null,
         string|int|null $endTime = null
@@ -80,7 +80,7 @@ class OrderRepository extends BaseRepository
         ?string $startDate,
         ?string $endDate,
         ?string $paymentRepositoryId,
-        ?string $email,
+        string|array|null $email,
         string|int|null $hour,
         string|int|null $startTime,
         string|int|null $endTime
@@ -116,7 +116,17 @@ class OrderRepository extends BaseRepository
             ->when($status && $status !== 'all', fn ($query) => $query->where('status', $status))
             ->when($type && $type !== 'all', fn ($query) => $query->where('type', $type))
             ->when($paymentRepositoryId && $paymentRepositoryId !== 'all', fn ($query) => $query->where('payment_repository_id', $paymentRepositoryId))
-            ->when($email, fn ($query) => $query->where('email', 'like', "%{$email}%"))
+            ->when($email, function ($query, $email) {
+                $emails = $this->parseEmailList($email);
+                if ($emails === []) {
+                    return;
+                }
+                $query->where(function ($q) use ($emails) {
+                    foreach ($emails as $single) {
+                        $q->orWhere('email', 'like', "%{$single}%");
+                    }
+                });
+            })
             ->when($startDate, function ($query, $startDate) {
                 $dt = preg_match('/\d{1,2}:\d{2}/', (string) $startDate)
                     ? Carbon::parse($startDate)
@@ -157,6 +167,26 @@ class OrderRepository extends BaseRepository
         }
 
         return $val;
+    }
+
+    /**
+     * Split a comma separated email filter into unique, trimmed addresses.
+     *
+     * @return array<int, string>
+     */
+    private function parseEmailList(string|array $email): array
+    {
+        $raw = is_array($email) ? $email : explode(',', $email);
+
+        $emails = [];
+        foreach ($raw as $item) {
+            $item = trim((string) $item);
+            if ($item !== '' && ! in_array($item, $emails, true)) {
+                $emails[] = $item;
+            }
+        }
+
+        return $emails;
     }
 
     public function latestByReference(string $reference, ?string $projectType = null): ?Order
