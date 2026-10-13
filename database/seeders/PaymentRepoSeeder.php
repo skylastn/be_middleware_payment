@@ -229,31 +229,25 @@ class PaymentRepoSeeder extends Seeder
                 $paprikaRepo->save();
             }
 
-            // Variables provided by Bank AGI
-            $bankAgiBankConfig = [
+            // Bank AGI credentials. One pair (bank_client_id / bank_client_secret) is used for
+            // both directions: we sign outbound requests with it, and it also authenticates the
+            // callbacks Bank AGI sends to us.
+            $bankAgiDefaultConfig = [
                 'base_url' => 'https://bagiapisandbox.ag.co.id:38065',
-                'client_id' => 'CLIENT_ID_ASSIGNED_BY_AGI',
-                'client_secret' => 'BASE64_SECRET_ASSIGNED_BY_AGI',
-                'bank_public_key' => "-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----",
+                'bank_client_id' => 'CLIENT_ID_ASSIGNED_BY_AGI',
+                'bank_client_secret' => 'BASE64_CLIENT_KEY_ASSIGNED_BY_AGI',
+                'bank_public_key' => '',
+                'private_key' => '',
                 'merchant_id' => 'MERCHANT_ID_ASSIGNED_BY_AGI',
                 'merchant_user' => 'MERCHANT_USER_ASSIGNED_BY_AGI',
-                'channel_id' => '95221',
+                'channel_id' => 'CHANNEL_ID_ASSIGNED_BY_AGI',
                 'sub_merchant_id' => '',
                 'store_id' => '',
                 'terminal_id' => '',
-            ];
-
-            // Variables generated/owned by middleware (our side)
-            $bankAgiOurConfig = [
-                'private_key' => "-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----",
-                'bank_client_id' => 'BANK_CALLBACK_CLIENT_ID',
-                'bank_client_secret' => 'BASE64_CALLBACK_SECRET',
                 'validity_period' => 60,
                 'device_id' => '',
                 'channel' => 'API',
             ];
-
-            $bankAgiDefaultConfig = array_merge($bankAgiBankConfig, $bankAgiOurConfig);
 
             $bankAgiRepo = PaymentRepository::firstOrCreate(
                 [

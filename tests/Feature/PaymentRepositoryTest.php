@@ -172,7 +172,8 @@ class PaymentRepositoryTest extends PaymentTestCase
             $this->assertSame('default_bank_agi_'.$mode->value, $repo->key);
             $value = $repo->getValue();
             $this->assertArrayHasKey('base_url', $value);
-            $this->assertArrayHasKey('client_id', $value);
+            $this->assertArrayHasKey('bank_client_id', $value);
+            $this->assertArrayHasKey('bank_client_secret', $value);
             $this->assertArrayHasKey('merchant_id', $value);
             $this->assertArrayHasKey('merchant_user', $value);
             $this->assertArrayHasKey('channel_id', $value);

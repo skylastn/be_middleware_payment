@@ -82,9 +82,9 @@ class BankAgiService
 
     public function generateB2BAccessToken(Request $request): array
     {
-        $clientId = $this->requiredHeader($request, 'X_CLIENT_KEY', '73');
-        $timestamp = $this->requiredHeader($request, 'X_TIMESTAMP', '73');
-        $signature = $this->requiredHeader($request, 'X_SIGNATURE', '73');
+        $clientId = $this->requiredHeader($request, 'X-CLIENT-KEY', '73');
+        $timestamp = $this->requiredHeader($request, 'X-TIMESTAMP', '73');
+        $signature = $this->requiredHeader($request, 'X-SIGNATURE', '73');
         $this->validateTimestamp($timestamp, '73');
 
         $repository = $this->paymentRepositoryService->getByGatewayKeyAndClientKey('bank_agi', $clientId);
@@ -93,11 +93,11 @@ class BankAgiService
         }
 
         $config = $repository->getValue();
-        if ($clientId !== ($config['bank_client_id'] ?? $config['client_id'] ?? null)) {
+        if ($clientId !== $this->requiredConfig($config, 'bank_client_id')) {
             throw new BankAgiException('4017300', 'Unauthorized [Invalid Client Key]', 401);
         }
 
-        $publicKey = openssl_pkey_get_public(str_replace('\\n', "\n", $config['bank_public_key'] ?? ''));
+        $publicKey = openssl_pkey_get_public(str_replace('\\n', "\n", $this->requiredConfig($config, 'bank_public_key')));
         $decodedSignature = base64_decode($signature, true);
         if ($publicKey === false || $decodedSignature === false || openssl_verify($clientId.'|'.$timestamp, $decodedSignature, $publicKey, OPENSSL_ALGO_SHA256) !== 1) {
             throw new BankAgiException('4017300', 'Unauthorized [Signature]', 401);
@@ -106,7 +106,7 @@ class BankAgiService
         $token = bin2hex(random_bytes(32));
         if (! $this->redisService->set($this->tokenKey($token), [
             'repository_id' => $repository->getAttribute('id'),
-            'client_key' => $clientId,
+            'bank_client_id' => $clientId,
         ], self::TOKEN_TTL)) {
             throw new RuntimeException('Unable to store AGI access token');
         }
@@ -158,11 +158,11 @@ class BankAgiService
     public function getB2BToken(PaymentRepository $repository): array
     {
         $config = $repository->getValue();
-        $clientId = $this->requiredConfig($config, 'client_id');
+        $clientId = $this->requiredConfig($config, 'bank_client_id');
         $privateKey = $this->requiredConfig($config, 'private_key');
         $url = $this->baseUrl($repository);
         $cacheKey = 'bank_agi:outbound_token:'.hash('sha256', json_encode([
-            $repository->getAttribute('id'), $url, $clientId, $privateKey, $config['client_secret'] ?? null,
+            $repository->getAttribute('id'), $url, $clientId, $privateKey, $config['bank_client_secret'] ?? null,
         ], JSON_THROW_ON_ERROR));
         try {
             $cached = $this->redisService->get($cacheKey);
@@ -403,14 +403,14 @@ class BankAgiService
 
     private function authenticateCallback(Request $request): PaymentRepository
     {
-        $partnerId = $this->requiredHeader($request, 'X_PARTNER_ID', '19');
-        $timestamp = $this->requiredHeader($request, 'X_TIMESTAMP', '19');
-        $signature = $this->requiredHeader($request, 'X_SIGNATURE', '19');
-        $externalId = $this->requiredHeader($request, 'X_EXTERNAL_ID', '19');
-        $channelId = $this->requiredHeader($request, 'CHANNEL_ID', '19');
+        $partnerIdHeader = $this->requiredHeader($request, 'X-PARTNER-ID', '19');
+        $timestamp = $this->requiredHeader($request, 'X-TIMESTAMP', '19');
+        $signature = $this->requiredHeader($request, 'X-SIGNATURE', '19');
+        $externalId = $this->requiredHeader($request, 'X-EXTERNAL-ID', '19');
+        $channelId = $this->requiredHeader($request, 'CHANNEL-ID', '19');
         $this->validateTimestamp($timestamp, '19');
         if (! preg_match('/^\d{1,36}$/', $externalId) || ! preg_match('/^\d{5}$/', $channelId)) {
-            throw new BankAgiException('4001901', 'Invalid Field Format [X_EXTERNAL_ID or CHANNEL_ID]', 400);
+            throw new BankAgiException('4001901', 'Invalid Field Format [X-EXTERNAL-ID or CHANNEL-ID]', 400);
         }
 
         $token = $request->bearerToken();
@@ -422,17 +422,18 @@ class BankAgiService
         }
 
         $storedToken = $this->redisService->get($this->tokenKey($token));
-        if (! is_array($storedToken) || ($storedToken['client_key'] ?? null) !== $partnerId || empty($storedToken['repository_id'])) {
+        if (! is_array($storedToken) || empty($storedToken['repository_id'])) {
             throw new BankAgiException('4011901', 'Invalid Token (B2B)', 401);
         }
 
         $repository = $this->getPaymentRepo(null, $storedToken['repository_id']);
         $config = $repository->getValue();
-        if ($partnerId !== ($config['bank_client_id'] ?? $config['client_id'] ?? null)) {
+        $partnerId = $this->requiredConfig($config, 'bank_client_id');
+        if (($storedToken['bank_client_id'] ?? null) !== $partnerId || $partnerIdHeader !== $partnerId) {
             throw new BankAgiException('4011900', 'Unauthorized [Partner ID]', 401);
         }
 
-        $secret = $config['bank_client_secret'] ?? $this->requiredConfig($config, 'client_secret');
+        $secret = $this->requiredConfig($config, 'bank_client_secret');
         $expected = $this->signSymmetric($secret, $request->method(), $request->getPathInfo(), $token, $request->getContent(), $timestamp);
         if (! hash_equals($expected, $signature)) {
             throw new BankAgiException('4011900', 'Unauthorized [Signature]', 401);
@@ -455,10 +456,10 @@ class BankAgiService
             'Content-Type' => 'application/json',
             'Authorization' => 'Bearer '.$token,
             'X-TIMESTAMP' => $timestamp,
-            'X-PARTNER-ID' => $this->requiredConfig($config, 'client_id'),
+            'X-PARTNER-ID' => $this->requiredConfig($config, 'bank_client_id'),
             'X-EXTERNAL-ID' => now('UTC')->format('YmdHis').sprintf('%018d', random_int(0, 999999999999999999)),
             'CHANNEL-ID' => $channelId,
-            'X-SIGNATURE' => $this->signSymmetric($this->requiredConfig($config, 'client_secret'), 'POST', $path, $token, json_encode($body, JSON_THROW_ON_ERROR), $timestamp),
+            'X-SIGNATURE' => $this->signSymmetric($this->requiredConfig($config, 'bank_client_secret'), 'POST', $path, $token, json_encode($body, JSON_THROW_ON_ERROR), $timestamp),
         ];
 
         return $this->decodeResponse($this->postToBank($this->baseUrl($repository).$path, $headers, $body), $successCode, [
@@ -557,12 +558,14 @@ class BankAgiService
 
     private function requiredHeader(Request $request, string $header, string $serviceCode): string
     {
-        $value = $request->header($header, $request->header(str_replace('_', '-', $header)));
+        $hyphen = str_replace('_', '-', $header);
+        $underscore = str_replace('-', '_', $header);
+        $value = $request->header($hyphen) ?? $request->header($underscore);
         if (! is_string($value) || trim($value) === '') {
-            throw new BankAgiException('400'.$serviceCode.'02', 'Invalid Mandatory Field ['.$header.']', 400);
+            throw new BankAgiException('400'.$serviceCode.'02', 'Invalid Mandatory Field ['.$hyphen.']', 400);
         }
 
-        $maxLength = match ($header) {
+        $maxLength = match ($underscore) {
             'X_TIMESTAMP' => 35,
             'X_SIGNATURE' => 2048,
             'X_EXTERNAL_ID' => 36,
@@ -570,7 +573,7 @@ class BankAgiService
             default => 128,
         };
         if (strlen($value) > $maxLength) {
-            throw new BankAgiException('400'.$serviceCode.'01', 'Invalid Field Format ['.$header.']', 400);
+            throw new BankAgiException('400'.$serviceCode.'01', 'Invalid Field Format ['.$hyphen.']', 400);
         }
 
         return $value;

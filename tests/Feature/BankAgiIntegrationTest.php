@@ -75,8 +75,6 @@ class BankAgiIntegrationTest extends PaymentTestCase
             'mode' => 'sandbox',
             'value' => [
                 'base_url' => 'https://agi.test:38065',
-                'client_id' => 'partner-client-id',
-                'client_secret' => base64_encode('agi-outbound-secret'),
                 'private_key' => $this->privateKey,
                 'bank_client_id' => 'bank-client-id',
                 'bank_public_key' => $this->publicKey,
@@ -206,17 +204,17 @@ class BankAgiIntegrationTest extends PaymentTestCase
                 return false;
             }
 
-            return $request->header('X-CLIENT-KEY') === ['partner-client-id']
+            return $request->header('X-CLIENT-KEY') === ['bank-client-id']
                 && $request->header('X_CLIENT_KEY') === []
-                && openssl_verify('partner-client-id|'.$request->header('X-TIMESTAMP')[0], base64_decode($request->header('X-SIGNATURE')[0]), $this->publicKey, OPENSSL_ALGO_SHA256) === 1;
+                && openssl_verify('bank-client-id|'.$request->header('X-TIMESTAMP')[0], base64_decode($request->header('X-SIGNATURE')[0]), $this->publicKey, OPENSSL_ALGO_SHA256) === 1;
         });
         Http::assertSent(function (ClientRequest $request) {
             if (! str_ends_with($request->url(), '/snap/api/v1.0/qr/qr-mpm-generate')) {
                 return false;
             }
-            $signature = hash_hmac('sha512', 'POST:/snap/api/v1.0/qr/qr-mpm-generate:agi-bank-token:'.hash('sha256', $request->body()).':'.$request->header('X-TIMESTAMP')[0], 'agi-outbound-secret');
+            $signature = hash_hmac('sha512', 'POST:/snap/api/v1.0/qr/qr-mpm-generate:agi-bank-token:'.hash('sha256', $request->body()).':'.$request->header('X-TIMESTAMP')[0], 'agi-inbound-secret');
 
-            return $request->header('X-PARTNER-ID') === ['partner-client-id']
+            return $request->header('X-PARTNER-ID') === ['bank-client-id']
                 && $request['merchantId'] === 'ID2024000000565'
                 && $request['additionalInfo']['merchantUser'] === 'AGIMERCHANT'
                 && $request['amount']['value'] === '3500.00'
@@ -264,7 +262,7 @@ class BankAgiIntegrationTest extends PaymentTestCase
     {
         $token = $this->issueToken();
         $stored = json_decode($this->redisData['agi:snap_token:'.hash('sha256', $token)], true);
-        $this->assertSame('bank-client-id', $stored['client_key']);
+        $this->assertSame('bank-client-id', $stored['bank_client_id']);
         $this->assertSame($this->repository->getAttribute('id'), $stored['repository_id']);
     }
 
@@ -342,6 +340,40 @@ class BankAgiIntegrationTest extends PaymentTestCase
         Queue::assertNothingPushed();
     }
 
+    public function test_callback_rejects_a_signature_signed_with_the_wrong_secret(): void
+    {
+        $this->fakeBank();
+        $this->createOrder()->assertOk();
+        $token = $this->issueToken();
+
+        $target = '/api/bank/agi/notify-qris';
+        $timestamp = now('UTC')->format('Y-m-d\TH:i:s.vP');
+        $payload = $this->notification();
+        $signature = hash_hmac('sha512', 'POST:'.$target.':'.$token.':'.hash('sha256', json_encode($payload)).':'.$timestamp, 'not-the-right-secret');
+
+        $this->notify($payload, $token, [
+            'X_TIMESTAMP' => $timestamp,
+            'X_SIGNATURE' => $signature,
+        ])->assertStatus(401)->assertJsonPath('responseCode', '4011900');
+
+        $this->assertDatabaseHas('orders', ['reference' => 'AGIT-INV-001', 'status' => 'PENDING']);
+        Queue::assertNothingPushed();
+    }
+
+    public function test_repository_lookup_requires_the_bank_client_id(): void
+    {
+        $this->fakeBank();
+        $this->createOrder()->assertOk();
+
+        $values = $this->repository->getValue();
+        $this->repository->setValue(array_diff_key($values, ['bank_client_id' => null]));
+        $this->repository->save();
+
+        $this->postJson('/api/bank/agi/access-token', ['grantType' => 'client_credentials'], $this->tokenHeaders())
+            ->assertStatus(401)
+            ->assertJsonPath('responseCode', '4017300');
+    }
+
     public function test_callback_cannot_update_an_order_in_another_repository(): void
     {
         $this->fakeBank();
@@ -353,7 +385,7 @@ class BankAgiIntegrationTest extends PaymentTestCase
             'value' => array_replace($this->repository->getValue(), ['bank_client_id' => 'other-bank-client']),
         ]);
         $token = 'other-repository-token';
-        $this->redisData['agi:snap_token:'.hash('sha256', $token)] = json_encode(['repository_id' => $other->getAttribute('id'), 'client_key' => 'other-bank-client']);
+        $this->redisData['agi:snap_token:'.hash('sha256', $token)] = json_encode(['repository_id' => $other->getAttribute('id'), 'bank_client_id' => 'other-bank-client']);
         $this->notify($this->notification(), $token, ['X_PARTNER_ID' => 'other-bank-client'])->assertStatus(404)->assertJsonPath('responseCode', '4041901');
         $this->assertDatabaseHas('orders', ['reference' => 'AGIT-INV-001', 'status' => 'PENDING']);
         Queue::assertNothingPushed();
@@ -561,8 +593,8 @@ class BankAgiIntegrationTest extends PaymentTestCase
     {
         Sanctum::actingAs(new User(['name' => 'Admin', 'role' => UserRole::ADMIN]));
         $path = '/api/admin/payment-repositories/'.$this->repository->getAttribute('id');
-        $this->getJson($path)->assertOk()->assertJsonPath('data.value.client_id', 'partner-client-id');
-        $this->getJson('/api/admin/payment-repositories')->assertOk()->assertJsonPath('data.0.value.client_id', 'partner-client-id');
+        $this->getJson($path)->assertOk()->assertJsonPath('data.value.bank_client_id', 'bank-client-id');
+        $this->getJson('/api/admin/payment-repositories')->assertOk()->assertJsonPath('data.0.value.bank_client_id', 'bank-client-id');
         $config = array_replace($this->repository->getValue(), ['merchant_user' => 'UPDATED-MERCHANT']);
         $this->putJson($path, ['value' => $config])->assertOk()->assertJsonPath('data.value.merchant_user', 'UPDATED-MERCHANT');
         $this->assertSame('UPDATED-MERCHANT', $this->repository->fresh()->getValue()['merchant_user']);
@@ -590,7 +622,7 @@ class BankAgiIntegrationTest extends PaymentTestCase
         $this->assertSame('first-token', $service->getB2BToken($this->repository)['accessToken']);
         $this->assertSame('first-token', $service->getB2BToken($this->repository)['accessToken']);
         Http::assertSentCount(1);
-        $this->repository->setValue(array_replace($this->repository->getValue(), ['client_secret' => base64_encode('rotated-secret')]));
+        $this->repository->setValue(array_replace($this->repository->getValue(), ['bank_client_secret' => base64_encode('rotated-secret')]));
         $this->assertSame('second-token', $service->getB2BToken($this->repository)['accessToken']);
         Http::assertSentCount(2);
         $this->travel(61)->seconds();
