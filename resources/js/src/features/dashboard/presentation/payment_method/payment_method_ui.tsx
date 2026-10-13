@@ -559,12 +559,13 @@ export function PaymentMethodPage({ mode, id }: PaymentMethodPageProps): React.J
                                     </td>
                                     <td>
                                         <div className="actions">
-                                            <button
+                                            <a
                                                 className="button"
-                                                onClick={() => navigate(`/admin/payment-methods/${primaryKey}`)}
+                                                href={`/admin/payment-methods/${primaryKey}`}
+                                                onClick={(e) => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return; e.preventDefault(); navigate(`/admin/payment-methods/${primaryKey}`); }}
                                             >
                                                 View
-                                            </button>
+                                            </a>
                                             <button
                                                 className="button"
                                                 onClick={() => navigate(`/admin/payment-methods/${primaryKey}/edit`)}

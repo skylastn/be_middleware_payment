@@ -88,6 +88,20 @@ class OrderController extends Controller
         }
     }
 
+    public function summary(Request $request): JsonResponse
+    {
+        try {
+            return ResponseHelper::successResponse($this->service->getSummaryOrder($request));
+        } catch (Exception $ex) {
+            $error['line'] = $ex->getLine();
+            $error['message'] = $ex->getMessage();
+            $error['file'] = $ex->getFile();
+            Log::error($error);
+
+            return ResponseHelper::failedResponse($ex->getMessage());
+        }
+    }
+
     public function detail(Request $request): JsonResponse
     {
         try {

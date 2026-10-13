@@ -239,12 +239,13 @@ export function PaymentGatewayPage({ mode, id }: PaymentGatewayPageProps): React
                                     <td>{formatDate(row.created_at)}</td>
                                     <td>
                                         <div className="actions">
-                                            <button
+                                            <a
                                                 className="button"
-                                                onClick={() => navigate(`/admin/payment-gateways/${primaryKey}`)}
+                                                href={`/admin/payment-gateways/${primaryKey}`}
+                                                onClick={(e) => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return; e.preventDefault(); navigate(`/admin/payment-gateways/${primaryKey}`); }}
                                             >
                                                 View
-                                            </button>
+                                            </a>
                                             <button
                                                 className="button"
                                                 onClick={() => navigate(`/admin/payment-gateways/${primaryKey}/edit`)}

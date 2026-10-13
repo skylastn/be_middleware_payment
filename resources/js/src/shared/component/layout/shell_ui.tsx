@@ -55,13 +55,6 @@ export function Shell({ user, route, children, theme, onToggleTheme, onLogout }:
                     path: '/admin/orders',
                 },
                 {
-                    key: 'gateway-history',
-                    label: 'Gateway Live History',
-                    icon: <IconRepositories />,
-                    active: route.page === ('gateway-history' as any),
-                    path: '/admin/gateway-history',
-                },
-                {
                     key: 'projects',
                     label: 'Projects',
                     icon: <IconProjects />,
@@ -147,7 +140,7 @@ export function Shell({ user, route, children, theme, onToggleTheme, onLogout }:
         if (route.page === 'dashboard') return 'Dashboard';
         if ((route.page as string) === 'queue') return 'Queue Monitor';
         if (route.page === 'logs') return 'System Logs';
-        if ((route.page as string) === 'gateway-history') return 'Gateway Live History';
+        if ((route.page as string) === 'gateway-history') return 'Gateway History';
         if (activeResource) {
             return activeResource.split('-').map((s) => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
         }
@@ -164,9 +157,19 @@ export function Shell({ user, route, children, theme, onToggleTheme, onLogout }:
             {/* Left Sidebar */}
             <aside className={`app-sidebar ${sidebarOpen ? 'open' : ''}`}>
                 <div className="sidebar-header">
-                    <button className="brand link-button" onClick={() => navigate('/dashboard')}>
+                    <a
+                        className="brand link-button"
+                        href="/dashboard"
+                        onClick={(e) => {
+                            if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) {
+                                return;
+                            }
+                            e.preventDefault();
+                            navigate('/dashboard');
+                        }}
+                    >
                         <span className="brand-title">Middleware Payment</span>
-                    </button>
+                    </a>
                     <button
                         type="button"
                         className="mobile-sidebar-close"
@@ -182,18 +185,25 @@ export function Shell({ user, route, children, theme, onToggleTheme, onLogout }:
                             <div className="nav-section-title">{section.title}</div>
                             <div className="nav-section-items">
                                 {section.items.map((item) => (
-                                    <button
+                                    <a
                                         key={item.key}
-                                        type="button"
+                                        href={item.path}
                                         className={`sidebar-nav-item ${item.active ? 'active' : ''}`}
-                                        onClick={() => {
+                                        aria-current={item.active ? 'page' : undefined}
+                                        onClick={(e) => {
+                                            // Let the browser handle modified clicks so
+                                            // "open in new tab" and friends keep working.
+                                            if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) {
+                                                return;
+                                            }
+                                            e.preventDefault();
                                             navigate(item.path);
                                             setSidebarOpen(false);
                                         }}
                                     >
                                         <span className="nav-icon">{item.icon}</span>
                                         <span className="nav-label">{item.label}</span>
-                                    </button>
+                                    </a>
                                 ))}
                             </div>
                         </div>

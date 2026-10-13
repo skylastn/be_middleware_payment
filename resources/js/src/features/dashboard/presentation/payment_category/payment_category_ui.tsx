@@ -239,12 +239,13 @@ export function PaymentCategoryPage({ mode, id }: PaymentCategoryPageProps): Rea
                                     <td>{formatDate(row.created_at)}</td>
                                     <td>
                                         <div className="actions">
-                                            <button
+                                            <a
                                                 className="button"
-                                                onClick={() => navigate(`/admin/payment-categories/${primaryKey}`)}
+                                                href={`/admin/payment-categories/${primaryKey}`}
+                                                onClick={(e) => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return; e.preventDefault(); navigate(`/admin/payment-categories/${primaryKey}`); }}
                                             >
                                                 View
-                                            </button>
+                                            </a>
                                             <button
                                                 className="button"
                                                 onClick={() => navigate(`/admin/payment-categories/${primaryKey}/edit`)}

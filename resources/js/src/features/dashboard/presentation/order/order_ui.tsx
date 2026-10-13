@@ -3,15 +3,274 @@ import { PageTitle } from '@/shared/component/ui/page_title';
 import { DataTable } from '@/shared/component/ui/data_table';
 import { CopyButton } from '@/shared/component/ui/copy_button';
 import { renderBadge } from '@/shared/component/ui/badge';
-import { IconRefresh, IconSearch, IconX, IconArrowLeft, IconCalendar, IconRepositories } from '@/shared/component/ui/icons';
+import { IconRefresh, IconSearch, IconX, IconArrowLeft, IconCalendar, IconRepositories, IconFilter } from '@/shared/component/ui/icons';
 import { navigate, displayValue, formatDate, getMonthRange, getLastDaysRange, getTodayDateString } from '@/shared/utils/format_utils';
 import { Skeleton, SkeletonFormFields, SkeletonTableRows } from '@/shared/component/ui/skeleton';
 import { ModalDialog } from '@/shared/component/ui/modal_dialog';
-import { useOrderLogic } from './order_logic';
+import { useOrderLogic, OrderFilterState } from './order_logic';
+import { OrderSummaryTotals } from '../../domain/model/response/order/order_summary_response';
 
 export interface OrderPageProps {
     mode: 'resource-index' | 'resource-create' | 'resource-edit' | 'resource-show';
     id?: string | number;
+}
+
+function formatRupiah(value: number): string {
+    return `Rp ${Number(value || 0).toLocaleString('id-ID')}`;
+}
+
+function OrderSummaryStrip({ summary, loading }: { summary: OrderSummaryTotals | null; loading: boolean }): React.JSX.Element {
+    const breakdown = summary?.status_breakdown || {};
+    const tileClass = (key: string) => `summary-tile ${key}${loading ? ' is-loading' : ''}`;
+
+    const tiles = [
+        {
+            key: 'blue',
+            label: 'Total Orders',
+            value: Number(summary?.total_orders || 0).toLocaleString('id-ID'),
+            note: loading ? '' : `${Object.keys(breakdown).length} status group`,
+        },
+        {
+            key: 'success',
+            label: 'Total Amount',
+            value: formatRupiah(summary?.total_amount || 0),
+            note: loading ? '' : 'Sum of filtered orders',
+        },
+        {
+            key: 'warning',
+            label: 'Average Amount',
+            value: formatRupiah(summary?.average_amount || 0),
+            note: loading ? '' : 'Per order',
+        },
+    ];
+
+    return (
+        <div className="order-summary-strip">
+            {tiles.map((tile) => (
+                <div key={tile.label} className={tileClass(tile.key)}>
+                    <div className="summary-tile-icon" style={{ opacity: loading ? 0.4 : 1 }} />
+                    <div className="summary-tile-body">
+                        <div className="summary-tile-label">{tile.label}</div>
+                        <div className="summary-tile-value">{loading ? '000000' : tile.value}</div>
+                        <div className="summary-tile-note">{tile.note || '\u00A0'}</div>
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+}
+
+function FilterSummaryChips({
+    state,
+    repositories,
+    onRemove,
+}: {
+    state: OrderFilterState;
+    repositories: Array<{ id: string | number; label: string }>;
+    onRemove: (patch: Partial<OrderFilterState>) => void;
+}): React.JSX.Element {
+    const chips: Array<{ label: string; patch: Partial<OrderFilterState> }> = [];
+    if (state.searchTerm.trim()) {
+        chips.push({ label: `Search: "${state.searchTerm.trim()}"`, patch: { searchTerm: '' } });
+    }
+    if (state.email.trim()) {
+        chips.push({ label: `Email: ${state.email.trim()}`, patch: { email: '' } });
+    }
+    if (state.startDate || state.endDate) {
+        chips.push({
+            label: `Date: ${state.startDate || '…'} → ${state.endDate || '…'}`,
+            patch: { startDate: '', endDate: '' },
+        });
+    }
+    if (state.hourFrom.trim() || state.hourTo.trim()) {
+        const from = state.hourFrom.trim();
+        const to = state.hourTo.trim();
+        let jam: string;
+        if (from && to) {
+            jam = `${from} → ${to}`;
+        } else if (from) {
+            jam = `from ${from}`;
+        } else {
+            jam = `until ${to}`;
+        }
+        chips.push({ label: `Jam: ${jam}`, patch: { hourFrom: '', hourTo: '' } });
+    }
+    if (state.status !== 'all') {
+        chips.push({ label: `Status: ${state.status}`, patch: { status: 'all' } });
+    }
+    if (state.mode !== 'all') {
+        chips.push({ label: `Mode: ${state.mode}`, patch: { mode: 'all' } });
+    }
+    if (state.repository !== 'all') {
+        const repo = repositories.find((r) => String(r.id) === String(state.repository));
+        chips.push({ label: `Repo: ${repo?.label || `#${state.repository}`}`, patch: { repository: 'all' } });
+    }
+
+    return (
+        <>
+            {chips.map((chip) => (
+                <span key={chip.label} className="active-filter-chip">
+                    {chip.label}
+                    <button
+                        type="button"
+                        className="active-filter-chip-remove"
+                        onClick={() => onRemove(chip.patch)}
+                        title={`Remove ${chip.label}`}
+                        aria-label={`Remove filter ${chip.label}`}
+                    >
+                        <IconX />
+                    </button>
+                </span>
+            ))}
+        </>
+    );
+}
+
+function FilterDialog({
+    isOpen,
+    draft,
+    setDraft,
+    repositories,
+    onApply,
+    onReset,
+    onClose,
+}: {
+    isOpen: boolean;
+    draft: OrderFilterState;
+    setDraft: React.Dispatch<React.SetStateAction<OrderFilterState>>;
+    repositories: Array<{ id: string | number; label: string }>;
+    onApply: () => void;
+    onReset: () => void;
+    onClose: () => void;
+}): React.JSX.Element | null {
+    const patch = (partial: Partial<OrderFilterState>) => setDraft((prev) => ({ ...prev, ...partial }));
+
+    return (
+        <ModalDialog
+            isOpen={isOpen}
+            title="Filter Orders"
+            description="Set the criteria, then apply to refresh the list and summary."
+            confirmText="Apply Filters"
+            cancelText="Cancel"
+            maxWidth="640px"
+            onConfirm={onApply}
+            onClose={onClose}
+        >
+            <div className="filter-dialog-grid">
+                <div className="filter-dialog-field full">
+                    <label>Search</label>
+                    <input
+                        type="text"
+                        className="filter-dialog-input"
+                        placeholder="Reference, email, notes..."
+                        value={draft.searchTerm}
+                        onChange={(e) => patch({ searchTerm: e.target.value })}
+                    />
+                </div>
+
+                <div className="filter-dialog-field">
+                    <label>Email</label>
+                    <input
+                        type="text"
+                        className="filter-dialog-input"
+                        placeholder="order@email..."
+                        value={draft.email}
+                        onChange={(e) => patch({ email: e.target.value })}
+                    />
+                </div>
+
+                <div className="filter-dialog-field">
+                    <label>Status</label>
+                    <select
+                        className="filter-dialog-input"
+                        value={draft.status}
+                        onChange={(e) => patch({ status: e.target.value })}
+                    >
+                        <option value="all">All Statuses</option>
+                        <option value="SUCCESS">SUCCESS</option>
+                        <option value="PENDING">PENDING</option>
+                        <option value="FAILED">FAILED</option>
+                        <option value="EXPIRED">EXPIRED</option>
+                    </select>
+                </div>
+
+                <div className="filter-dialog-field">
+                    <label>From Date</label>
+                    <input
+                        type="date"
+                        className="filter-dialog-input"
+                        value={draft.startDate}
+                        onChange={(e) => patch({ startDate: e.target.value })}
+                    />
+                </div>
+
+                <div className="filter-dialog-field">
+                    <label>To Date</label>
+                    <input
+                        type="date"
+                        className="filter-dialog-input"
+                        value={draft.endDate}
+                        onChange={(e) => patch({ endDate: e.target.value })}
+                    />
+                </div>
+
+                <div className="filter-dialog-field">
+                    <label>Jam From</label>
+                    <input
+                        type="time"
+                        className="filter-dialog-input"
+                        value={draft.hourFrom}
+                        onChange={(e) => patch({ hourFrom: e.target.value })}
+                    />
+                </div>
+
+                <div className="filter-dialog-field">
+                    <label>Jam To</label>
+                    <input
+                        type="time"
+                        className="filter-dialog-input"
+                        value={draft.hourTo}
+                        onChange={(e) => patch({ hourTo: e.target.value })}
+                    />
+                </div>
+
+                <div className="filter-dialog-field">
+                    <label>Mode</label>
+                    <select
+                        className="filter-dialog-input"
+                        value={draft.mode}
+                        onChange={(e) => patch({ mode: e.target.value })}
+                    >
+                        <option value="all">All Modes</option>
+                        <option value="prod">Production</option>
+                        <option value="sandbox">Sandbox</option>
+                    </select>
+                </div>
+
+                <div className="filter-dialog-field full">
+                    <label>Payment Repository</label>
+                    <select
+                        className="filter-dialog-input"
+                        value={draft.repository}
+                        onChange={(e) => patch({ repository: e.target.value })}
+                    >
+                        <option value="all">All Repositories</option>
+                        {repositories.map((repo) => (
+                            <option key={repo.id} value={repo.id}>
+                                {repo.label}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+            </div>
+
+            <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'flex-start' }}>
+                <button type="button" className="button" onClick={onReset}>
+                    <IconX /> Clear All
+                </button>
+            </div>
+        </ModalDialog>
+    );
 }
 
 export function OrderPage({ mode, id }: OrderPageProps): React.JSX.Element {
@@ -26,27 +285,27 @@ export function OrderPage({ mode, id }: OrderPageProps): React.JSX.Element {
         confirmSuccessOrder,
         setConfirmSuccessOrder,
         confirmSetSuccessAction,
-        searchTerm,
-        setSearchTerm,
         page,
         perPage,
-        setPerPage,
         total,
         currentPage,
-        selectedMode,
-        setSelectedMode,
-        selectedStatus,
-        setSelectedStatus,
-        startDate,
-        setStartDate,
-        endDate,
-        setEndDate,
-        selectedRepository,
-        setSelectedRepository,
+        currentPerPage,
         repositories,
+        applied,
+        draft,
+        setDraft,
+        activeFilterCount,
+        filterDialogOpen,
+        openFilterDialog,
+        closeFilterDialog,
+        applyFilters,
+        resetFilters,
+        removeFilter,
+        applyDatePreset,
+        summary,
+        summaryLoading,
         loadList,
-        handleSearchSubmit,
-        handleClearSearch,
+        handlePerPageChange,
         handleResendCallback,
         handleSetSuccess,
     } = useOrderLogic({ mode, id });
@@ -272,41 +531,37 @@ export function OrderPage({ mode, id }: OrderPageProps): React.JSX.Element {
     const applyPreset = (preset: 'today' | '7days' | 'month' | '30days') => {
         if (preset === 'today') {
             const today = getTodayDateString();
-            setStartDate(today);
-            setEndDate(today);
+            applyDatePreset(today, today);
         } else if (preset === '7days') {
             const { startDate: s, endDate: e } = getLastDaysRange(7);
-            setStartDate(s);
-            setEndDate(e);
+            applyDatePreset(s, e);
         } else if (preset === '30days') {
             const { startDate: s, endDate: e } = getLastDaysRange(30);
-            setStartDate(s);
-            setEndDate(e);
+            applyDatePreset(s, e);
         } else if (preset === 'month') {
             const { startDate: s, endDate: e } = getMonthRange();
-            setStartDate(s);
-            setEndDate(e);
+            applyDatePreset(s, e);
         }
     };
 
     const isMonthActive = (() => {
         const { startDate: s, endDate: e } = getMonthRange();
-        return startDate === s && endDate === e;
+        return applied.startDate === s && applied.endDate === e;
     })();
 
     const isTodayActive = (() => {
         const today = getTodayDateString();
-        return startDate === today && endDate === today;
+        return applied.startDate === today && applied.endDate === today;
     })();
 
     const is7DaysActive = (() => {
         const { startDate: s, endDate: e } = getLastDaysRange(7);
-        return startDate === s && endDate === e;
+        return applied.startDate === s && applied.endDate === e;
     })();
 
     const is30DaysActive = (() => {
         const { startDate: s, endDate: e } = getLastDaysRange(30);
-        return startDate === s && endDate === e;
+        return applied.startDate === s && applied.endDate === e;
     })();
 
     return (
@@ -332,23 +587,21 @@ export function OrderPage({ mode, id }: OrderPageProps): React.JSX.Element {
             {notice && <div className="panel alert success" style={{ marginBottom: '16px' }}>{notice}</div>}
             {error && <div className="panel alert danger" style={{ marginBottom: '16px' }}>{error}</div>}
 
+            <OrderSummaryStrip summary={summary} loading={summaryLoading} />
+
             <div className="modern-filter-panel">
                 <div className="modern-filter-row">
-                    <form className="search-box" onSubmit={handleSearchSubmit} style={{ minWidth: '280px', flex: '1 1 300px' }}>
-                        <span className="search-icon"><IconSearch /></span>
-                        <input
-                            className="search-input"
-                            type="text"
-                            placeholder="Search reference, email, notes..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
-                        {searchTerm && (
-                            <button className="search-clear" type="button" onClick={handleClearSearch}>
-                                <IconX />
-                            </button>
+                    <button
+                        type="button"
+                        className="button primary"
+                        onClick={openFilterDialog}
+                        style={{ gap: '8px' }}
+                    >
+                        <IconFilter /> Filters
+                        {activeFilterCount > 0 && (
+                            <span className="filter-count-badge">{activeFilterCount}</span>
                         )}
-                    </form>
+                    </button>
 
                     <div className="modern-filter-chips">
                         <span
@@ -375,94 +628,52 @@ export function OrderPage({ mode, id }: OrderPageProps): React.JSX.Element {
                         >
                             Last 30 Days
                         </span>
-                    </div>
-                </div>
-
-                <div className="modern-filter-row" style={{ paddingTop: '8px', borderTop: '1px solid var(--border)' }}>
-                    <div className="modern-filter-fields">
-                        <div className="modern-input-group">
-                            <span className="input-icon"><IconCalendar /></span>
-                            <label>From</label>
-                            <input
-                                type="date"
-                                value={startDate}
-                                onChange={(e) => setStartDate(e.target.value)}
-                            />
-                        </div>
-
-                        <div className="modern-input-group">
-                            <span className="input-icon"><IconCalendar /></span>
-                            <label>To</label>
-                            <input
-                                type="date"
-                                value={endDate}
-                                onChange={(e) => setEndDate(e.target.value)}
-                            />
-                        </div>
-
-                        <div className="modern-input-group">
-                            <span className="input-icon"><IconRepositories /></span>
-                            <label>Repo</label>
-                            <select
-                                value={selectedRepository}
-                                onChange={(e) => setSelectedRepository(e.target.value)}
-                            >
-                                <option value="all">All Repositories</option>
-                                {repositories.map((repo) => (
-                                    <option key={repo.id} value={repo.id}>
-                                        {repo.label}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-
-                        <select
-                            className="filter-select"
-                            value={selectedMode}
-                            onChange={(e) => setSelectedMode(e.target.value)}
-                        >
-                            <option value="all">All Modes</option>
-                            <option value="prod">Production</option>
-                            <option value="sandbox">Sandbox</option>
-                        </select>
-
-                        <select
-                            className="filter-select"
-                            value={selectedStatus}
-                            onChange={(e) => setSelectedStatus(e.target.value)}
-                        >
-                            <option value="all">All Statuses</option>
-                            <option value="SUCCESS">SUCCESS</option>
-                            <option value="PENDING">PENDING</option>
-                            <option value="FAILED">FAILED</option>
-                            <option value="EXPIRED">EXPIRED</option>
-                        </select>
-
-                        <select
-                            className="filter-select"
-                            value={perPage}
-                            onChange={(e) => setPerPage(Number(e.target.value))}
-                        >
-                            <option value="10">10 / page</option>
-                            <option value="25">25 / page</option>
-                            <option value="50">50 / page</option>
-                            <option value="100">100 / page</option>
-                        </select>
-
-                        {(searchTerm || startDate || endDate || selectedRepository !== 'all' || selectedMode !== 'all' || selectedStatus !== 'all') && (
+                        {activeFilterCount > 0 && (
                             <button
                                 type="button"
                                 className="filter-chip"
-                                onClick={handleClearSearch}
-                                style={{ background: 'var(--danger-light)', color: 'var(--danger)', borderColor: 'var(--danger)', height: '36px' }}
+                                onClick={resetFilters}
+                                style={{ background: 'var(--danger-light)', color: 'var(--danger)', borderColor: 'var(--danger)' }}
                                 title="Reset all filters"
                             >
                                 <IconX /> Reset
                             </button>
                         )}
                     </div>
+
+                    <select
+                        className="filter-select"
+                        value={perPage}
+                        onChange={(e) => handlePerPageChange(Number(e.target.value))}
+                    >
+                        <option value="10">10 / page</option>
+                        <option value="25">25 / page</option>
+                        <option value="50">50 / page</option>
+                        <option value="100">100 / page</option>
+                    </select>
                 </div>
+
+                {activeFilterCount > 0 && (
+                    <div className="active-filter-summary">
+                        <span className="muted" style={{ fontSize: '12px' }}>Showing results for:</span>
+                        <FilterSummaryChips
+                            state={applied}
+                            repositories={repositories}
+                            onRemove={removeFilter}
+                        />
+                    </div>
+                )}
             </div>
+
+            <FilterDialog
+                isOpen={filterDialogOpen}
+                draft={draft}
+                setDraft={setDraft}
+                repositories={repositories}
+                onApply={applyFilters}
+                onReset={resetFilters}
+                onClose={closeFilterDialog}
+            />
 
             <div className="panel">
                 <DataTable columns={['Reference', 'Customer', 'Project', 'Method', 'Amount', 'Status', 'Mode', 'Created', 'Actions']}>
@@ -474,7 +685,17 @@ export function OrderPage({ mode, id }: OrderPageProps): React.JSX.Element {
                             return (
                                 <tr key={primaryKey}>
                                     <td className="mono">
-                                        {row.reference}
+                                        <a
+                                            className="table-link"
+                                            href={`/admin/orders/${primaryKey}`}
+                                            onClick={(e) => {
+                                                if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+                                                e.preventDefault();
+                                                navigate(`/admin/orders/${primaryKey}`);
+                                            }}
+                                        >
+                                            {row.reference}
+                                        </a>
                                         <CopyButton text={row.reference} />
                                     </td>
                                     <td>{row.name || '-'}</td>
@@ -490,12 +711,13 @@ export function OrderPage({ mode, id }: OrderPageProps): React.JSX.Element {
                                     <td>{formatDate(row.created_at)}</td>
                                     <td>
                                         <div className="actions">
-                                            <button
+                                            <a
                                                 className="button"
-                                                onClick={() => navigate(`/admin/orders/${primaryKey}`)}
+                                                href={`/admin/orders/${primaryKey}`}
+                                                onClick={(e) => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return; e.preventDefault(); navigate(`/admin/orders/${primaryKey}`); }}
                                             >
                                                 View
-                                            </button>
+                                            </a>
                                             {row.status !== 'SUCCESS' ? (
                                                 <button
                                                     className="button primary"

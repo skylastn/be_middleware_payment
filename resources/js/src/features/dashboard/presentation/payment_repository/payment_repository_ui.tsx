@@ -523,12 +523,13 @@ export function PaymentRepositoryPage({ mode, id }: PaymentRepositoryPageProps):
                                             >
                                                 Test
                                             </button>
-                                            <button
+                                            <a
                                                 className="button"
-                                                onClick={() => navigate(`/admin/payment-repositories/${primaryKey}`)}
+                                                href={`/admin/payment-repositories/${primaryKey}`}
+                                                onClick={(e) => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return; e.preventDefault(); navigate(`/admin/payment-repositories/${primaryKey}`); }}
                                             >
                                                 View
-                                            </button>
+                                            </a>
                                             <button
                                                 className="button"
                                                 onClick={() => navigate(`/admin/payment-repositories/${primaryKey}/edit`)}

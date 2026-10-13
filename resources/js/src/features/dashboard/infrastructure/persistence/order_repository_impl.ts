@@ -1,5 +1,6 @@
 import { OrderRepository } from '../../domain/repository/order_repository';
 import { OrderItem, OrderListResponse } from '../../domain/model/response/order/order_response';
+import { OrderSummaryTotals } from '../../domain/model/response/order/order_summary_response';
 import { OrderFilterRequest } from '../../domain/model/request/order/order_filter_request';
 import { OrderRemoteDataSource } from '../data_source/remote/order_remote_data_source';
 
@@ -10,6 +11,10 @@ export class OrderRepositoryImpl implements OrderRepository {
 
     async getOrders(params?: OrderFilterRequest): Promise<OrderListResponse> {
         return this.remote.getOrders(params);
+    }
+
+    async getOrderSummary(params?: OrderFilterRequest): Promise<OrderSummaryTotals> {
+        return this.remote.getOrderSummary(params);
     }
 
     async getOrderById(id: string | number): Promise<OrderItem> {

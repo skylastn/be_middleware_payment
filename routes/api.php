@@ -54,6 +54,7 @@ Route::middleware('throttle:api')->group(function () {
     Route::middleware('project.auth')->group(function () {
         Route::prefix('order')->controller(OrderController::class)->group(function () {
             Route::get('/', 'index');
+            Route::get('/summary', 'summary');
             Route::get('/detail', 'detail');
             Route::get('/checkOrderStatus', 'checkOrderStatus');
             Route::post('/create', 'store');
@@ -162,6 +163,7 @@ Route::middleware('throttle:api')->group(function () {
         // Admin Order Management
         Route::prefix('orders')->controller(OrderController::class)->group(function () {
             Route::get('/', [OrderController::class, 'index']);
+            Route::get('/summary', [OrderController::class, 'summary']);
             Route::get('/{id}', [OrderController::class, 'show']);
             Route::post('/{id}/resend-callback', [OrderController::class, 'resendCallback']);
             Route::post('/{id}/set-success', [OrderController::class, 'setSuccessAdmin']);

@@ -2,10 +2,48 @@ import { useEffect, useState } from 'react';
 import { orderService } from '../../application/order_service';
 import { paymentRepositoryService } from '../../application/payment_repository_service';
 import { OrderItem } from '../../domain/model/response/order/order_response';
+import { OrderSummaryTotals } from '../../domain/model/response/order/order_summary_response';
 
 export interface UseOrderLogicProps {
     mode: 'resource-index' | 'resource-create' | 'resource-edit' | 'resource-show';
     id?: string | number;
+}
+
+export interface OrderFilterState {
+    searchTerm: string;
+    mode: string;
+    status: string;
+    startDate: string;
+    endDate: string;
+    repository: string;
+    email: string;
+    hourFrom: string;
+    hourTo: string;
+}
+
+const EMPTY_FILTERS: OrderFilterState = {
+    searchTerm: '',
+    mode: 'all',
+    status: 'all',
+    startDate: '',
+    endDate: '',
+    repository: 'all',
+    email: '',
+    hourFrom: '',
+    hourTo: '',
+};
+
+function countActiveFilters(state: OrderFilterState): number {
+    let count = 0;
+    if (state.searchTerm.trim()) count++;
+    if (state.mode !== 'all') count++;
+    if (state.status !== 'all') count++;
+    if (state.startDate) count++;
+    if (state.endDate) count++;
+    if (state.repository !== 'all') count++;
+    if (state.email.trim()) count++;
+    if (state.hourFrom.trim() || state.hourTo.trim()) count++;
+    return count;
 }
 
 export function useOrderLogic({ mode, id }: UseOrderLogicProps) {
@@ -18,16 +56,19 @@ export function useOrderLogic({ mode, id }: UseOrderLogicProps) {
     const [updatingStatus, setUpdatingStatus] = useState<boolean>(false);
     const [confirmSuccessOrder, setConfirmSuccessOrder] = useState<{ id: string | number; reference?: string } | null>(null);
 
-    // Filters
+    // Applied filters — these drive the results shown on the page.
     const [searchTerm, setSearchTerm] = useState<string>('');
     const [page, setPage] = useState<number>(1);
     const [perPage, setPerPage] = useState<number>(10);
-    const [selectedMode, setSelectedMode] = useState<string>('all');
-    const [selectedStatus, setSelectedStatus] = useState<string>('all');
-    const [startDate, setStartDate] = useState<string>('');
-    const [endDate, setEndDate] = useState<string>('');
     const [selectedRepository, setSelectedRepository] = useState<string>('all');
     const [repositories, setRepositories] = useState<Array<{ id: string | number; label: string }>>([]);
+    const [summary, setSummary] = useState<OrderSummaryTotals | null>(null);
+    const [summaryLoading, setSummaryLoading] = useState<boolean>(false);
+
+    // Draft filters — edited inside the dialog, only applied on submit.
+    const [filterDialogOpen, setFilterDialogOpen] = useState<boolean>(false);
+    const [applied, setApplied] = useState<OrderFilterState>(EMPTY_FILTERS);
+    const [draft, setDraft] = useState<OrderFilterState>(EMPTY_FILTERS);
 
     useEffect(() => {
         if (mode === 'resource-index') {
@@ -45,19 +86,79 @@ export function useOrderLogic({ mode, id }: UseOrderLogicProps) {
         }
     }, [mode]);
 
-    const loadList = async (pageNum = page) => {
+    const buildFilters = (source: OrderFilterState = applied) => {
+        const from = source.hourFrom.trim();
+        const to = source.hourTo.trim();
+        return {
+            search: source.searchTerm.trim() || undefined,
+            mode: source.mode !== 'all' ? source.mode : undefined,
+            status: source.status !== 'all' ? source.status : undefined,
+            start_date: source.startDate || undefined,
+            end_date: source.endDate || undefined,
+            payment_repository_id: source.repository !== 'all' ? source.repository : undefined,
+            email: source.email.trim() || undefined,
+            start_time: from || undefined,
+            end_time: to || undefined,
+        };
+    };
+
+    const activeFilterCount = countActiveFilters(applied);
+
+    const openFilterDialog = () => {
+        setDraft(applied);
+        setFilterDialogOpen(true);
+    };
+
+    const closeFilterDialog = () => {
+        setDraft(applied);
+        setFilterDialogOpen(false);
+    };
+
+    const applyFilters = () => {
+        setApplied(draft);
+        setFilterDialogOpen(false);
+        setPage(1);
+        loadList(1, draft);
+        loadSummary(draft);
+    };
+
+    const resetFilters = () => {
+        setDraft(EMPTY_FILTERS);
+        setApplied(EMPTY_FILTERS);
+        setFilterDialogOpen(false);
+        setPage(1);
+        loadList(1, EMPTY_FILTERS);
+        loadSummary(EMPTY_FILTERS);
+    };
+
+    // Quick removal of a single active filter straight from the chip row.
+    const removeFilter = (patch: Partial<OrderFilterState>) => {
+        const next = { ...applied, ...patch };
+        setApplied(next);
+        setDraft(next);
+        setPage(1);
+        loadList(1, next);
+        loadSummary(next);
+    };
+
+    // Quick chips (Today / 7 days / ...) live outside the dialog and re-apply immediately.
+    const applyDatePreset = (start: string, end: string) => {
+        const next = { ...applied, startDate: start, endDate: end };
+        setApplied(next);
+        setDraft(next);
+        setPage(1);
+        loadList(1, next);
+        loadSummary(next);
+    };
+
+    const loadList = async (pageNum = page, source: OrderFilterState = applied, size: number = perPage) => {
         setLoading(true);
         setError('');
         try {
             const res = await orderService.getOrders({
+                ...buildFilters(source),
                 page: pageNum,
-                per_page: perPage,
-                search: searchTerm.trim() || undefined,
-                mode: selectedMode !== 'all' ? selectedMode : undefined,
-                status: selectedStatus !== 'all' ? selectedStatus : undefined,
-                start_date: startDate || undefined,
-                end_date: endDate || undefined,
-                payment_repository_id: selectedRepository !== 'all' ? selectedRepository : undefined,
+                per_page: size,
             });
             setPayload(res);
             setPage(pageNum);
@@ -65,6 +166,18 @@ export function useOrderLogic({ mode, id }: UseOrderLogicProps) {
             setError(err?.message || 'Failed to load orders.');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const loadSummary = async (source: OrderFilterState = applied) => {
+        setSummaryLoading(true);
+        try {
+            const res = await orderService.getOrderSummary(buildFilters(source));
+            setSummary(res);
+        } catch {
+            setSummary(null);
+        } finally {
+            setSummaryLoading(false);
         }
     };
 
@@ -85,23 +198,15 @@ export function useOrderLogic({ mode, id }: UseOrderLogicProps) {
     useEffect(() => {
         if (mode === 'resource-index') {
             loadList(1);
+            loadSummary();
         } else if (mode === 'resource-show') {
             loadItem();
         }
-    }, [mode, id, selectedMode, selectedStatus, startDate, endDate, selectedRepository, perPage]);
+    }, [mode, id, perPage]);
 
-    const handleSearchSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        loadList(1);
-    };
-
-    const handleClearSearch = () => {
-        setSearchTerm('');
-        setStartDate('');
-        setEndDate('');
-        setSelectedRepository('all');
-        setSelectedMode('all');
-        setSelectedStatus('all');
+    const handlePerPageChange = (nextSize: number) => {
+        setPerPage(nextSize);
+        loadList(1, applied, nextSize);
     };
 
     const handleResendCallback = async (orderId: string | number) => {
@@ -139,6 +244,7 @@ export function useOrderLogic({ mode, id }: UseOrderLogicProps) {
                 loadItem();
             } else {
                 loadList(page);
+                loadSummary();
             }
         } catch (err: any) {
             setError(err?.message || 'Failed to update order status.');
@@ -164,29 +270,29 @@ export function useOrderLogic({ mode, id }: UseOrderLogicProps) {
         confirmSuccessOrder,
         setConfirmSuccessOrder,
         confirmSetSuccessAction,
-        searchTerm,
-        setSearchTerm,
         page,
         perPage,
-        setPerPage,
         total,
         currentPage,
         currentPerPage,
-        selectedMode,
-        setSelectedMode,
-        selectedStatus,
-        setSelectedStatus,
-        startDate,
-        setStartDate,
-        endDate,
-        setEndDate,
-        selectedRepository,
-        setSelectedRepository,
         repositories,
+        applied,
+        draft,
+        setDraft,
+        activeFilterCount,
+        filterDialogOpen,
+        openFilterDialog,
+        closeFilterDialog,
+        applyFilters,
+        resetFilters,
+        removeFilter,
+        applyDatePreset,
+        summary,
+        summaryLoading,
+        loadSummary,
         loadList,
         loadItem,
-        handleSearchSubmit,
-        handleClearSearch,
+        handlePerPageChange,
         handleResendCallback,
         handleSetSuccess,
     };

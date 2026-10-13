@@ -237,12 +237,13 @@ export function SettingPage({ mode, id }: SettingPageProps): React.JSX.Element {
                                     <td>{row.updated_at || '-'}</td>
                                     <td>
                                         <div className="actions">
-                                            <button
+                                            <a
                                                 className="button"
-                                                onClick={() => navigate(`/admin/settings/${primaryKey}`)}
+                                                href={`/admin/settings/${primaryKey}`}
+                                                onClick={(e) => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return; e.preventDefault(); navigate(`/admin/settings/${primaryKey}`); }}
                                             >
                                                 View
-                                            </button>
+                                            </a>
                                             <button
                                                 className="button"
                                                 onClick={() => navigate(`/admin/settings/${primaryKey}/edit`)}

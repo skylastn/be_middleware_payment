@@ -54,28 +54,69 @@ class OrderService
 
     public function getListOrder(Request $request): LengthAwarePaginator
     {
-        $search = $request->query('search');
-        $mode = $request->query('mode');
-        $status = $request->query('status');
-        $perPage = (int) ($request->query('per_page', $request->query('perPage', 10)));
-        $startDate = $request->query('start_date') ?: $request->query('startDate');
-        $endDate = $request->query('end_date') ?: $request->query('endDate');
-        $paymentRepositoryId = $request->query('payment_repository_id') ?: $request->query('paymentRepositoryId');
-
-        $type = auth('sanctum')->user()?->isAdmin()
-            ? $request->query('type')
-            : $this->projectService->checkKey()->type;
+        $filters = $this->resolveFilters($request);
 
         return $this->orders->latestPaginated(
-            $perPage,
-            $search,
-            $mode,
-            $status,
-            $type,
-            $startDate,
-            $endDate,
-            $paymentRepositoryId
+            $filters['perPage'],
+            $filters['search'],
+            $filters['mode'],
+            $filters['status'],
+            $filters['type'],
+            $filters['startDate'],
+            $filters['endDate'],
+            $filters['paymentRepositoryId'],
+            $filters['email'],
+            $filters['hour'],
+            $filters['startTime'],
+            $filters['endTime']
         );
+    }
+
+    /**
+     * @return array{total_orders: int, total_amount: float, average_amount: float, status_breakdown: array<string, array{count: int, amount: float}>}
+     */
+    public function getSummaryOrder(Request $request): array
+    {
+        $filters = $this->resolveFilters($request);
+
+        return $this->orders->summary(
+            $filters['search'],
+            $filters['mode'],
+            $filters['status'],
+            $filters['type'],
+            $filters['startDate'],
+            $filters['endDate'],
+            $filters['paymentRepositoryId'],
+            $filters['email'],
+            $filters['hour'],
+            $filters['startTime'],
+            $filters['endTime']
+        );
+    }
+
+    /**
+     * @return array{perPage: int, search: ?string, mode: ?string, status: ?string, type: ?string, startDate: ?string, endDate: ?string, paymentRepositoryId: ?string, email: ?string, hour: string|int|null, startTime: string|int|null, endTime: string|int|null}
+     */
+    private function resolveFilters(Request $request): array
+    {
+        $hour = $request->query('hour') ?? $request->query('jam');
+
+        return [
+            'perPage' => (int) ($request->query('per_page', $request->query('perPage', 10))),
+            'search' => $request->query('search'),
+            'mode' => $request->query('mode'),
+            'status' => $request->query('status'),
+            'type' => auth('sanctum')->user()?->isAdmin()
+                ? $request->query('type')
+                : $this->projectService->checkKey()->type,
+            'startDate' => $request->query('start_date') ?: $request->query('startDate'),
+            'endDate' => $request->query('end_date') ?: $request->query('endDate'),
+            'paymentRepositoryId' => $request->query('payment_repository_id') ?: $request->query('paymentRepositoryId'),
+            'email' => ($request->query('email') ?: $request->query('order_email')) ?: null,
+            'hour' => ($hour !== '' && $hour !== null) ? $hour : null,
+            'startTime' => ($request->query('start_time') ?: $request->query('startTime') ?: $request->query('start_hour') ?: $request->query('startHour')) ?: null,
+            'endTime' => ($request->query('end_time') ?: $request->query('endTime') ?: $request->query('end_hour') ?: $request->query('endHour')) ?: null,
+        ];
     }
 
     public function detailByReferenceAndKey(string $reference, ?string $projectType): ?Order

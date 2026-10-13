@@ -316,20 +316,20 @@ export function ProjectPage({ mode, id }: ProjectPageProps): React.JSX.Element {
                                     <td>{formatDate(row.created_at)}</td>
                                     <td>
                                         <div className="actions">
-                                            <button
+                                            <a
                                                 className="button"
-                                                style={{ color: 'var(--primary)', fontWeight: 600 }}
-                                                onClick={() => navigate(`/admin/projects/${primaryKey}/logs`)}
-                                                title="View dedicated project logs"
+                                                href={`/admin/projects/${primaryKey}/logs`}
+                                                onClick={(e) => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return; e.preventDefault(); navigate(`/admin/projects/${primaryKey}/logs`); }}
                                             >
                                                 <IconLogs /> Logs
-                                            </button>
-                                            <button
+                                            </a>
+                                            <a
                                                 className="button"
-                                                onClick={() => navigate(`/admin/projects/${primaryKey}`)}
+                                                href={`/admin/projects/${primaryKey}`}
+                                                onClick={(e) => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return; e.preventDefault(); navigate(`/admin/projects/${primaryKey}`); }}
                                             >
                                                 View
-                                            </button>
+                                            </a>
                                             <button
                                                 className="button"
                                                 onClick={() => navigate(`/admin/projects/${primaryKey}/edit`)}

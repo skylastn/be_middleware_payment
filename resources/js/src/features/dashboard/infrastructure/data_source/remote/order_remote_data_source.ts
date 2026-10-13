@@ -1,12 +1,13 @@
 import { apiClient } from '@/shared/network/api_client';
 import { OrderItem, OrderListResponse } from '@/features/dashboard/domain/model/response/order/order_response';
+import { OrderSummaryTotals } from '@/features/dashboard/domain/model/response/order/order_summary_response';
 import { OrderFilterRequest } from '@/features/dashboard/domain/model/request/order/order_filter_request';
 
 export class OrderRemoteDataSource {
-    async getOrders(params?: OrderFilterRequest): Promise<OrderListResponse> {
+    buildOrderQuery(params?: OrderFilterRequest, includePaging = true): URLSearchParams {
         const query = new URLSearchParams();
-        if (params?.page && params.page > 1) query.set('page', String(params.page));
-        if (params?.per_page && params.per_page !== 10) query.set('per_page', String(params.per_page));
+        if (includePaging && params?.page && params.page > 1) query.set('page', String(params.page));
+        if (includePaging && params?.per_page && params.per_page !== 10) query.set('per_page', String(params.per_page));
         if (params?.search?.trim()) query.set('search', params.search.trim());
         if (params?.mode && params.mode !== 'all') query.set('mode', params.mode);
         if (params?.status && params.status !== 'all') query.set('status', params.status);
@@ -15,9 +16,24 @@ export class OrderRemoteDataSource {
         if (params?.payment_repository_id && params.payment_repository_id !== 'all') {
             query.set('payment_repository_id', params.payment_repository_id);
         }
+        if (params?.type && params.type !== 'all') query.set('type', params.type);
+        if (params?.email?.trim()) query.set('email', params.email.trim());
+        if (params?.hour !== undefined && params?.hour !== '') query.set('hour', String(params.hour));
+        if (params?.start_time !== undefined && params?.start_time !== '') query.set('start_time', String(params.start_time));
+        if (params?.end_time !== undefined && params?.end_time !== '') query.set('end_time', String(params.end_time));
 
-        const qs = query.toString();
+        return query;
+    }
+
+    async getOrders(params?: OrderFilterRequest): Promise<OrderListResponse> {
+        const qs = this.buildOrderQuery(params, true).toString();
         return apiClient<OrderListResponse>(`/api/admin/orders${qs ? `?${qs}` : ''}`);
+    }
+
+    async getOrderSummary(params?: OrderFilterRequest): Promise<OrderSummaryTotals> {
+        const qs = this.buildOrderQuery(params, false).toString();
+        const res = await apiClient<any>(`/api/admin/orders/summary${qs ? `?${qs}` : ''}`);
+        return res?.data || res;
     }
 
     async getOrderById(id: string | number): Promise<OrderItem> {
