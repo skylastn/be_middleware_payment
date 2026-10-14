@@ -258,6 +258,7 @@ class BankAgiService
             'merchantId' => $this->requiredConfig($config, 'merchant_id'),
             'validityPeriod' => (string) $validity,
             'additionalInfo' => $this->additionalInfo($config),
+            'subMerchantId' => $this->requiredConfig($config, 'merchant_id'),
         ];
 
         foreach (['sub_merchant_id' => 'subMerchantId', 'store_id' => 'storeId', 'terminal_id' => 'terminalId'] as $key => $field) {
