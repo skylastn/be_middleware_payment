@@ -258,38 +258,43 @@ class BankAgiService
         }
 
         $amount = $this->formatAmount($request->input('paymentAmount'));
-        // $body = [
-        //     'partnerReferenceNo' => $reference,
-        //     'amount' => ['value' => $amount, 'currency' => 'IDR'],
-        //     'merchantId' => $this->requiredConfig($config, 'merchant_id'),
-        //     'validityPeriod' => (string) $validity,
-        //     'additionalInfo' => $this->additionalInfo($config),
-        //     'subMerchantId' => $this->requiredConfig($config, 'merchant_id'),
-        //     'storeId' => '',
-        //     'terminalId' => '',
-
-        // ];
         $body = [
-            'partnerReferenceNo' => 'TEST-BANK_AGI-17919702692',
-            'amount' => [
-                'value' => '1000.00',
-                'currency' => 'IDR',
-            ],
-            'merchantId' => 'ID1026000004068',
-            'validityPeriod' => '60',
-            'additionalInfo' => [
-                'merchantUser' => 'ARDIANTO0856',
-                'channel' => 'API',
-                'deviceId' => 'DIV032031',
-            ],
+            'partnerReferenceNo' => $reference,
+            'amount' => ['value' => $amount, 'currency' => 'IDR'],
+            'merchantId' => $this->requiredConfig($config, 'merchant_id'),
+            'validityPeriod' => (string) $validity,
+            'additionalInfo' => $this->additionalInfo($config),
+            'subMerchantId' => $this->requiredConfig($config, 'merchant_id'),
             'storeId' => '',
             'terminalId' => '',
-            'subMerchantId' => 'ID1026000004068',
             'feeAmount' => [
                 'value' => '0.00',
                 'currency' => 'IDR',
             ],
         ];
+
+        // Sample
+        // $body = [
+        //     'partnerReferenceNo' => 'TEST-BANK_AGI-17919702692',
+        //     'amount' => [
+        //         'value' => '1000.00',
+        //         'currency' => 'IDR',
+        //     ],
+        //     'merchantId' => 'ID1026000004068',
+        //     'validityPeriod' => '60',
+        //     'additionalInfo' => [
+        //         'merchantUser' => 'ARDIANTO0856',
+        //         'channel' => 'API',
+        //         'deviceId' => 'DIV032031',
+        //     ],
+        //     'storeId' => '',
+        //     'terminalId' => '',
+        //     'subMerchantId' => 'ID1026000004068',
+        //     'feeAmount' => [
+        //         'value' => '0.00',
+        //         'currency' => 'IDR',
+        //     ],
+        // ];
 
         foreach (['sub_merchant_id' => 'subMerchantId', 'store_id' => 'storeId', 'terminal_id' => 'terminalId'] as $key => $field) {
             if (! empty($config[$key])) {
@@ -370,7 +375,7 @@ class BankAgiService
             'originalPartnerReferenceNo' => $order->getReference(),
             'serviceCode' => '17',
             'merchantId' => $this->requiredConfig($config, 'merchant_id'),
-            'additionalInfo' => array_merge($this->additionalInfo($config), ['billNumber' => $order->getGatewayBillNumber()]),
+            'additionalInfo' => array_merge($this->additionalInfo($config, $this->deviceIdFromOrder($order)), ['billNumber' => $order->getGatewayBillNumber()]),
         ];
         if (! empty($config['sub_merchant_id'])) {
             $body['subMerchantId'] = (string) $config['sub_merchant_id'];
@@ -550,9 +555,12 @@ class BankAgiService
         return $response;
     }
 
-    private function additionalInfo(array $config): array
+    private function additionalInfo(array $config, ?string $deviceId = null): array
     {
-        $info = ['merchantUser' => $this->requiredConfig($config, 'merchant_user'), "deviceId" => "DIV032031"];
+        $info = [
+            'merchantUser' => $this->requiredConfig($config, 'merchant_user'),
+            'deviceId' => $deviceId ?? $this->generateDeviceId(),
+        ];
         foreach (['device_id' => 'deviceId', 'channel' => 'channel'] as $key => $field) {
             if (! empty($config[$key])) {
                 $info[$field] = (string) $config[$key];
@@ -560,6 +568,25 @@ class BankAgiService
         }
 
         return $info;
+    }
+
+    private function generateDeviceId(): string
+    {
+        return 'DIV' . strtoupper(bin2hex(random_bytes(4)));
+    }
+
+    /**
+     * Reuse the deviceId persisted on the order so follow-up calls are seen
+     * by AGI as coming from the same device as the original request.
+     */
+    private function deviceIdFromOrder(Order $order): ?string
+    {
+        $request = $order->getRequest();
+        $decoded = is_string($request) ? json_decode($request, true) : $request;
+
+        $deviceId = is_array($decoded) ? ($decoded['additionalInfo']['deviceId'] ?? null) : null;
+
+        return is_string($deviceId) && $deviceId !== '' ? $deviceId : null;
     }
 
     private function baseUrl(PaymentRepository $repository): string

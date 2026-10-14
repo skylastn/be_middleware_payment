@@ -131,6 +131,14 @@ class BankAgiIntegrationTest extends PaymentTestCase
         ], $overrides), ['Token' => $this->project->getValue()]);
     }
 
+    private function clearConfiguredDeviceId(): void
+    {
+        $value = $this->repository->getValue();
+        $value['device_id'] = '';
+        $this->repository->setValue($value);
+        $this->repository->save();
+    }
+
     private function tokenHeaders(?string $timestamp = null, string $clientId = 'bank-client-id'): array
     {
         $timestamp ??= now('UTC')->format('Y-m-d\TH:i:s.vP');
@@ -222,6 +230,66 @@ class BankAgiIntegrationTest extends PaymentTestCase
                 && preg_match('/^\d{1,36}$/', $request->header('X-EXTERNAL-ID')[0]) === 1
                 && $request->header('CHANNEL-ID')[0] === '95221';
         });
+    }
+
+    public function test_each_order_generates_its_own_device_id_when_not_configured(): void
+    {
+        $this->fakeBank();
+        $this->clearConfiguredDeviceId();
+        $this->createOrder()->assertOk();
+
+        $stored = json_decode((string) Order::where('reference', 'AGIT-INV-001')->value('request'), true);
+        $deviceId = $stored['additionalInfo']['deviceId'] ?? null;
+
+        $this->assertIsString($deviceId);
+        $this->assertMatchesRegularExpression('/^DIV[0-9A-F]{8}$/', $deviceId);
+    }
+
+    public function test_generated_device_ids_are_unique_per_call(): void
+    {
+        $this->fakeBank();
+        $this->clearConfiguredDeviceId();
+
+        $generate = function (): string {
+            $service = app(\App\Services\Payment\BankAgiService::class);
+            $method = new \ReflectionMethod($service, 'generateDeviceId');
+            $method->setAccessible(true);
+
+            return $method->invoke($service);
+        };
+
+        $first = $generate();
+        $second = $generate();
+
+        $this->assertMatchesRegularExpression('/^DIV[0-9A-F]{8}$/', $first);
+        $this->assertMatchesRegularExpression('/^DIV[0-9A-F]{8}$/', $second);
+        $this->assertNotSame($first, $second);
+    }
+
+    public function test_status_query_reuses_the_device_id_saved_on_the_order(): void
+    {
+        $this->fakeBank();
+        $this->clearConfiguredDeviceId();
+        $this->createOrder()->assertOk();
+
+        $stored = json_decode((string) Order::where('reference', 'AGIT-INV-001')->value('request'), true);
+        $deviceId = $stored['additionalInfo']['deviceId'];
+
+        $this->getJson('/api/order/checkOrderStatus?reference=AGIT-INV-001', ['Token' => $this->project->getValue()])
+            ->assertOk();
+
+        Http::assertSent(fn (ClientRequest $request) => str_ends_with($request->url(), '/qr-mpm-query')
+            && ($request['additionalInfo']['deviceId'] ?? null) === $deviceId);
+    }
+
+    public function test_configured_device_id_overrides_the_generated_one(): void
+    {
+        $this->fakeBank();
+
+        $this->createOrder()->assertOk();
+
+        $stored = json_decode((string) Order::where('reference', 'AGIT-INV-001')->value('request'), true);
+        $this->assertSame('12345678', $stored['additionalInfo']['deviceId']);
     }
 
     public function test_qris_rejection_rolls_back_the_order(): void
