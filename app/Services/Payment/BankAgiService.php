@@ -386,6 +386,7 @@ class BankAgiService
 
     public function callback(Request $request): array
     {
+        LogHelper::sendLog('Callback AGI', $request->all(), '', 'request_callback_agi');
         $repository = $this->authenticateCallback($request);
         $order = $this->orders->findByGatewayBillNumber(
             $repository->getAttribute('id'),
