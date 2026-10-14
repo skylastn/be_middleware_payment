@@ -258,16 +258,37 @@ class BankAgiService
         }
 
         $amount = $this->formatAmount($request->input('paymentAmount'));
+        // $body = [
+        //     'partnerReferenceNo' => $reference,
+        //     'amount' => ['value' => $amount, 'currency' => 'IDR'],
+        //     'merchantId' => $this->requiredConfig($config, 'merchant_id'),
+        //     'validityPeriod' => (string) $validity,
+        //     'additionalInfo' => $this->additionalInfo($config),
+        //     'subMerchantId' => $this->requiredConfig($config, 'merchant_id'),
+        //     'storeId' => '',
+        //     'terminalId' => '',
+
+        // ];
         $body = [
-            'partnerReferenceNo' => $reference,
-            'amount' => ['value' => $amount, 'currency' => 'IDR'],
-            'merchantId' => $this->requiredConfig($config, 'merchant_id'),
-            'validityPeriod' => (string) $validity,
-            'additionalInfo' => $this->additionalInfo($config),
-            'subMerchantId' => $this->requiredConfig($config, 'merchant_id'),
+            'partnerReferenceNo' => 'TEST-BANK_AGI-17919702692',
+            'amount' => [
+                'value' => '1000.00',
+                'currency' => 'IDR',
+            ],
+            'merchantId' => 'ID1026000004068',
+            'validityPeriod' => '60',
+            'additionalInfo' => [
+                'merchantUser' => 'ARDIANTO0856',
+                'channel' => 'API',
+                'deviceId' => 'DIV032031',
+            ],
             'storeId' => '',
             'terminalId' => '',
-
+            'subMerchantId' => 'ID1026000004068',
+            'feeAmount' => [
+                'value' => '0.00',
+                'currency' => 'IDR',
+            ],
         ];
 
         foreach (['sub_merchant_id' => 'subMerchantId', 'store_id' => 'storeId', 'terminal_id' => 'terminalId'] as $key => $field) {
