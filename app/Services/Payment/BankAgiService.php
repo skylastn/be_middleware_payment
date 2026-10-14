@@ -99,7 +99,7 @@ class BankAgiService
 
         $publicKey = openssl_pkey_get_public(str_replace('\\n', "\n", $this->requiredConfig($config, 'bank_public_key')));
         $decodedSignature = base64_decode($signature, true);
-        if ($publicKey === false || $decodedSignature === false || openssl_verify($clientId.'|'.$timestamp, $decodedSignature, $publicKey, OPENSSL_ALGO_SHA256) !== 1) {
+        if ($publicKey === false || $decodedSignature === false || openssl_verify($clientId . '|' . $timestamp, $decodedSignature, $publicKey, OPENSSL_ALGO_SHA256) !== 1) {
             throw new BankAgiException('4017300', 'Unauthorized [Signature]', 401);
         }
 
@@ -124,18 +124,18 @@ class BankAgiService
     {
         $body = $request->getContent();
         if (strlen($body) > self::MAX_BODY_BYTES) {
-            throw new BankAgiException('413'.$serviceCode.'00', 'Payload Too Large', 413);
+            throw new BankAgiException('413' . $serviceCode . '00', 'Payload Too Large', 413);
         }
 
         if (! $request->isJson() || ! json_validate($body)) {
-            throw new BankAgiException('400'.$serviceCode.'01', 'Invalid Field Format [body]', 400);
+            throw new BankAgiException('400' . $serviceCode . '01', 'Invalid Field Format [body]', 400);
         }
     }
 
     public function signAsymmetric(string $clientId, string $timestamp, string $privateKey): string
     {
         $key = openssl_pkey_get_private(str_replace('\\n', "\n", $privateKey));
-        if ($key === false || ! openssl_sign($clientId.'|'.$timestamp, $signature, $key, OPENSSL_ALGO_SHA256)) {
+        if ($key === false || ! openssl_sign($clientId . '|' . $timestamp, $signature, $key, OPENSSL_ALGO_SHA256)) {
             throw new RuntimeException('Unable to sign AGI access token request');
         }
 
@@ -150,7 +150,7 @@ class BankAgiService
         }
 
         $hash = hash('sha256', $this->minifyBody($body));
-        $stringToSign = strtoupper($method).':'.$path.':'.$token.':'.$hash.':'.$timestamp;
+        $stringToSign = strtoupper($method) . ':' . $path . ':' . $token . ':' . $hash . ':' . $timestamp;
 
         return hash_hmac('sha512', $stringToSign, $decodedSecret);
     }
@@ -161,13 +161,19 @@ class BankAgiService
         $clientId = $this->requiredConfig($config, 'bank_client_id');
         $privateKey = $this->requiredConfig($config, 'private_key');
         $url = $this->baseUrl($repository);
-        $cacheKey = 'bank_agi:outbound_token:'.hash('sha256', json_encode([
-            $repository->getAttribute('id'), $url, $clientId, $privateKey, $config['bank_client_secret'] ?? null,
+        $cacheKey = 'bank_agi:outbound_token:' . hash('sha256', json_encode([
+            $repository->getAttribute('id'),
+            $url,
+            $clientId,
+            $privateKey,
+            $config['bank_client_secret'] ?? null,
         ], JSON_THROW_ON_ERROR));
         try {
             $cached = $this->redisService->get($cacheKey);
-            if (is_array($cached) && ($cached['expires_at'] ?? 0) > now()->getTimestamp()
-                && is_string($cached['response']['accessToken'] ?? null) && $cached['response']['accessToken'] !== '') {
+            if (
+                is_array($cached) && ($cached['expires_at'] ?? 0) > now()->getTimestamp()
+                && is_string($cached['response']['accessToken'] ?? null) && $cached['response']['accessToken'] !== ''
+            ) {
                 return $cached['response'];
             }
         } catch (\Throwable) {
@@ -183,7 +189,7 @@ class BankAgiService
         ];
 
         $response = $this->decodeResponse($this->postToBank(
-            $url.self::TOKEN_PATH,
+            $url . self::TOKEN_PATH,
             $headers,
             ['grantType' => 'client_credentials', 'additionalInfo' => (object) []],
         ), '2007300', ['endpoint' => self::TOKEN_PATH]);
@@ -245,7 +251,7 @@ class BankAgiService
 
         $repository = $this->getPaymentRepo($request->input('mode'), $request->input('paymentRepositoryId'));
         $config = $repository->getValue();
-        $reference = $existingOrder?->getReference() ?? $project->getType().'-'.$request->input('merchantOrderId');
+        $reference = $existingOrder?->getReference() ?? $project->getType() . '-' . $request->input('merchantOrderId');
         $validity = (int) $request->input('expiryPeriod', $config['validity_period'] ?? 60);
         if ($validity < 1 || $validity > 1440) {
             throw new RuntimeException('AGI validity period must be between 1 and 1440 minutes');
@@ -259,6 +265,9 @@ class BankAgiService
             'validityPeriod' => (string) $validity,
             'additionalInfo' => $this->additionalInfo($config),
             'subMerchantId' => $this->requiredConfig($config, 'merchant_id'),
+            'storeId' => '',
+            'terminalId' => '',
+
         ];
 
         foreach (['sub_merchant_id' => 'subMerchantId', 'store_id' => 'storeId', 'terminal_id' => 'terminalId'] as $key => $field) {
@@ -275,7 +284,7 @@ class BankAgiService
             'payment_repository_id' => $repository->getAttribute('id'),
             'payment_method' => 'AGI_QRIS',
             'amount' => $amount,
-            'name' => trim($request->input('firstName', '').' '.$request->input('lastName', '')) ?: $request->input('name'),
+            'name' => trim($request->input('firstName', '') . ' ' . $request->input('lastName', '')) ?: $request->input('name'),
             'return_url' => $request->input('returnUrl', $request->input('return_url', $project->getCallback())),
             'expired_at' => now()->addMinutes($validity),
             'request' => json_encode($body, JSON_THROW_ON_ERROR),
@@ -284,8 +293,10 @@ class BankAgiService
 
         LogHelper::sendLog('Request Order AGI', $body, (string) $project->getAttribute('id'), 'request_order_agi');
         $response = $this->sendTransaction($repository, self::GENERATE_PATH, $body, '2001700');
-        if (! is_string($response['qrContent'] ?? null) || $response['qrContent'] === ''
-            || ! is_string($response['additionalInfo']['billNumber'] ?? null) || $response['additionalInfo']['billNumber'] === '') {
+        if (
+            ! is_string($response['qrContent'] ?? null) || $response['qrContent'] === ''
+            || ! is_string($response['additionalInfo']['billNumber'] ?? null) || $response['additionalInfo']['billNumber'] === ''
+        ) {
             throw new RuntimeException('AGI QRIS response is missing qrContent or billNumber');
         }
 
@@ -310,7 +321,7 @@ class BankAgiService
         $link = $response['qrContent'];
         if ((string) $request->input('version') === '2') {
             $token = $this->redisService->generatePaymentToken((int) $project->getAttribute('id'), $project->getValue(), $reference);
-            $link = rtrim($paymentUrl, '/').'/detailpayment?'.http_build_query([
+            $link = rtrim($paymentUrl, '/') . '/detailpayment?' . http_build_query([
                 'token' => $token,
                 'reference' => $reference,
             ]);
@@ -359,8 +370,10 @@ class BankAgiService
         }
 
         $originalRequest = json_decode((string) $order->getRequest(), true, 512, JSON_THROW_ON_ERROR);
-        if ($request->input('additionalInfo.merchantId') !== ($originalRequest['merchantId'] ?? null)
-            || $request->input('additionalInfo.merchantUser') !== ($originalRequest['additionalInfo']['merchantUser'] ?? null)) {
+        if (
+            $request->input('additionalInfo.merchantId') !== ($originalRequest['merchantId'] ?? null)
+            || $request->input('additionalInfo.merchantUser') !== ($originalRequest['additionalInfo']['merchantUser'] ?? null)
+        ) {
             throw new BankAgiException('4011900', 'Unauthorized [Merchant]', 401);
         }
 
@@ -376,8 +389,10 @@ class BankAgiService
             default => null,
         };
 
-        if ($previousStatus === OrderStatus::SUCCESS || $status === null || $status === $previousStatus
-            || ($status === OrderStatus::PENDING && $previousStatus?->isFailed())) {
+        if (
+            $previousStatus === OrderStatus::SUCCESS || $status === null || $status === $previousStatus
+            || ($status === OrderStatus::PENDING && $previousStatus?->isFailed())
+        ) {
             return ['responseCode' => '2001900', 'responseMessage' => 'Success'];
         }
 
@@ -455,15 +470,15 @@ class BankAgiService
         $timestamp = $this->timestamp();
         $headers = [
             'Content-Type' => 'application/json',
-            'Authorization' => 'Bearer '.$token,
+            'Authorization' => 'Bearer ' . $token,
             'X-TIMESTAMP' => $timestamp,
             'X-PARTNER-ID' => $this->requiredConfig($config, 'bank_client_id'),
-            'X-EXTERNAL-ID' => now('UTC')->format('YmdHis').sprintf('%018d', random_int(0, 999999999999999999)),
+            'X-EXTERNAL-ID' => now('UTC')->format('YmdHis') . sprintf('%018d', random_int(0, 999999999999999999)),
             'CHANNEL-ID' => $channelId,
             'X-SIGNATURE' => $this->signSymmetric($this->requiredConfig($config, 'bank_client_secret'), 'POST', $path, $token, json_encode($body, JSON_THROW_ON_ERROR), $timestamp),
         ];
 
-        return $this->decodeResponse($this->postToBank($this->baseUrl($repository).$path, $headers, $body), $successCode, [
+        return $this->decodeResponse($this->postToBank($this->baseUrl($repository) . $path, $headers, $body), $successCode, [
             'endpoint' => $path,
             'external_id' => $headers['X-EXTERNAL-ID'],
             'repository_id' => $repository->getAttribute('id'),
@@ -508,7 +523,7 @@ class BankAgiService
                 'response_code' => $code,
                 'response_message' => $message,
             ]);
-            throw new RuntimeException('AGI request failed: '.$message);
+            throw new RuntimeException('AGI request failed: ' . $message);
         }
 
         return $response;
@@ -516,7 +531,7 @@ class BankAgiService
 
     private function additionalInfo(array $config): array
     {
-        $info = ['merchantUser' => $this->requiredConfig($config, 'merchant_user')];
+        $info = ['merchantUser' => $this->requiredConfig($config, 'merchant_user'), "deviceId" => "DIV032031"];
         foreach (['device_id' => 'deviceId', 'channel' => 'channel'] as $key => $field) {
             if (! empty($config[$key])) {
                 $info[$field] = (string) $config[$key];
@@ -529,9 +544,11 @@ class BankAgiService
     private function baseUrl(PaymentRepository $repository): string
     {
         $url = rtrim($this->requiredConfig($repository->getValue(), 'base_url'), '/');
-        if (parse_url($url, PHP_URL_SCHEME) !== 'https' || ! parse_url($url, PHP_URL_HOST)
+        if (
+            parse_url($url, PHP_URL_SCHEME) !== 'https' || ! parse_url($url, PHP_URL_HOST)
             || parse_url($url, PHP_URL_PATH) || parse_url($url, PHP_URL_QUERY) || parse_url($url, PHP_URL_FRAGMENT)
-            || parse_url($url, PHP_URL_USER) !== null || parse_url($url, PHP_URL_PASS) !== null) {
+            || parse_url($url, PHP_URL_USER) !== null || parse_url($url, PHP_URL_PASS) !== null
+        ) {
             throw new RuntimeException('AGI base_url must be an HTTPS origin without a path or query');
         }
         if (! in_array(strtolower(parse_url($url, PHP_URL_HOST)), config('services.bank_agi.allowed_hosts', []), true)) {
@@ -544,7 +561,7 @@ class BankAgiService
     private function requiredConfig(array $config, string $key): string
     {
         if (! isset($config[$key]) || ! is_string($config[$key]) || trim($config[$key]) === '') {
-            throw new RuntimeException('AGI '.$key.' is not configured');
+            throw new RuntimeException('AGI ' . $key . ' is not configured');
         }
 
         return $config[$key];
@@ -554,7 +571,7 @@ class BankAgiService
     {
         [$whole, $fraction] = array_pad(explode('.', ltrim((string) $amount, '+'), 2), 2, '');
 
-        return (ltrim($whole, '0') ?: '0').'.'.str_pad($fraction, 2, '0');
+        return (ltrim($whole, '0') ?: '0') . '.' . str_pad($fraction, 2, '0');
     }
 
     private function requiredHeader(Request $request, string $header, string $serviceCode): string
@@ -563,7 +580,7 @@ class BankAgiService
         $underscore = str_replace('-', '_', $header);
         $value = $request->header($hyphen) ?? $request->header($underscore);
         if (! is_string($value) || trim($value) === '') {
-            throw new BankAgiException('400'.$serviceCode.'02', 'Invalid Mandatory Field ['.$hyphen.']', 400);
+            throw new BankAgiException('400' . $serviceCode . '02', 'Invalid Mandatory Field [' . $hyphen . ']', 400);
         }
 
         $maxLength = match ($underscore) {
@@ -574,7 +591,7 @@ class BankAgiService
             default => 128,
         };
         if (strlen($value) > $maxLength) {
-            throw new BankAgiException('400'.$serviceCode.'01', 'Invalid Field Format ['.$hyphen.']', 400);
+            throw new BankAgiException('400' . $serviceCode . '01', 'Invalid Field Format [' . $hyphen . ']', 400);
         }
 
         return $value;
@@ -583,20 +600,20 @@ class BankAgiService
     private function validateTimestamp(string $timestamp, string $serviceCode): void
     {
         if (! preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/', $timestamp)) {
-            throw new BankAgiException('400'.$serviceCode.'01', 'Invalid Field Format [X_TIMESTAMP]', 400);
+            throw new BankAgiException('400' . $serviceCode . '01', 'Invalid Field Format [X_TIMESTAMP]', 400);
         }
         if (! checkdate((int) substr($timestamp, 5, 2), (int) substr($timestamp, 8, 2), (int) substr($timestamp, 0, 4))) {
-            throw new BankAgiException('400'.$serviceCode.'01', 'Invalid Field Format [X_TIMESTAMP]', 400);
+            throw new BankAgiException('400' . $serviceCode . '01', 'Invalid Field Format [X_TIMESTAMP]', 400);
         }
 
         try {
             $parsed = Carbon::parse($timestamp);
         } catch (\Throwable) {
-            throw new BankAgiException('400'.$serviceCode.'01', 'Invalid Field Format [X_TIMESTAMP]', 400);
+            throw new BankAgiException('400' . $serviceCode . '01', 'Invalid Field Format [X_TIMESTAMP]', 400);
         }
 
         if (abs(now()->diffInSeconds($parsed, false)) > 300) {
-            throw new BankAgiException('401'.$serviceCode.'00', 'Unauthorized [Timestamp expired]', 401);
+            throw new BankAgiException('401' . $serviceCode . '00', 'Unauthorized [Timestamp expired]', 401);
         }
     }
 
@@ -637,7 +654,7 @@ class BankAgiService
 
     private function tokenKey(string $token): string
     {
-        return 'agi:snap_token:'.hash('sha256', $token);
+        return 'agi:snap_token:' . hash('sha256', $token);
     }
 
     private function timestamp(): string
