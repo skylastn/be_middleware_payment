@@ -151,7 +151,7 @@ class BankAgiService
             throw new RuntimeException('AGI client secret must be a non-empty Base64 string');
         }
 
-        $hash = hash('sha256', $this->minifyBody($body));
+        $hash = hash('sha256', preg_replace('/\s+/', '', $body));
         $stringToSign = strtoupper($method) . ':' . $path . ':' . $token . ':' . $hash . ':' . $timestamp;
 
         return hash_hmac('sha512', $stringToSign, $decodedSecret);
@@ -480,7 +480,20 @@ class BankAgiService
         // AGI issued to us. bank_client_secret is ours and only signs the
         // requests we send out.
         $secret = $this->requiredConfig($config, 'client_secret');
+        LogHelper::sendLog('Log AGI Signature', [
+            'secret' => $secret,
+            'method' => $request->method(),
+            'path' => $request->getPathInfo(),
+            'token' => $token,
+            'content' => $request->getContent(),
+            'timestamp' => $timestamp,
+        ]);
+
         $expected = $this->signSymmetric($secret, $request->method(), $request->getPathInfo(), $token, $request->getContent(), $timestamp);
+        LogHelper::sendLog('Log AGI Signature', [
+            'expected' => $expected,
+            'actual' => $signature,
+        ]);
         if (! hash_equals($expected, $signature)) {
             throw new BankAgiException('4011900', 'Unauthorized [Signature]', 401);
         }

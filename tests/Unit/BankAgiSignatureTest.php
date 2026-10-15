@@ -21,10 +21,10 @@ class BankAgiSignatureTest extends TestCase
             '2025-07-28T09:57:26+07:00',
         );
 
-        $this->assertSame('5601c1391e78622c07814360fec3b8aadd4acdc0065beaac380e44d0442760d8a894098e15368d8520ce8ca7760d49905b72e3fbce09331aae8506cd90113acb', $signature);
+        $this->assertSame('09a475b243317f28893b337e8a5e3ec557144334e4bfcda3c8d4e515c6573b6e7654e0d879f7f256fc6a9f1c45d03d39e8f849ee448a9a8d5fd74bf8f523da81', $signature);
     }
 
-    public function test_minification_preserves_escaped_quotes_unicode_and_spaces_inside_strings(): void
+    public function test_whitespace_is_completely_removed_before_hashing(): void
     {
         $service = new BankAgiService;
         $body = <<<'JSON'
@@ -38,7 +38,8 @@ JSON;
   "unicode": "\u0041"
 }
 JSON;
-        $expected = hash_hmac('sha512', 'POST:/notify:token:'.hash('sha256', $body).':timestamp', 'secret');
+        $cleaned = preg_replace('/\s+/', '', $body);
+        $expected = hash_hmac('sha512', 'POST:/notify:token:'.hash('sha256', $cleaned).':timestamp', 'secret');
 
         $this->assertSame($expected, $service->signSymmetric(base64_encode('secret'), 'post', '/notify', 'token', $prettyBody, 'timestamp'));
     }
