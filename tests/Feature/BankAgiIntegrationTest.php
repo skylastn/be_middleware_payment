@@ -256,6 +256,58 @@ class BankAgiIntegrationTest extends PaymentTestCase
         $this->assertStringContainsString('REDACTED', $combined, 'Expected redaction markers in logs');
     }
 
+    public function test_callback_accepts_alphanumeric_external_id_and_string_channel_id(): void
+    {
+        // Bank AGI sends hex X-EXTERNAL-ID (32 chars) and string CHANNEL-ID like 'BAG-API'
+        $this->fakeBank();
+        $this->createOrder()->assertOk();
+        $token = $this->issueToken();
+
+        $this->notify($this->notification(), $token, [
+            'X_EXTERNAL_ID' => '4961efb0ff5844b8a054e5ad7214a38d',
+            'CHANNEL_ID' => 'BAG-API',
+        ])->assertOk()->assertJsonPath('responseCode', '2001900');
+
+        $this->assertDatabaseHas('orders', ['reference' => 'AGIT-INV-001', 'status' => 'SUCCESS']);
+    }
+
+    public function test_bank_agi_exception_in_callback_is_logged_to_error_log(): void
+    {
+        $this->fakeBank();
+        Log::spy();
+
+        // Expired timestamp triggers BankAgiException (4011900)
+        $this->notify($this->notification(), headers: [
+            'X_TIMESTAMP' => now()->subMinutes(10)->toIso8601String(),
+        ])->assertStatus(401)->assertJsonPath('responseCode', '4011900');
+
+        Log::shouldHaveReceived('error')->atLeast()->once();
+    }
+
+    public function test_access_token_request_and_response_are_logged_on_success(): void
+    {
+        $this->fakeBank();
+        Log::spy();
+
+        $this->postJson('/api/bank/agi/access-token', ['grantType' => 'client_credentials'], $this->tokenHeaders())
+            ->assertOk()->assertJsonPath('responseCode', '2007300');
+
+        Log::shouldHaveReceived('info')->twice(); // request_access_token_agi + response_access_token_agi
+    }
+
+    public function test_access_token_error_is_logged_on_failure(): void
+    {
+        $this->fakeBank();
+        Log::spy();
+
+        $headers = $this->tokenHeaders(timestamp: 'invalid-timestamp');
+        $this->postJson('/api/bank/agi/access-token', ['grantType' => 'client_credentials'], $headers)
+            ->assertStatus(400)->assertJsonPath('responseCode', '4007301');
+
+        Log::shouldHaveReceived('error')->atLeast()->once();
+        Log::shouldHaveReceived('info')->twice(); // request_access_token_agi + response_access_token_agi (error payload)
+    }
+
     public function test_order_creation_persists_qris_and_sends_the_documented_signature(): void
     {
         $this->fakeBank();

@@ -24,6 +24,18 @@ class BankAgiController extends Controller
 
     public function snapAccessTokenB2B(Request $request): JsonResponse
     {
+        LogHelper::sendLog('Access Token AGI', [
+            'headers' => [
+                'X-CLIENT-KEY' => $request->header('X-CLIENT-KEY') ?? $request->header('X_CLIENT_KEY'),
+                'X-TIMESTAMP' => $request->header('X-TIMESTAMP') ?? $request->header('X_TIMESTAMP'),
+                'X-SIGNATURE' => $request->header('X-SIGNATURE') ?? $request->header('X_SIGNATURE'),
+                'Content-Type' => $request->header('Content-Type'),
+            ],
+            'body' => $request->all(),
+            'raw' => mb_strimwidth($request->getContent(), 0, 2000, '...[truncated]'),
+            'content_type' => $request->header('Content-Type'),
+        ], '', 'request_access_token_agi');
+
         try {
             $this->service->validatePayload($request, '73');
             $request->validate([
@@ -31,7 +43,11 @@ class BankAgiController extends Controller
                 'additionalInfo' => ['sometimes', 'array'],
             ]);
 
-            return ResponseHelper::payload($this->service->generateB2BAccessToken($request));
+            $response = $this->service->generateB2BAccessToken($request);
+
+            LogHelper::sendLog('Response Access Token AGI', $response, '', 'response_access_token_agi');
+
+            return ResponseHelper::payload($response);
         } catch (Throwable $exception) {
             return $this->errorResponse($exception, '73');
         }
@@ -47,6 +63,7 @@ class BankAgiController extends Controller
                 'X-EXTERNAL-ID' => $request->header('X-EXTERNAL-ID') ?? $request->header('X_EXTERNAL_ID'),
                 'CHANNEL-ID' => $request->header('CHANNEL-ID') ?? $request->header('CHANNEL_ID'),
                 'X-SIGNATURE' => $request->header('X-SIGNATURE') ?? $request->header('X_SIGNATURE'),
+                'Authorization' => $request->header('Authorization') ?? $request->header('AUTHORIZATION'),
             ],
             'body' => $request->all(),
             'raw' => mb_strimwidth($request->getContent(), 0, 2000, '...[truncated]'),
@@ -93,11 +110,30 @@ class BankAgiController extends Controller
 
     private function errorResponse(Throwable $exception, string $serviceCode): JsonResponse
     {
+        $action = match ($serviceCode) {
+            '73' => 'access_token_agi',
+            default => 'callback_agi',
+        };
+        $label = match ($serviceCode) {
+            '73' => 'Access Token AGI',
+            default => 'Callback AGI',
+        };
+
         if ($exception instanceof BankAgiException) {
-            return ResponseHelper::payload([
+            $payload = [
                 'responseCode' => $exception->responseCode,
                 'responseMessage' => $exception->getMessage(),
-            ], $exception->getCode());
+            ];
+
+            LogHelper::sendErrorLog($exception, [
+                'service_code' => $serviceCode,
+                'response_code' => $exception->responseCode,
+                'response_message' => $exception->getMessage(),
+            ], '', 'error_' . $action);
+
+            LogHelper::sendLog('Response ' . $label, $payload, '', 'response_' . $action);
+
+            return ResponseHelper::payload($payload, $exception->getCode());
         }
 
         if ($exception instanceof ValidationException) {
@@ -105,23 +141,30 @@ class BankAgiController extends Controller
             $field = array_key_first($failed);
             $missing = isset($failed[$field]['Required']) || isset($failed[$field]['RequiredWith']);
 
+            $payload = [
+                'responseCode' => '400' . $serviceCode . ($missing ? '02' : '01'),
+                'responseMessage' => ($missing ? 'Invalid Mandatory Field' : 'Invalid Field Format') . ' [' . $field . ']',
+            ];
+
             LogHelper::sendErrorLog($exception, [
                 'service_code' => $serviceCode,
                 'failed_field' => $field,
                 'errors' => $exception->errors(),
-            ], '', 'error_callback_agi');
+            ], '', 'error_' . $action);
 
-            return ResponseHelper::payload([
-                'responseCode' => '400'.$serviceCode.($missing ? '02' : '01'),
-                'responseMessage' => ($missing ? 'Invalid Mandatory Field' : 'Invalid Field Format').' ['.$field.']',
-            ], 400);
+            LogHelper::sendLog('Response ' . $label, $payload, '', 'response_' . $action);
+
+            return ResponseHelper::payload($payload, 400);
         }
 
-        LogHelper::sendErrorLog($exception, ['service_code' => $serviceCode], '', 'error_callback_agi');
-
-        return ResponseHelper::payload([
-            'responseCode' => '500'.$serviceCode.'01',
+        $payload = [
+            'responseCode' => '500' . $serviceCode . '01',
             'responseMessage' => 'Internal Server Error',
-        ], 500);
+        ];
+
+        LogHelper::sendErrorLog($exception, ['service_code' => $serviceCode], '', 'error_' . $action);
+        LogHelper::sendLog('Response ' . $label, $payload, '', 'response_' . $action);
+
+        return ResponseHelper::payload($payload, 500);
     }
 }

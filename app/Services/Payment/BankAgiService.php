@@ -456,7 +456,7 @@ class BankAgiService
         $externalId = $this->requiredHeader($request, 'X-EXTERNAL-ID', '19');
         $channelId = $this->requiredHeader($request, 'CHANNEL-ID', '19');
         $this->validateTimestamp($timestamp, '19');
-        if (! preg_match('/^\d{1,36}$/', $externalId) || ! preg_match('/^\d{5}$/', $channelId)) {
+        if (! preg_match('/^[a-zA-Z0-9_-]{1,64}$/', $externalId) || ! preg_match('/^[a-zA-Z0-9_-]{1,32}$/', $channelId)) {
             throw new BankAgiException('4001901', 'Invalid Field Format [X-EXTERNAL-ID or CHANNEL-ID]', 400);
         }
 
@@ -635,11 +635,11 @@ class BankAgiService
             throw new BankAgiException('400' . $serviceCode . '02', 'Invalid Mandatory Field [' . $hyphen . ']', 400);
         }
 
-        $maxLength = match ($underscore) {
-            'X_TIMESTAMP' => 35,
-            'X_SIGNATURE' => 2048,
-            'X_EXTERNAL_ID' => 36,
-            'CHANNEL_ID' => 5,
+        $maxLength = match ($hyphen) {
+            'X-TIMESTAMP' => 35,
+            'X-SIGNATURE' => 2048,
+            'X-EXTERNAL-ID' => 64,
+            'CHANNEL-ID' => 32,
             default => 128,
         };
         if (strlen($value) > $maxLength) {
