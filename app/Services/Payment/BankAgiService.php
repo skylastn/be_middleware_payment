@@ -82,31 +82,33 @@ class BankAgiService
 
     public function generateB2BAccessToken(Request $request): array
     {
-        $clientId = $this->requiredHeader($request, 'X-CLIENT-KEY', '73');
+        $clientKey = $this->requiredHeader($request, 'X-CLIENT-KEY', '73');
         $timestamp = $this->requiredHeader($request, 'X-TIMESTAMP', '73');
         $signature = $this->requiredHeader($request, 'X-SIGNATURE', '73');
         $this->validateTimestamp($timestamp, '73');
 
-        $repository = $this->paymentRepositoryService->getByGatewayKeyAndClientKey('bank_agi', $clientId);
+        $repository = $this->paymentRepositoryService->getByGatewayKeyAndClientKey('bank_agi', $clientKey);
         if (! $repository) {
             throw new BankAgiException('4017300', 'Unauthorized [Unknown Client Key]', 401);
         }
 
         $config = $repository->getValue();
-        if ($clientId !== $this->requiredConfig($config, 'bank_client_id')) {
+        // Inbound authentication uses AGI's client_key. bank_client_id is ours
+        // and only ever signs outbound requests, so it must not be accepted here.
+        if ($clientKey !== $this->requiredConfig($config, 'client_key')) {
             throw new BankAgiException('4017300', 'Unauthorized [Invalid Client Key]', 401);
         }
 
         $publicKey = openssl_pkey_get_public(str_replace('\\n', "\n", $this->requiredConfig($config, 'bank_public_key')));
         $decodedSignature = base64_decode($signature, true);
-        if ($publicKey === false || $decodedSignature === false || openssl_verify($clientId . '|' . $timestamp, $decodedSignature, $publicKey, OPENSSL_ALGO_SHA256) !== 1) {
+        if ($publicKey === false || $decodedSignature === false || openssl_verify($clientKey . '|' . $timestamp, $decodedSignature, $publicKey, OPENSSL_ALGO_SHA256) !== 1) {
             throw new BankAgiException('4017300', 'Unauthorized [Signature]', 401);
         }
 
         $token = bin2hex(random_bytes(32));
         if (! $this->redisService->set($this->tokenKey($token), [
             'repository_id' => $repository->getAttribute('id'),
-            'bank_client_id' => $clientId,
+            'client_key' => $clientKey,
         ], self::TOKEN_TTL)) {
             throw new RuntimeException('Unable to store AGI access token');
         }
@@ -445,7 +447,10 @@ class BankAgiService
 
     private function authenticateCallback(Request $request): PaymentRepository
     {
-        $partnerIdHeader = $this->requiredHeader($request, 'X-PARTNER-ID', '19');
+        // X-PARTNER-ID is required but not compared to a configured value: AGI
+        // does not cover it in the signature and we do not have a confirmed
+        // sample of what it carries, so comparing it could reject valid calls.
+        $this->requiredHeader($request, 'X-PARTNER-ID', '19');
         $timestamp = $this->requiredHeader($request, 'X-TIMESTAMP', '19');
         $signature = $this->requiredHeader($request, 'X-SIGNATURE', '19');
         $externalId = $this->requiredHeader($request, 'X-EXTERNAL-ID', '19');
@@ -470,12 +475,11 @@ class BankAgiService
 
         $repository = $this->getPaymentRepo(null, $storedToken['repository_id']);
         $config = $repository->getValue();
-        $partnerId = $this->requiredConfig($config, 'bank_client_id');
-        if (($storedToken['bank_client_id'] ?? null) !== $partnerId || $partnerIdHeader !== $partnerId) {
-            throw new BankAgiException('4011900', 'Unauthorized [Partner ID]', 401);
-        }
 
-        $secret = $this->requiredConfig($config, 'bank_client_secret');
+        // Inbound callback authentication uses the client_key/client_secret pair
+        // AGI issued to us. bank_client_secret is ours and only signs the
+        // requests we send out.
+        $secret = $this->requiredConfig($config, 'client_secret');
         $expected = $this->signSymmetric($secret, $request->method(), $request->getPathInfo(), $token, $request->getContent(), $timestamp);
         if (! hash_equals($expected, $signature)) {
             throw new BankAgiException('4011900', 'Unauthorized [Signature]', 401);

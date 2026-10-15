@@ -229,11 +229,13 @@ class PaymentRepoSeeder extends Seeder
                 $paprikaRepo->save();
             }
 
-            // Bank AGI credentials. One pair (bank_client_id / bank_client_secret) is used for
-            // both directions: we sign outbound requests with it, and it also authenticates the
-            // callbacks Bank AGI sends to us.
+            // Bank AGI credentials. AGI authenticates inbound calls with the
+            // client_key / client_secret pair it issued; bank_client_id /
+            // bank_client_secret is the pair we use to sign outbound calls.
             $bankAgiDefaultConfig = [
                 'base_url' => 'https://bagiapisandbox.ag.co.id:38065',
+                'client_key' => 'CLIENT_KEY_ASSIGNED_BY_AGI',
+                'client_secret' => 'BASE64_CLIENT_SECRET_ASSIGNED_BY_AGI',
                 'bank_client_id' => 'CLIENT_ID_ASSIGNED_BY_AGI',
                 'bank_client_secret' => 'BASE64_CLIENT_KEY_ASSIGNED_BY_AGI',
                 'bank_public_key' => '',

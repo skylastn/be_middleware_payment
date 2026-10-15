@@ -37,7 +37,7 @@ class PaymentRepositoryRepository extends BaseRepository
     public function findByGatewayAndSnapClientId(string $paymentGatewayId, string $clientId): ?PaymentRepository
     {
         return PaymentRepository::where('payment_gateway_id', $paymentGatewayId)
-            ->where('value->bank_client_id', $clientId)
+            ->where('value->client_key', $clientId)
             ->first();
     }
 
