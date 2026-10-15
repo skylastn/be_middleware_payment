@@ -22,6 +22,7 @@ use Database\Seeders\PaymentMethodSeeder;
 use Illuminate\Http\Client\Request as ClientRequest;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Facades\Schema;
@@ -191,6 +192,65 @@ class BankAgiIntegrationTest extends PaymentTestCase
         ], $headers);
 
         return $this->call('POST', '/api/bank/agi/notify-qris', [], [], [], $this->transformHeadersToServerVars($headers), $body);
+    }
+
+    public function test_validation_failure_is_logged_and_returns_invalid_field_format(): void
+    {
+        $this->fakeBank();
+
+        Log::spy();
+
+        // Missing latestTransactionStatus / additionalInfo, so validation rejects it.
+        $this->notify(['originalReferenceNo' => 'API000562794'])
+            ->assertStatus(400)
+            ->assertJsonPath('data.responseCode', '4001902');
+
+        Log::shouldHaveReceived('error')->atLeast()->once();
+        Log::shouldHaveReceived('info')->atLeast()->once();
+    }
+
+    public function test_callback_is_logged_before_validation_rejects_a_non_json_body(): void
+    {
+        $this->fakeBank();
+
+        Log::spy();
+
+        $headers = [
+            'Authorization' => 'Bearer '.$this->issueToken(),
+            'X_PARTNER_ID' => 'bank-client-id',
+            'X_TIMESTAMP' => now('UTC')->format('Y-m-d\TH:i:s.vP'),
+            'X_SIGNATURE' => 'irrelevant',
+            'X_EXTERNAL_ID' => '20260930000000000001',
+            'CHANNEL_ID' => '95221',
+            'Content-Type' => 'text/plain',
+            'Accept' => 'application/json',
+        ];
+
+        $this->call('POST', '/api/bank/agi/notify-qris', [], [], [], $this->transformHeadersToServerVars($headers), 'not-json-at-all')
+            ->assertStatus(400);
+
+        // The request must still be recorded even though the body never parsed.
+        Log::shouldHaveReceived('info')->atLeast()->once();
+    }
+
+    public function test_callback_logs_never_leak_the_signature_or_bearer_token(): void
+    {
+        $this->fakeBank();
+
+        $logged = [];
+        Log::listen(function ($message) use (&$logged) {
+            $logged[] = json_encode($message->context ?? [])
+                .(is_string($message->message) ? $message->message : json_encode($message->message));
+        });
+
+        $token = $this->issueToken();
+        $this->notify(['originalReferenceNo' => 'nope'], $token)->assertStatus(400);
+
+        $combined = implode("\n", $logged);
+
+        $this->assertStringNotContainsString($token, $combined, 'Bearer token leaked into logs');
+        $this->assertStringNotContainsString('agi-inbound-secret', $combined, 'Secret leaked into logs');
+        $this->assertStringContainsString('REDACTED', $combined, 'Expected redaction markers in logs');
     }
 
     public function test_order_creation_persists_qris_and_sends_the_documented_signature(): void
@@ -365,6 +425,42 @@ class BankAgiIntegrationTest extends PaymentTestCase
             ->assertStatus(400)->assertJsonPath('responseCode', '4007301');
         $this->postJson('/api/bank/agi/access-token', ['grantType' => 'client_credentials'])
             ->assertStatus(400)->assertJsonPath('responseCode', '4007302');
+    }
+
+    public function test_token_accepts_an_offset_without_a_colon(): void
+    {
+        // AGI sends "+0700"; rejecting it produced a spurious 4007301.
+        $headers = $this->tokenHeaders(timestamp: now('Asia/Jakarta')->format('Y-m-d\TH:i:s').'+0700');
+
+        $this->postJson('/api/bank/agi/access-token', ['grantType' => 'client_credentials'], $headers)
+            ->assertOk()->assertJsonPath('responseCode', '2007300');
+    }
+
+    public function test_token_accepts_valid_timestamp_offset_variants(): void
+    {
+        $timestamps = [
+            now('Asia/Jakarta')->format('Y-m-d\TH:i:s').'+07:00',
+            now('Asia/Jakarta')->format('Y-m-d\TH:i:s').'+0700',
+            now('Asia/Jakarta')->format('Y-m-d\TH:i:s.000').'+0700',
+            now('UTC')->format('Y-m-d\TH:i:s').'Z',
+        ];
+
+        foreach ($timestamps as $timestamp) {
+            $headers = $this->tokenHeaders(timestamp: $timestamp);
+
+            $this->postJson('/api/bank/agi/access-token', ['grantType' => 'client_credentials'], $headers)
+                ->assertOk()->assertJsonPath('responseCode', '2007300');
+        }
+    }
+
+    public function test_token_rejects_a_malformed_timestamp(): void
+    {
+        foreach (['2026-10-15T09:22:51', '2026-10-15 09:22:51+0700', '2026-10-15T09:22:51+07', 'not-a-date'] as $bad) {
+            $headers = $this->tokenHeaders(timestamp: $bad);
+
+            $this->postJson('/api/bank/agi/access-token', ['grantType' => 'client_credentials'], $headers)
+                ->assertStatus(400)->assertJsonPath('responseCode', '4007301');
+        }
     }
 
     public function test_notification_matches_the_bank_bill_and_dispatches_once_after_commit(): void

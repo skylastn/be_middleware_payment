@@ -39,6 +39,20 @@ class BankAgiController extends Controller
 
     public function callback(Request $request): JsonResponse
     {
+        // Log before any validation so rejected callbacks still leave a trace.
+        LogHelper::sendLog('Callback AGI', [
+            'headers' => [
+                'X-PARTNER-ID' => $request->header('X-PARTNER-ID') ?? $request->header('X_PARTNER_ID'),
+                'X-TIMESTAMP' => $request->header('X-TIMESTAMP') ?? $request->header('X_TIMESTAMP'),
+                'X-EXTERNAL-ID' => $request->header('X-EXTERNAL-ID') ?? $request->header('X_EXTERNAL_ID'),
+                'CHANNEL-ID' => $request->header('CHANNEL-ID') ?? $request->header('CHANNEL_ID'),
+                'X-SIGNATURE' => $request->header('X-SIGNATURE') ?? $request->header('X_SIGNATURE'),
+            ],
+            'body' => $request->all(),
+            'raw' => mb_strimwidth($request->getContent(), 0, 2000, '...[truncated]'),
+            'content_type' => $request->header('Content-Type'),
+        ], '', 'request_callback_agi');
+
         try {
             $this->service->validatePayload($request, '19');
             $request->validate([
@@ -56,6 +70,8 @@ class BankAgiController extends Controller
             DB::beginTransaction();
             $response = $this->service->callback($request);
             DB::commit();
+
+            LogHelper::sendLog('Response Callback AGI', $response, '', 'response_callback_agi');
 
             return ResponseHelper::payload($response);
         } catch (Throwable $exception) {
@@ -89,13 +105,19 @@ class BankAgiController extends Controller
             $field = array_key_first($failed);
             $missing = isset($failed[$field]['Required']) || isset($failed[$field]['RequiredWith']);
 
+            LogHelper::sendErrorLog($exception, [
+                'service_code' => $serviceCode,
+                'failed_field' => $field,
+                'errors' => $exception->errors(),
+            ], '', 'error_callback_agi');
+
             return ResponseHelper::payload([
                 'responseCode' => '400'.$serviceCode.($missing ? '02' : '01'),
                 'responseMessage' => ($missing ? 'Invalid Mandatory Field' : 'Invalid Field Format').' ['.$field.']',
             ], 400);
         }
 
-        LogHelper::sendErrorLog($exception);
+        LogHelper::sendErrorLog($exception, ['service_code' => $serviceCode], '', 'error_callback_agi');
 
         return ResponseHelper::payload([
             'responseCode' => '500'.$serviceCode.'01',

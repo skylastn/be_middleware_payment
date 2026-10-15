@@ -386,7 +386,6 @@ class BankAgiService
 
     public function callback(Request $request): array
     {
-        LogHelper::sendLog('Callback AGI', $request->all(), '', 'request_callback_agi');
         $repository = $this->authenticateCallback($request);
         $order = $this->orders->findByGatewayBillNumber(
             $repository->getAttribute('id'),
@@ -648,7 +647,9 @@ class BankAgiService
 
     private function validateTimestamp(string $timestamp, string $serviceCode): void
     {
-        if (! preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/', $timestamp)) {
+        // Accepts ISO-8601 offsets with or without a colon ("+07:00" / "+0700"),
+        // which is what AGI actually sends.
+        if (! preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:?\d{2})$/', $timestamp)) {
             throw new BankAgiException('400' . $serviceCode . '01', 'Invalid Field Format [X_TIMESTAMP]', 400);
         }
         if (! checkdate((int) substr($timestamp, 5, 2), (int) substr($timestamp, 8, 2), (int) substr($timestamp, 0, 4))) {
