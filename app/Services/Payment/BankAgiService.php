@@ -304,21 +304,6 @@ class BankAgiService
             }
         }
 
-        $order = $existingOrder ?? $this->orderService->createAndFind([
-            'id' => OrderIdGenerator::generate(),
-            'reference' => $reference,
-            'type' => $project->getType(),
-            'mode' => $repository->getMode()->value,
-            'payment_repository_id' => $repository->getAttribute('id'),
-            'payment_method' => 'AGI_QRIS',
-            'amount' => $amount,
-            'name' => trim($request->input('firstName', '') . ' ' . $request->input('lastName', '')) ?: $request->input('name'),
-            'return_url' => $request->input('returnUrl', $request->input('return_url', $project->getCallback())),
-            'expired_at' => now()->addMinutes($validity),
-            'request' => json_encode($body, JSON_THROW_ON_ERROR),
-            'status' => OrderStatus::PENDING->value,
-        ]);
-
         LogHelper::sendLog('Request Order AGI', $body, (string) $project->getAttribute('id'), 'request_order_agi');
         $response = $this->sendTransaction($repository, self::GENERATE_PATH, $body, '2001700');
         if (
@@ -328,20 +313,45 @@ class BankAgiService
             throw new RuntimeException('AGI QRIS response is missing qrContent or billNumber');
         }
 
-        $order->setRequest(json_encode($body, JSON_THROW_ON_ERROR));
-        $order->setResponse(json_encode($response, JSON_THROW_ON_ERROR));
-        $order->setPaymentRepositoryId($repository->getAttribute('id'));
-        $order->setPaymentMethod('AGI_QRIS');
-        $order->setGatewayReference($response['referenceNo'] ?? null);
-        $order->setGatewayBillNumber((string) $response['additionalInfo']['billNumber']);
-        $order->setValue($response['qrContent']);
-        $order->setUrl($response['qrContent']);
-        $order->setExpiredAt(now()->addMinutes($validity));
+        $expiredAt = now()->addMinutes($validity);
         $expiryTime = $response['additionalInfo']['expiryTime'] ?? null;
         if (is_string($expiryTime) && preg_match('/^\d{2}-\d{2}-\d{4} \d{2}:\d{2}:\d{2}$/', $expiryTime)) {
-            $order->setExpiredAt(Carbon::createFromFormat('d-m-Y H:i:s', $expiryTime, 'Asia/Jakarta')->utc());
+            $expiredAt = Carbon::createFromFormat('d-m-Y H:i:s', $expiryTime, 'Asia/Jakarta')->utc();
         }
-        $order->save();
+
+        if ($existingOrder) {
+            $order = $existingOrder;
+            $order->setRequest(json_encode($body, JSON_THROW_ON_ERROR));
+            $order->setResponse(json_encode($response, JSON_THROW_ON_ERROR));
+            $order->setPaymentRepositoryId($repository->getAttribute('id'));
+            $order->setPaymentMethod('AGI_QRIS');
+            $order->setGatewayReference($response['referenceNo'] ?? null);
+            $order->setGatewayBillNumber((string) $response['additionalInfo']['billNumber']);
+            $order->setValue($response['qrContent']);
+            $order->setUrl($response['qrContent']);
+            $order->setExpiredAt($expiredAt);
+            $order->save();
+        } else {
+            $order = $this->orderService->createAndFind([
+                'id' => OrderIdGenerator::generate(),
+                'reference' => $reference,
+                'type' => $project->getType(),
+                'mode' => $repository->getMode()->value,
+                'payment_repository_id' => $repository->getAttribute('id'),
+                'payment_method' => 'AGI_QRIS',
+                'amount' => $amount,
+                'name' => trim($request->input('firstName', '') . ' ' . $request->input('lastName', '')) ?: $request->input('name'),
+                'return_url' => $request->input('returnUrl', $request->input('return_url', $project->getCallback())),
+                'expired_at' => $expiredAt,
+                'request' => json_encode($body, JSON_THROW_ON_ERROR),
+                'response' => json_encode($response, JSON_THROW_ON_ERROR),
+                'gateway_reference' => $response['referenceNo'] ?? null,
+                'gateway_bill_number' => (string) $response['additionalInfo']['billNumber'],
+                'value' => $response['qrContent'],
+                'url' => $response['qrContent'],
+                'status' => OrderStatus::PENDING->value,
+            ]);
+        }
 
         $this->orderHistoryService->log($order, OrderStatus::PENDING, 'ORDER_CREATE_AGI', 'AGI QRIS created', $body);
         LogHelper::sendLog('Response Order AGI', $response, (string) $project->getAttribute('id'), 'response_order_agi');

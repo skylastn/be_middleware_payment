@@ -188,13 +188,9 @@ class DuitkuService
             $params['paymentMethod'] = $request->paymentMethod;
         }
 
-        $req['request'] = json_encode($params);
-        $req['status'] = OrderStatus::PENDING->value;
-        $order = Order::createAndFind($req);
-
         LogHelper::sendLog(
             'Request Order Duitku',
-            $req,
+            $params,
             $project->id,
             'request_order_duitku'
         );
@@ -216,11 +212,15 @@ class DuitkuService
         );
 
         $globalValue = $response->vaNumber ?? $response->qrString ?? null;
-        $order->setResponse(json_encode($response));
-        $order->setUrl($response->paymentUrl ?? null);
-        $order->setValue($globalValue);
-        $order->setPaymentRepositoryId($paymentRepo->id);
-        $order->save();
+
+        $req['request'] = json_encode($params);
+        $req['response'] = json_encode($response);
+        $req['url'] = $response->paymentUrl ?? null;
+        $req['value'] = $globalValue;
+        $req['payment_repository_id'] = $paymentRepo->id;
+        $req['status'] = OrderStatus::PENDING->value;
+
+        $order = Order::createAndFind($req);
 
         $this->orderHistoryService->log(
             $order,
