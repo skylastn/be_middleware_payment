@@ -60,8 +60,11 @@
           "const agiBody = pm.request.body && pm.request.body.raw ? pm.request.body.raw : \"\";",
           "const agiAuth = pm.request.headers.get(\"Authorization\") || \"\";",
           "",
-          "// Leave the deliberately-broken token/body scenarios untouched.",
-          "if (agiAuth.indexOf(\"invalid-token\") !== -1) return;",
+          "// Leave the deliberately-broken token / non-JSON body scenarios untouched.",
+          "if (pm.environment.get(\"agi_signature_mode\") === \"skip\") {",
+          "    pm.environment.set(\"agi_signature_mode\", \"sign\");",
+          "    return;",
+          "}",
           "if (!agiAuth) return;",
           "",
           "const agiToken = agiAuth.replace(/^Bearer\\s+/i, \"\").trim();",
@@ -2751,17 +2754,8 @@
                       "// Only act on AGI inbound requests (notify + access-token).",
                       "const agiInbound = /\\/api\\/bank\\/agi\\/(notify-qris|notify-va|access-token)$/.test(pm.request.url.getPath());",
                       "",
-                      "pm.environment.set(\"agi_timestamp\", \"{{$isoTimestamp}}\");",
-                      "",
-                      "const body = pm.request.body && pm.request.body.raw ? pm.request.body.raw : \"\";",
-                      "const auth = pm.request.headers.get(\"Authorization\") || \"\";",
-                      "const secret = pm.environment.get(\"agi_client_secret\") || \"\";",
-                      "if (auth && secret) {",
-                      "    const tok = auth.replace(/^Bearer\\s+/i, \"\").trim();",
-                      "    const hash = CryptoJS.SHA256(body.replace(/\\s+/g, \"\")).toString(CryptoJS.enc.Hex);",
-                      "    const sts = pm.request.method.toUpperCase() + \":\" + pm.request.url.getPath() + \":\" + tok + \":\" + hash + \":\" + pm.environment.get(\"agi_timestamp\");",
-                      "    pm.environment.set(\"agi_signature\", CryptoJS.HmacSHA512(sts, CryptoJS.enc.Base64.parse(secret)).toString(CryptoJS.enc.Hex));",
-                      "}"
+                      "pm.environment.set(\"agi_timestamp\", new Date().toISOString());",
+                      "pm.environment.set(\"agi_signature_mode\", \"skip\");"
                     ],
                     "type": "text/javascript"
                   }
@@ -2792,7 +2786,7 @@
                 "header": [
                   {
                     "key": "Authorization",
-                    "value": "Bearer invalid-token-0000",
+                    "value": "Bearer {{agi_invalid_access_token}}",
                     "type": "text"
                   },
                   {
@@ -2962,6 +2956,7 @@
                       "// Only act on AGI inbound requests (notify + access-token).",
                       "const agiInbound = /\\/api\\/bank\\/agi\\/(notify-qris|notify-va|access-token)$/.test(pm.request.url.getPath());",
                       "",
+                      "pm.environment.set(\"agi_signature_mode\", \"sign\");",
                       "const sig = pm.environment.get(\"agi_signature\") || \"\";",
                       "pm.environment.set(\"agi_signature\", sig ? sig.slice(0, -1) + (sig.endsWith(\"a\") ? \"b\" : \"a\") : \"deadbeef\");",
                       "console.log(\"Signature deliberately corrupted for the 4011900 scenario\");"
@@ -5272,6 +5267,7 @@
                       "// Only act on AGI inbound requests (notify + access-token).",
                       "const agiInbound = /\\/api\\/bank\\/agi\\/(notify-qris|notify-va|access-token)$/.test(pm.request.url.getPath());",
                       "",
+                      "pm.environment.set(\"agi_signature_mode\", \"sign\");",
                       "const sig = pm.environment.get(\"agi_signature\") || \"\";",
                       "pm.environment.set(\"agi_signature\", sig ? sig.slice(0, -1) + (sig.endsWith(\"a\") ? \"b\" : \"a\") : \"deadbeef\");",
                       "console.log(\"Signature deliberately corrupted for the 4011900 scenario\");"

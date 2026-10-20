@@ -83,8 +83,11 @@ const agiCollectionPreRequest = [
     'const agiBody = pm.request.body && pm.request.body.raw ? pm.request.body.raw : "";',
     'const agiAuth = pm.request.headers.get("Authorization") || "";',
     '',
-    '// Leave the deliberately-broken token/body scenarios untouched.',
-    'if (agiAuth.indexOf("invalid-token") !== -1) return;',
+    '// Leave the deliberately-broken token / non-JSON body scenarios untouched.',
+    'if (pm.environment.get("agi_signature_mode") === "skip") {',
+    '    pm.environment.set("agi_signature_mode", "sign");',
+    '    return;',
+    '}',
     'if (!agiAuth) return;',
     '',
     'const agiToken = agiAuth.replace(/^Bearer\\s+/i, "").trim();',
@@ -111,6 +114,7 @@ const agiBrokenSignaturePreRequest = [
     agiCollectionPreRequest[0],
     agiCollectionPreRequest[1],
     '',
+    'pm.environment.set("agi_signature_mode", "sign");',
     'const sig = pm.environment.get("agi_signature") || "";',
     'pm.environment.set("agi_signature", sig ? sig.slice(0, -1) + (sig.endsWith("a") ? "b" : "a") : "deadbeef");',
     'console.log("Signature deliberately corrupted for the 4011900 scenario");',
@@ -163,6 +167,15 @@ const agiNoSignaturePreRequest = [
     agiCollectionPreRequest[1],
     '',
     'pm.environment.set("agi_timestamp", new Date().toISOString());',
+];
+
+// Keeps the stale/engineered Authorization header untouched so the 401 branch is reached.
+const agiSkipSignaturePreRequest = [
+    agiCollectionPreRequest[0],
+    agiCollectionPreRequest[1],
+    '',
+    'pm.environment.set("agi_timestamp", new Date().toISOString());',
+    'pm.environment.set("agi_signature_mode", "skip");',
 ];
 
 const agiNotifyRequest = (cfg) => {
@@ -1607,7 +1620,7 @@ const updatedCollection = {
                             event: [
                                 {
                                     listen: 'prerequest',
-                                    script: { exec: agiFixedTimestampPreRequest('{{$isoTimestamp}}', false), type: 'text/javascript' },
+                                    script: { exec: agiSkipSignaturePreRequest, type: 'text/javascript' },
                                 },
                                 {
                                     listen: 'test',
@@ -1616,7 +1629,7 @@ const updatedCollection = {
                             ],
                             request: agiNotifyRequest({
                                 name: '2. Unauthorized - Invalid Access Token (4011901)',
-                                token: 'Bearer invalid-token-0000',
+                                token: 'Bearer {{agi_invalid_access_token}}',
                                 body: agiNotifyBody(),
                                 description:
                                     '**Scenario 1 - Any Service - Access Token Invalid.**\n\n' +
