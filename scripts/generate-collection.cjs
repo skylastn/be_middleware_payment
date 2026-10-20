@@ -42,6 +42,246 @@ const noAuth = {
     type: 'noauth',
 };
 
+
+// ---------------------------------------------------------------------------
+// Bank AGI (UAT) helpers
+// ---------------------------------------------------------------------------
+
+// Collection-level pre-request script: recomputes the inbound AGI signature so
+// X-SIGNATURE / X-TIMESTAMP are always valid when a scenario is sent manually.
+const agiCollectionPreRequest = [
+    '// Only act on AGI inbound requests (notify + access-token).',
+    'const agiInbound = /\\/api\\/bank\\/agi\\/(notify-qris|notify-va|access-token)$/.test(pm.request.url.getPath());',
+    'if (!agiInbound) return;',
+    '',
+    'if (pm.request.url.getPath().endsWith("/access-token")) {',
+    '    const tsA = new Date().toISOString();',
+    '    pm.environment.set("agi_timestamp", tsA);',
+    '    const privA = (pm.environment.get("agi_private_key") || "").replace(/\\\\n/g, "\\n");',
+    '    const ckA = pm.environment.get("agi_client_key") || "";',
+    '    if (!privA || !ckA) {',
+    '        console.warn("agi_private_key / agi_client_key not set; X-SIGNATURE left empty");',
+    '        return;',
+    '    }',
+    '    try {',
+    '        const signer = new Package.Signature(privA, "RSA-SHA256");',
+    '        signer.update(ckA + "|" + tsA);',
+    '        pm.environment.set("agi_asymmetric_signature", CryptoJS.enc.Base64.stringify(signer.sign()));',
+    '    } catch (e) {',
+    '        console.error("Unable to build RSA signature:", e.message);',
+    '    }',
+    '    return;',
+    '}',
+    '',
+    '// --- QRIS notify: symmetric HMAC-SHA512 ---',
+    'if (!pm.environment.get("agi_external_id")) {',
+    '    pm.environment.set("agi_external_id", CryptoJS.MD5(String(Date.now())).toString() + CryptoJS.MD5("agi" + Date.now()).toString().slice(0, 0));',
+    '}',
+    'if (!pm.environment.get("agi_channel_id")) pm.environment.set("agi_channel_id", "BAG-API");',
+    'if (!pm.environment.get("agi_partner_id")) pm.environment.set("agi_partner_id", pm.environment.get("agi_client_key") || "");',
+    '',
+    'const agiBody = pm.request.body && pm.request.body.raw ? pm.request.body.raw : "";',
+    'const agiAuth = pm.request.headers.get("Authorization") || "";',
+    '',
+    '// Leave the deliberately-broken token/body scenarios untouched.',
+    'if (agiAuth.indexOf("invalid-token") !== -1) return;',
+    'if (!agiAuth) return;',
+    '',
+    'const agiToken = agiAuth.replace(/^Bearer\\s+/i, "").trim();',
+    'const agiSecret = pm.environment.get("agi_client_secret") || "";',
+    'const agiTs = pm.environment.get("agi_timestamp") || new Date().toISOString();',
+    '',
+    'if (!agiToken || !agiSecret) {',
+    '    console.warn("agi_access_token / agi_client_secret missing - signature not set");',
+    '    return;',
+    '}',
+    '',
+    'try {',
+    '    const agiBodyHash = CryptoJS.SHA256(agiBody.replace(/\\s+/g, "")).toString(CryptoJS.enc.Hex);',
+    '    const agiStringToSign = pm.request.method.toUpperCase() + ":" + pm.request.url.getPath() + ":" + agiToken + ":" + agiBodyHash + ":" + agiTs;',
+    '    const agiKey = CryptoJS.enc.Base64.parse(agiSecret);',
+    '    pm.environment.set("agi_signature", CryptoJS.HmacSHA512(agiStringToSign, agiKey).toString(CryptoJS.enc.Hex));',
+    '} catch (e) {',
+    '    console.error("Unable to build HMAC signature:", e.message);',
+    '}',
+];
+
+// Per-request override for the negative signature scenario.
+const agiBrokenSignaturePreRequest = [
+    agiCollectionPreRequest[0],
+    agiCollectionPreRequest[1],
+    '',
+    'const sig = pm.environment.get("agi_signature") || "";',
+    'pm.environment.set("agi_signature", sig ? sig.slice(0, -1) + (sig.endsWith("a") ? "b" : "a") : "deadbeef");',
+    'console.log("Signature deliberately corrupted for the 4011900 scenario");',
+];
+
+const agiFixedTimestampPreRequest = (timestamp, dropAuth) => [
+    agiCollectionPreRequest[0],
+    agiCollectionPreRequest[1],
+    '',
+    'pm.environment.set("agi_timestamp", ' + JSON.stringify(timestamp) + ');',
+    dropAuth ? 'pm.request.headers.remove("Authorization");' : '',
+    'const body = pm.request.body && pm.request.body.raw ? pm.request.body.raw : "";',
+    'const auth = pm.request.headers.get("Authorization") || "";',
+    'const secret = pm.environment.get("agi_client_secret") || "";',
+    'if (auth && secret) {',
+    '    const tok = auth.replace(/^Bearer\\s+/i, "").trim();',
+    '    const hash = CryptoJS.SHA256(body.replace(/\\s+/g, "")).toString(CryptoJS.enc.Hex);',
+    '    const sts = pm.request.method.toUpperCase() + ":" + pm.request.url.getPath() + ":" + tok + ":" + hash + ":" + pm.environment.get("agi_timestamp");',
+    '    pm.environment.set("agi_signature", CryptoJS.HmacSHA512(sts, CryptoJS.enc.Base64.parse(secret)).toString(CryptoJS.enc.Hex));',
+    '}',
+];
+
+const agiNotifyBody = (overrides) => {
+    const o = overrides || {};
+
+    return JSON.stringify(
+        {
+            originalReferenceNo: '{{agi_reference}}',
+            latestTransactionStatus: o.latestTransactionStatus || '00',
+            transactionStatusDesc: o.statusDesc || 'SUCCEED',
+            destinationAccountName: 'ANUGERAH BERSAMA TEKNOLOG',
+            issuerName: o.issuer || 'Bank Artha Graha',
+            amount: {
+                value: o.amountValue || '{{agi_amount}}',
+                currency: o.currency || 'IDR',
+            },
+            additionalInfo: {
+                merchantId: '{{agi_merchant_id}}',
+                merchantUser: '{{agi_merchant_user}}',
+                billNumber: o.billNumber || '{{agi_bill_number}}',
+            },
+        },
+        null,
+        4
+    );
+};
+
+const agiNoSignaturePreRequest = [
+    agiCollectionPreRequest[0],
+    agiCollectionPreRequest[1],
+    '',
+    'pm.environment.set("agi_timestamp", new Date().toISOString());',
+];
+
+const agiNotifyRequest = (cfg) => {
+    const headers = [];
+
+    if (cfg.token !== null) {
+        headers.push({ key: 'Authorization', value: cfg.token || 'Bearer {{agi_access_token}}', type: 'text' });
+    }
+
+    headers.push(
+        { key: 'Content-Type', value: cfg.contentType || 'application/json', type: 'text' },
+        { key: 'X-PARTNER-ID', value: '{{agi_partner_id}}', type: 'text' },
+        { key: 'X-TIMESTAMP', value: '{{agi_timestamp}}', type: 'text' },
+        { key: 'X-EXTERNAL-ID', value: '{{agi_external_id}}', type: 'text' },
+        { key: 'CHANNEL-ID', value: '{{agi_channel_id}}', type: 'text' },
+        { key: 'X-SIGNATURE', value: '{{agi_signature}}', type: 'text' }
+    );
+
+    return {
+        auth: noAuth,
+        method: 'POST',
+        header: headers,
+        body: { mode: 'raw', raw: cfg.body, options: { raw: { language: 'json' } } },
+        url: {
+            raw: '{{url_payment}}bank/agi/notify-qris',
+            host: ['{{url_payment}}bank'],
+            path: ['agi', 'notify-qris'],
+        },
+        description: cfg.description || '',
+    };
+};
+
+const agiNotifyTest = (expectedCode) => [
+    'const res = pm.response.json();',
+    'console.log("AGI notify:", pm.response.code, JSON.stringify(res));',
+    '',
+    'pm.test("HTTP ' + (expectedCode === '2001900' ? '200' : 'matches') + '", function () {',
+    '    pm.response.to.have.status(' + (expectedCode === '2001900' ? 200 : 'pm.response.code') + ');',
+    '});',
+    'pm.test("responseCode ' + expectedCode + '", function () {',
+    '    pm.expect(res.responseCode).to.eql("' + expectedCode + '");',
+    '});',
+];
+
+const agiCreateOrderRequest = (cfg) => {
+    const c = cfg || {};
+
+    return {
+        auth: merchantAuth,
+        method: 'POST',
+        header: [
+            { key: 'Content-Type', value: 'application/json', type: 'text' },
+            { key: 'Accept', value: 'application/json', type: 'text' },
+        ],
+        body: {
+            mode: 'raw',
+            raw: JSON.stringify(
+                {
+                    paymentRepositoryId: c.paymentRepositoryId || '{{paymentRepositoryId}}',
+                    merchantOrderId: 'AGI-UAT-{{$timestamp}}',
+                    paymentAmount: c.paymentAmount || 10000,
+                    paymentMethod: c.paymentMethod || 'qris',
+                    mode: 'sandbox',
+                    expiryPeriod: c.expiryPeriod || 60,
+                    firstName: 'UAT',
+                    lastName: 'AGI',
+                    email: 'uat@example.com',
+                    returnUrl: '{{url_callback}}',
+                },
+                null,
+                4
+            ),
+            options: { raw: { language: 'json' } },
+        },
+        url: { raw: '{{url_payment}}order/create', host: ['{{url_payment}}order'], path: ['create'] },
+        description: c.description || '',
+    };
+};
+
+const agiOrderTestScript = [
+    'const res = pm.response.json();',
+    'console.log("AGI create order:", pm.response.code, JSON.stringify(res));',
+    '',
+    'const data = (res && res.data) || {};',
+    'const result = data.result || {};',
+    'const info = result.additionalInfo || {};',
+    '',
+    'if (data.reference) pm.environment.set("agi_reference", data.reference);',
+    'if (data.qr_string) pm.environment.set("agi_qr_string", data.qr_string);',
+    'if (result.referenceNo) pm.environment.set("agi_gateway_reference", result.referenceNo);',
+    'if (result.qrContent) pm.environment.set("agi_qr_string", result.qrContent);',
+    'if (result.amount && result.amount.value) pm.environment.set("agi_amount", result.amount.value);',
+    'if (info.billNumber) pm.environment.set("agi_bill_number", info.billNumber);',
+    '',
+    'pm.test("HTTP 200", function () { pm.response.to.have.status(200); });',
+];
+
+const agiOrderStatusRequest = (cfg) => {
+    const c = cfg || {};
+    const reference = c.reference || '{{agi_reference}}';
+    const status = c.status || 'all';
+
+    return {
+        auth: merchantAuth,
+        method: 'GET',
+        header: [{ key: 'Accept', value: 'application/json', type: 'text' }],
+        url: {
+            raw: '{{url_payment}}order/checkOrderStatus?reference=' + reference + (status === 'all' ? '' : '&status=' + status),
+            host: ['{{url_payment}}order'],
+            path: ['checkOrderStatus'],
+            query: [
+                { key: 'reference', value: reference },
+                { key: 'status', value: status, disabled: status === 'all' },
+            ],
+        },
+        description: c.description || '',
+    };
+};
+
 const updatedCollection = {
     info: {
         _postman_id: existing.info?._postman_id || 'cc267a45-ea29-45b2-88d4-aba0264e87ac',
@@ -52,7 +292,12 @@ const updatedCollection = {
         _collection_link: existing.info?._collection_link,
     },
     auth: merchantAuth,
-    event: existing.event || [],
+    event: [
+        {
+            listen: 'prerequest',
+            script: { exec: agiCollectionPreRequest, type: 'text/javascript' },
+        },
+    ],
     item: [
         {
             name: 'Auth',
@@ -1204,6 +1449,760 @@ const updatedCollection = {
                                 url: {
                                     raw: '{{paprika_endpoint}}',
                                     host: ['{{paprika_endpoint}}'],
+                                },
+                            },
+                            response: [],
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            name: 'Bank AGI (UAT)',
+            description:
+                'Postman schema for Bank Artha Graha (AGI) SNAP QRIS UAT. Two collections of scenarios are provided: **QR MPM On Us (18 scenarios)** and **QR MPM Off Us (13 scenarios)** — see folders below.\n\n' +
+                '### How the scripts work\n' +
+                '- `X-SIGNATURE` (inbound callback + notify) is HMAC-SHA512 lowercase hex over `METHOD:PATH:ACCESS_TOKEN:SHA256(body-with-all-whitespace-removed):X-TIMESTAMP`, keyed with **Base64-decoded `client_secret`**. Collection pre-request scripts compute it automatically from `agi_client_secret`.\n' +
+                '- `X-SIGNATURE` for `POST /api/bank/agi/access-token` is RSA SHA256 (Base64) over `client_key|X-TIMESTAMP`, signed with AGI private key (`agi_private_key`).\n' +
+                '- Access token is generated then cached into `agi_access_token`; timestamp window is ±300s so always regenerate before sending.\n' +
+                '- `X-EXTERNAL-ID` and `CHANNEL-ID` from AGI are alphanumeric (`4961efb0ff5844b8a054e5ad7214a38d`, `BAG-API`) and are accepted as-is.\n\n' +
+                '### Prerequisites\n' +
+                '1. Run **Bank AGI (UAT) > 00 - Setup > 1. Check AGI Payment Repository** to confirm `client_key`, `client_secret`, `bank_public_key`, `private_key`, `channel_id`, `merchant_id`, `merchant_user` are configured.\n' +
+                '2. Set environment: `agi_client_key`, `agi_client_secret`, `agi_private_key`, `agi_public_key`, `agi_merchant_id`, `agi_merchant_user`, `agi_channel_id`, `agi_partner_id`, `agi_bill_number`, `agi_reference`, `Token` (merchant project token), `paymentRepositoryId`.\n' +
+                '3. Run **1. Access Token** before any notify request so `agi_access_token` is populated.',
+            item: [
+                {
+                    name: '00 - Setup',
+                    item: [
+                        {
+                            name: '1. Check AGI Payment Repository',
+                            event: [
+                                {
+                                    listen: 'test',
+                                    script: {
+                                        exec: [
+                                            'const res = pm.response.json();',
+                                            'const rows = (res && res.data) || [];',
+                                            'const agi = rows.find((r) => (r.payment_gateway || {}).key === "bank_agi");',
+                                            'if (agi) {',
+                                            '    pm.environment.set("paymentRepositoryId", agi.id);',
+                                            '    const v = agi.value || {};',
+                                            '    if (v.client_key) pm.environment.set("agi_client_key", v.client_key);',
+                                            '    if (v.merchant_id) pm.environment.set("agi_merchant_id", v.merchant_id);',
+                                            '    if (v.merchant_user) pm.environment.set("agi_merchant_user", v.merchant_user);',
+                                            '    if (v.channel_id) pm.environment.set("agi_channel_id", v.channel_id);',
+                                            '    console.log("AGI repo found:", agi.id, "mode:", agi.mode);',
+                                            '} else {',
+                                            '    console.warn("No bank_agi repository returned. Create one first.");',
+                                            '}',
+                                        ],
+                                        type: 'text/javascript',
+                                    },
+                                },
+                            ],
+                            request: {
+                                auth: bearerAuth,
+                                method: 'GET',
+                                header: [{ key: 'Accept', value: 'application/json', type: 'text' }],
+                                url: {
+                                    raw: '{{url_payment}}payment/getPaymentRepository',
+                                    host: ['{{url_payment}}payment'],
+                                    path: ['getPaymentRepository'],
+                                },
+                            },
+                            response: [],
+                        },
+                        {
+                            name: '2. Create AGI Payment Repository (sandbox)',
+                            request: {
+                                auth: bearerAuth,
+                                method: 'POST',
+                                header: [
+                                    { key: 'Content-Type', value: 'application/json', type: 'text' },
+                                    { key: 'Accept', value: 'application/json', type: 'text' },
+                                ],
+                                body: {
+                                    mode: 'raw',
+                                    raw:
+                                        '{\n' +
+                                        '    "payment_gateway_key": "bank_agi",\n' +
+                                        '    "key": "bank_agi-uat",\n' +
+                                        '    "mode": "sandbox",\n' +
+                                        '    "value": {\n' +
+                                        '        "base_url": "https://sandbox.ag.co.id",\n' +
+                                        '        "channel_id": "{{agi_channel_id}}",\n' +
+                                        '        "merchant_id": "{{agi_merchant_id}}",\n' +
+                                        '        "merchant_user": "{{agi_merchant_user}}",\n' +
+                                        '        "client_key": "{{agi_client_key}}",\n' +
+                                        '        "client_secret": "{{agi_client_secret}}",\n' +
+                                        '        "bank_client_id": "{{agi_client_key}}",\n' +
+                                        '        "bank_client_secret": "{{agi_client_secret}}",\n' +
+                                        '        "bank_public_key": "{{agi_public_key}}",\n' +
+                                        '        "private_key": "{{agi_private_key}}",\n' +
+                                        '        "validity_period": 60,\n' +
+                                        '        "allowed_hosts": ["sandbox.ag.co.id"]\n' +
+                                        '    }\n' +
+                                        '}',
+                                    options: { raw: { language: 'json' } },
+                                },
+                                url: {
+                                    raw: '{{url_payment}}payment/repository/create',
+                                    host: ['{{url_payment}}payment'],
+                                    path: ['repository', 'create'],
+                                },
+                            },
+                            response: [],
+                        },
+                    ],
+                },
+                {
+                    name: '01 - Any Service (common scenarios)',
+                    item: [
+                        {
+                            name: '1. Access Token (RSA SHA256 client_key|timestamp)',
+                            event: [
+                                {
+                                    listen: 'test',
+                                    script: {
+                                        exec: [
+                                            'const res = pm.response.json();',
+                                            'if (res && res.responseCode === "2007300" && res.accessToken) {',
+                                            '    pm.environment.set("agi_access_token", res.accessToken);',
+                                            '    pm.environment.set("agi_token_expires", res.expiresIn);',
+                                            '    console.log("AGI access token stored, expiresIn:", res.expiresIn);',
+                                            '} else {',
+                                            '    console.error("Access token failed:", JSON.stringify(res));',
+                                            '}',
+                                        ],
+                                        type: 'text/javascript',
+                                    },
+                                },
+                            ],
+                            request: {
+                                auth: noAuth,
+                                method: 'POST',
+                                header: [
+                                    { key: 'Content-Type', value: 'application/json', type: 'text' },
+                                    { key: 'X-CLIENT-KEY', value: '{{agi_client_key}}', type: 'text' },
+                                    { key: 'X-TIMESTAMP', value: '{{agi_timestamp}}', type: 'text' },
+                                    { key: 'X-SIGNATURE', value: '{{agi_asymmetric_signature}}', type: 'text' },
+                                ],
+                                body: {
+                                    mode: 'raw',
+                                    raw: '{\n    "grantType": "client_credentials",\n    "additionalInfo": {}\n}',
+                                    options: { raw: { language: 'json' } },
+                                },
+                                url: {
+                                    raw: '{{url_payment}}bank/agi/access-token',
+                                    host: ['{{url_payment}}bank'],
+                                    path: ['agi', 'access-token'],
+                                },
+                                description:
+                                    '**Expected**: `2007300 Successful`. Stores `agi_access_token` and `agi_timestamp` for the next requests.',
+                            },
+                            response: [],
+                        },
+                        {
+                            name: '2. Unauthorized - Invalid Access Token (4011901)',
+                            event: [
+                                {
+                                    listen: 'prerequest',
+                                    script: { exec: agiFixedTimestampPreRequest('{{$isoTimestamp}}', false), type: 'text/javascript' },
+                                },
+                                {
+                                    listen: 'test',
+                                    script: { exec: agiNotifyTest('4011901'), type: 'text/javascript' },
+                                },
+                            ],
+                            request: agiNotifyRequest({
+                                name: '2. Unauthorized - Invalid Access Token (4011901)',
+                                token: 'Bearer invalid-token-0000',
+                                body: agiNotifyBody(),
+                                description:
+                                    '**Scenario 1 - Any Service - Access Token Invalid.**\n\n' +
+                                    '**Expected**: HTTP 401 `4011901` `Invalid Token (B2B)`.\n\n' +
+                                    '_Note_: SNAP spec wording is "Access Token Invalid"; the middleware returns `4011901 Invalid Token (B2B)` for unknown/expired tokens and `4011903 Token Not Found (B2B)` when the Authorization header is missing. Capture either as evidence.',
+                            }),
+                            response: [],
+                        },
+                        {
+                            name: '2b. Unauthorized - Missing Access Token (4011903)',
+                            event: [
+                                {
+                                    listen: 'prerequest',
+                                    script: { exec: agiFixedTimestampPreRequest('{{$isoTimestamp}}', true), type: 'text/javascript' },
+                                },
+                                {
+                                    listen: 'test',
+                                    script: { exec: agiNotifyTest('4011903'), type: 'text/javascript' },
+                                },
+                            ],
+                            request: agiNotifyRequest({
+                                token: null,
+                                body: agiNotifyBody(),
+                                description: '**Expected**: HTTP 401 `4011903` `Token Not Found (B2B)`.',
+                            }),
+                            response: [],
+                        },
+                        {
+                            name: '3. Unauthorized Signature (4011900)',
+                            event: [
+                                {
+                                    listen: 'prerequest',
+                                    script: { exec: agiBrokenSignaturePreRequest, type: 'text/javascript' },
+                                },
+                                {
+                                    listen: 'test',
+                                    script: { exec: agiNotifyTest('4011900'), type: 'text/javascript' },
+                                },
+                            ],
+                            request: agiNotifyRequest({
+                                body: agiNotifyBody(),
+                                description:
+                                    '**Scenario 2 - Any Service - Unauthorized Signature.**\n\n' +
+                                    '**Expected**: HTTP 401 `4011900` `Unauthorized [Signature]`.\n\n' +
+                                    'Signature is computed normally then deliberately corrupted.',
+                            }),
+                            response: [],
+                        },
+                        {
+                            name: '4. Missing Mandatory Field (4001902)',
+                            event: [
+                                {
+                                    listen: 'test',
+                                    script: { exec: agiNotifyTest('4001902'), type: 'text/javascript' },
+                                },
+                            ],
+                            request: agiNotifyRequest({
+                                body: '{\n    "originalReferenceNo": "{{agi_reference}}",\n    "latestTransactionStatus": "00",\n    "additionalInfo": {\n        "merchantId": "{{agi_merchant_id}}"\n    }\n}',
+                                description:
+                                    '**Scenario 3 - Any Service - Missing Mandatory Field.**\n\n' +
+                                    'Body omits `additionalInfo.merchantUser` and `additionalInfo.billNumber`.\n\n' +
+                                    '**Expected**: HTTP 400 `4001902` `Invalid Mandatory Field [additionalInfo.merchantUser]`.',
+                            }),
+                            response: [],
+                        },
+                        {
+                            name: '5. Invalid Field Format (4001901)',
+                            event: [
+                                {
+                                    listen: 'test',
+                                    script: { exec: agiNotifyTest('4001901'), type: 'text/javascript' },
+                                },
+                            ],
+                            request: agiNotifyRequest({
+                                body: agiNotifyBody({ latestTransactionStatus: '99' }),
+                                description:
+                                    '**Scenario 4 - Any Service - Invalid Field Format.**\n\n' +
+                                    '`latestTransactionStatus` = `99` (not in allowed enum `00..07`).\n\n' +
+                                    '**Expected**: HTTP 400 `4001901` `Invalid Field Format [latestTransactionStatus]`.',
+                            }),
+                            response: [],
+                        },
+                        {
+                            name: '5b. Invalid Field Format - Non JSON body (4001901)',
+                            event: [
+                                {
+                                    listen: 'prerequest',
+                                    script: { exec: agiNoSignaturePreRequest, type: 'text/javascript' },
+                                },
+                                {
+                                    listen: 'test',
+                                    script: { exec: agiNotifyTest('4001901'), type: 'text/javascript' },
+                                },
+                            ],
+                            request: agiNotifyRequest({
+                                body: 'not-a-json-payload',
+                                contentType: 'text/plain',
+                                description:
+                                    '**Expected**: HTTP 400 `4001901` `Invalid Field Format [body]` (body rejected before signature check).',
+                            }),
+                            response: [],
+                        },
+                        {
+                            name: '5c. Invalid Field Format - Bad X-TIMESTAMP (4001901)',
+                            event: [
+                                {
+                                    listen: 'prerequest',
+                                    script: {
+                                        exec: agiFixedTimestampPreRequest('2026-10-15 15:35:35', false),
+                                        type: 'text/javascript',
+                                    },
+                                },
+                                {
+                                    listen: 'test',
+                                    script: { exec: agiNotifyTest('4001901'), type: 'text/javascript' },
+                                },
+                            ],
+                            request: agiNotifyRequest({
+                                body: agiNotifyBody(),
+                                description:
+                                    '**Expected**: HTTP 400 `4001901` `Invalid Field Format [X-TIMESTAMP]`.',
+                            }),
+                            response: [],
+                        },
+                        {
+                            name: '5d. Unauthorized - Expired X-TIMESTAMP (4011900)',
+                            event: [
+                                {
+                                    listen: 'prerequest',
+                                    script: {
+                                        exec: agiFixedTimestampPreRequest('{{agi_expired_timestamp}}', false),
+                                        type: 'text/javascript',
+                                    },
+                                },
+                                {
+                                    listen: 'test',
+                                    script: { exec: agiNotifyTest('4011900'), type: 'text/javascript' },
+                                },
+                            ],
+                            request: agiNotifyRequest({
+                                body: agiNotifyBody(),
+                                description:
+                                    '**Expected**: HTTP 401 `4011900` `Unauthorized [Timestamp expired]`. Timestamp older than 300s.',
+                            }),
+                            response: [],
+                        },
+                        {
+                            name: '6. Conflict - Reused X-EXTERNAL-ID (4091900)',
+                            event: [
+                                {
+                                    listen: 'test',
+                                    script: { exec: agiNotifyTest('4091900'), type: 'text/javascript' },
+                                },
+                            ],
+                            request: agiNotifyRequest({
+                                body: agiNotifyBody(),
+                                description:
+                                    '**Scenario 5 - Any Service - Cannot use the same X-EXTERNAL-ID.**\n\n' +
+                                    '1. Send **11. Payment Notify - Success** once (or any valid notify) and note its `X-EXTERNAL-ID`.\n' +
+                                    '2. Set `agi_external_id` to that same value and resend within the cache window.\n\n' +
+                                    '**Expected**: HTTP 409 `4091900` `Conflict`.\n\n' +
+                                    '⚠️ Local middleware currently does **not** de-duplicate `X-EXTERNAL-ID`. If empty/200 is returned, raise it with the backend owner before UAT sign-off.',
+                            }),
+                            response: [],
+                        },
+                    ],
+                },
+                {
+                    name: '02 - QR MPM ON US (18 scenarios)',
+                    description: 'Sheets: `QR MPM (On Us)` — 18 scenarios.',
+                    item: [
+                        {
+                            name: '7. Generate QR - Show QR Code (2001700)',
+                            event: [
+                                {
+                                    listen: 'test',
+                                    script: {
+                                        exec: agiOrderTestScript,
+                                        type: 'text/javascript',
+                                    },
+                                },
+                            ],
+                            request: agiCreateOrderRequest({
+                                paymentMethod: 'qris',
+                                description:
+                                    '**Scenario 6 - QR MPM Generate QR - Show QR Code.**\n\n' +
+                                    '**Expected**: `2001700 success` with `qr_string` + `result.qrContent`.\n\n' +
+                                    'Auto-stores `agi_reference`, `agi_bill_number`, `agi_qr_string`, `agi_amount`, `agi_merchant_id`, `agi_merchant_user`, `agi_payment_repository_id` for the notify steps.',
+                            }),
+                            response: [],
+                        },
+                        {
+                            name: '7b. Generate QR - Invalid Merchant (4041708)',
+                            request: agiCreateOrderRequest({
+                                paymentRepositoryId: '{{agi_invalid_repository_id}}',
+                                description:
+                                    '**Scenario 7 - QR MPM Generate QR - Invalid Merchant.**\n\n' +
+                                    '**Expected**: merchant API returns error with code `4041708` `Invalid Merchant` from AGI.\n\n' +
+                                    'To reproduce: point `agi_invalid_repository_id` at a repository whose `merchant_id` is not registered at AGI (or edit `merchant_id` in the repo config first).',
+                            }),
+                            response: [],
+                        },
+                        {
+                            name: '7c. Generate QR - Nominal > 10.000.000',
+                            request: agiCreateOrderRequest({
+                                paymentAmount: 10000001,
+                                description:
+                                    '**Scenario 14 - Generate QR Melebihi batas maksimal nominal > 10.000.000.**\n\n' +
+                                    '**Expected**: rejected by AGI (validation error from bank, e.g. `4001701` / `Invalid Amount`). Capture the bank response body.',
+                            }),
+                            response: [],
+                        },
+                        {
+                            name: '8. QR Expired (4041801)',
+                            request: agiCreateOrderRequest({
+                                expiryPeriod: 1,
+                                description:
+                                    '**Scenario 8 - QR MPM Generate QR - QR Expired.**\n\n' +
+                                    'Creates a QR with `expiryPeriod = 1` minute. Wait > 1 minute, then run **13. Check Status - Invalid Bill Number** / **15. Query Payment - Expired** to evidence `4041801 Transaction Expired/Transaction Not Found`.',
+                            }),
+                            response: [],
+                        },
+                        {
+                            name: '9. Query Payment - Pending Transaction (4041801)',
+                            request: agiOrderStatusRequest({
+                                description:
+                                    '**Scenario 9 - Query Payment - Pending Transaction.**\n\n' +
+                                    '**Expected**: `4041801 Transaction Not Found` (ON US sheet) — AGI returns "not found" until paid.\n\n' +
+                                    'Uses `agi_reference` from step 7.',
+                            }),
+                            response: [],
+                        },
+                        {
+                            name: '10. Query Payment - Failed Transaction (4041801)',
+                            request: agiOrderStatusRequest({
+                                status: 'FAILED',
+                                description:
+                                    '**Scenario 10 - Query Payment - Failed Transaction.**\n\n' +
+                                    '**Expected**: `4041801 Transaction Not Found`.\n\n' +
+                                    '⚠️ The `status` filter is a **local** middleware helper; AGI itself has no "fail" query param. For bank-side evidence, capture the notify with `latestTransactionStatus = 05` (see **12c**).',
+                            }),
+                            response: [],
+                        },
+                        {
+                            name: '11. Payment Notify - Success (2001900)',
+                            event: [
+                                {
+                                    listen: 'test',
+                                    script: { exec: agiNotifyTest('2001900'), type: 'text/javascript' },
+                                },
+                            ],
+                            request: agiNotifyRequest({
+                                body: agiNotifyBody(),
+                                description:
+                                    '**Scenario 11 - Payment Notify - Notify Success.**\n\n' +
+                                    '**Expected**: HTTP 200 `2001900 Success`; order status becomes `SUCCESS`.\n\n' +
+                                    'Run **7** first so `agi_bill_number` / `agi_reference` are populated. Re-running is idempotent (still `2001900`).',
+                            }),
+                            response: [],
+                        },
+                        {
+                            name: '11b. Payment Notify - Idempotent resend (2001900)',
+                            event: [
+                                {
+                                    listen: 'test',
+                                    script: { exec: agiNotifyTest('2001900'), type: 'text/javascript' },
+                                },
+                            ],
+                            request: agiNotifyRequest({
+                                body: agiNotifyBody(),
+                                description:
+                                    '**Expected**: HTTP 200 `2001900 Success` even though order is already `SUCCESS` (idempotency guard).',
+                            }),
+                            response: [],
+                        },
+                        {
+                            name: '12. Query Payment - Success Transaction (2001900)',
+                            request: agiOrderStatusRequest({
+                                status: 'all',
+                                description:
+                                    '**Scenario 12 - Query Payment - Success Transaction.**\n\n' +
+                                    '**Expected**: order `status = SUCCESS` after step 11.',
+                            }),
+                            response: [],
+                        },
+                        {
+                            name: '12b. Notify - Amount Mismatch (4001901)',
+                            event: [
+                                {
+                                    listen: 'test',
+                                    script: { exec: agiNotifyTest('4001901'), type: 'text/javascript' },
+                                },
+                            ],
+                            request: agiNotifyRequest({
+                                body: agiNotifyBody({ amountValue: '99999.00' }),
+                                description:
+                                    '**Expected**: HTTP 400 `4001901 Invalid Field Format [amount]` (amount differs from original order).',
+                            }),
+                            response: [],
+                        },
+                        {
+                            name: '12c. Notify - Failed Status 05 (2001900)',
+                            event: [
+                                {
+                                    listen: 'test',
+                                    script: { exec: agiNotifyTest('2001900'), type: 'text/javascript' },
+                                },
+                            ],
+                            request: agiNotifyRequest({
+                                body: agiNotifyBody({ latestTransactionStatus: '05', statusDesc: 'FAILED' }),
+                                description:
+                                    '**Expected**: HTTP 200 `2001900 Success`; order status becomes `FAILED`.\n\n' +
+                                    'Use this as the "failed transaction" evidence for scenario 10.',
+                            }),
+                            response: [],
+                        },
+                        {
+                            name: '13. Check Status - Invalid Bill Number (4041801)',
+                            request: agiOrderStatusRequest({
+                                reference: '{{agi_invalid_reference}}',
+                                description:
+                                    '**Scenario 13 - Check Status - Invalid Bill Number.**\n\n' +
+                                    'Set `agi_invalid_reference` to e.g. `AGI-UAT-NOT-EXISTS-999`.\n\n' +
+                                    '**Expected**: `4041801 Transaction Not Found`.',
+                            }),
+                            response: [],
+                        },
+                        {
+                            name: '14. Notify - Unknown Bill Number (4041901)',
+                            event: [
+                                {
+                                    listen: 'test',
+                                    script: { exec: agiNotifyTest('4041901'), type: 'text/javascript' },
+                                },
+                            ],
+                            request: agiNotifyRequest({
+                                body: agiNotifyBody({ billNumber: '{{agi_invalid_bill_number}}' }),
+                                description:
+                                    '**Expected**: HTTP 404 `4041901 Transaction Not Found`. Sets `agi_invalid_bill_number` to `7000000000000000009999999` by default.',
+                            }),
+                            response: [],
+                        },
+                        {
+                            name: '15. Query Payment - Saldo Rekening < nominal',
+                            request: agiCreateOrderRequest({
+                                paymentAmount: 1000,
+                                description:
+                                    '**Scenario 15 - Saldo Rekening Pembayaran kurang dari jumlah nominal transaksi.**\n\n' +
+                                    'Create a small QR (Rp 1.000), then attempt payment from an AGI test account with lower balance.\n\n' +
+                                    '**Expected**: notify `latestTransactionStatus = 05` with a failure reason; middleware replies `2001900 Success` and order becomes `FAILED`. Capture both bank and middleware responses.',
+                            }),
+                            response: [],
+                        },
+                        {
+                            name: '16. Query Payment - Rekening Dormant (4041801)',
+                            request: agiOrderStatusRequest({
+                                status: 'all',
+                                description:
+                                    '**Scenario 16 - Payment menggunakan Rekening Dormant.**\n\n' +
+                                    'Pay QR from a dormant AGI account, then query.\n\n' +
+                                    '**Expected**: `4041801 Transaction Not Found` (payment never settles).',
+                            }),
+                            response: [],
+                        },
+                        {
+                            name: '17. Query Payment - Rekening Post No Debit (4041801)',
+                            request: agiOrderStatusRequest({
+                                status: 'all',
+                                description:
+                                    '**Scenario 17 - Payment menggunakan Rekening Post No Debit.**\n\n' +
+                                    '**Expected**: `4041801 Transaction Not Found`.',
+                            }),
+                            response: [],
+                        },
+                        {
+                            name: '18. Query Payment - Rekening Inactive (4041801)',
+                            request: agiOrderStatusRequest({
+                                status: 'all',
+                                description:
+                                    '**Scenario 18 - Payment menggunakan Rekening Inactive.**\n\n' +
+                                    '**Expected**: `4041801 Transaction Not Found`.',
+                            }),
+                            response: [],
+                        },
+                    ],
+                },
+                {
+                    name: '03 - QR MPM OFF US (13 scenarios)',
+                    description: 'Sheets: `QR MPM (Off Us)` — 13 scenarios. Differences vs ON US: pending query returns `4042116 PENDING`.',
+                    item: [
+                        {
+                            name: '6. Generate QR - Show QR Code (2001700)',
+                            event: [
+                                {
+                                    listen: 'test',
+                                    script: {
+                                        exec: agiOrderTestScript,
+                                        type: 'text/javascript',
+                                    },
+                                },
+                            ],
+                            request: agiCreateOrderRequest({
+                                paymentMethod: 'qris',
+                                description:
+                                    '**Scenario 6 - QR MPM Generate QR - Show QR Code (OFF US).**\n\n' +
+                                    '**Expected**: `2001700 success`.',
+                            }),
+                            response: [],
+                        },
+                        {
+                            name: '7. Generate QR - Invalid Merchant (4041708)',
+                            request: agiCreateOrderRequest({
+                                paymentRepositoryId: '{{agi_invalid_repository_id}}',
+                                description:
+                                    '**Scenario 7 - Invalid Merchant.**\n\n**Expected**: code `4041708 Invalid Merchant`.',
+                            }),
+                            response: [],
+                        },
+                        {
+                            name: '8. QR Expired (4041801)',
+                            request: agiCreateOrderRequest({
+                                expiryPeriod: 1,
+                                description:
+                                    '**Scenario 8 - QR Expired.** Create with `expiryPeriod=1`, wait > 1 minute, then query.\n\n**Expected**: `4041801 Transaction Expired/Transaction Not Found`.',
+                            }),
+                            response: [],
+                        },
+                        {
+                            name: '9. Query Payment - Pending Transaction (4042116)',
+                            request: agiOrderStatusRequest({
+                                description:
+                                    '**Scenario 9 - Query Payment - Pending (OFF US only).**\n\n' +
+                                    '**Expected**: `4042116 PENDING`.\n\n' +
+                                    '⚠️ Off Us pending is bank-side behaviour. Middleware keeps order `PENDING`; to evidence the `4042116 PENDING` response capture the direct AGI query response.',
+                            }),
+                            response: [],
+                        },
+                        {
+                            name: '10. Query Payment - Failed Transaction (4041801)',
+                            request: agiOrderStatusRequest({
+                                status: 'FAILED',
+                                description:
+                                    '**Scenario 10 - Query Payment - Failed (OFF US).**\n\n**Expected**: `4041801 Transaction Not Found`.',
+                            }),
+                            response: [],
+                        },
+                        {
+                            name: '11. Payment Notify - Notify Success (2001900)',
+                            event: [
+                                {
+                                    listen: 'test',
+                                    script: { exec: agiNotifyTest('2001900'), type: 'text/javascript' },
+                                },
+                            ],
+                            request: agiNotifyRequest({
+                                body: agiNotifyBody({ channel: 'BAG-API', issuer: 'Bank Artha Graha' }),
+                                description:
+                                    '**Scenario 11 - Payment Notify - Notify Success (OFF US).**\n\n**Expected**: `2001900 Success`; order -> `SUCCESS`.',
+                            }),
+                            response: [],
+                        },
+                        {
+                            name: '12. Query Payment - Success Transaction (2001900)',
+                            request: agiOrderStatusRequest({
+                                status: 'all',
+                                description:
+                                    '**Scenario 12 - Query Payment - Success (OFF US).**\n\n**Expected**: order `status = SUCCESS`.',
+                            }),
+                            response: [],
+                        },
+                        {
+                            name: '13. Check Status - Invalid Bill Number (4041801)',
+                            request: agiOrderStatusRequest({
+                                reference: '{{agi_invalid_reference}}',
+                                description:
+                                    '**Scenario 13 - Check Status - Invalid Bill Number.**\n\n**Expected**: `4041801 Transaction Not Found`.',
+                            }),
+                            response: [],
+                        },
+                        {
+                            name: '14a. Notify - Missing Access Token (4011903)',
+                            event: [
+                                {
+                                    listen: 'prerequest',
+                                    script: {
+                                        exec: agiFixedTimestampPreRequest('{{$isoTimestamp}}', true),
+                                        type: 'text/javascript',
+                                    },
+                                },
+                            ],
+                            request: agiNotifyRequest({
+                                token: null,
+                                body: agiNotifyBody(),
+                                description: '**Expected**: HTTP 401 `4011903 Token Not Found (B2B)`.',
+                            }),
+                            response: [],
+                        },
+                        {
+                            name: '14b. Notify - Invalid Signature (4011900)',
+                            event: [
+                                {
+                                    listen: 'prerequest',
+                                    script: { exec: agiBrokenSignaturePreRequest, type: 'text/javascript' },
+                                },
+                                {
+                                    listen: 'test',
+                                    script: { exec: agiNotifyTest('4011900'), type: 'text/javascript' },
+                                },
+                            ],
+                            request: agiNotifyRequest({
+                                body: agiNotifyBody(),
+                                description: '**Expected**: HTTP 401 `4011900 Unauthorized [Signature]`.',
+                            }),
+                            response: [],
+                        },
+                        {
+                            name: '14c. Notify - Missing Mandatory Field (4001902)',
+                            event: [
+                                {
+                                    listen: 'test',
+                                    script: { exec: agiNotifyTest('4001902'), type: 'text/javascript' },
+                                },
+                            ],
+                            request: agiNotifyRequest({
+                                body: '{\n    "originalReferenceNo": "{{agi_reference}}",\n    "latestTransactionStatus": "00"\n}',
+                                description: '**Expected**: HTTP 400 `4001902 Invalid Mandatory Field [additionalInfo]`.',
+                            }),
+                            response: [],
+                        },
+                        {
+                            name: '14d. Notify - Invalid Field Format (4001901)',
+                            event: [
+                                {
+                                    listen: 'test',
+                                    script: { exec: agiNotifyTest('4001901'), type: 'text/javascript' },
+                                },
+                            ],
+                            request: agiNotifyRequest({
+                                body: agiNotifyBody({ currency: 'USD' }),
+                                description: '**Expected**: HTTP 400 `4001901 Invalid Field Format [amount.currency]`.',
+                            }),
+                            response: [],
+                        },
+                        {
+                            name: '14e. Notify - Reused X-EXTERNAL-ID (4091900)',
+                            event: [
+                                {
+                                    listen: 'test',
+                                    script: { exec: agiNotifyTest('4091900'), type: 'text/javascript' },
+                                },
+                            ],
+                            request: agiNotifyRequest({
+                                body: agiNotifyBody(),
+                                description:
+                                    '**Expected**: HTTP 409 `4091900 Conflict` when the same `X-EXTERNAL-ID` is reused.\n\n' +
+                                    '⚠️ Not yet enforced in local middleware — see note on ON US scenario 5.',
+                            }),
+                            response: [],
+                        },
+                    ],
+                },
+                {
+                    name: '99 - Teardown',
+                    item: [
+                        {
+                            name: 'Clear AGI runtime variables',
+                            event: [
+                                {
+                                    listen: 'test',
+                                    script: {
+                                        exec: [
+                                            '["agi_access_token","agi_timestamp","agi_signature","agi_asymmetric_signature","agi_external_id","agi_bill_number","agi_qr_string","agi_amount"].forEach((k) => pm.environment.unset(k));',
+                                            'console.log("AGI runtime variables cleared");',
+                                        ],
+                                        type: 'text/javascript',
+                                    },
+                                },
+                            ],
+                            request: {
+                                auth: bearerAuth,
+                                method: 'GET',
+                                header: [{ key: 'Accept', value: 'application/json', type: 'text' }],
+                                url: {
+                                    raw: '{{url_payment}}admin/me',
+                                    host: ['{{url_payment}}admin'],
+                                    path: ['me'],
                                 },
                             },
                             response: [],

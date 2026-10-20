@@ -113,7 +113,7 @@ class ClientPaymentController extends Controller
             $reference = $request->reference ?? $request->input('reference');
             if ($reference) {
                 $lockKey = "lock:client:payment:{$reference}";
-                if (! $this->redisService->lock($lockKey, 5)) {
+                if (! $this->redisService->lock($lockKey, 30)) {
                     return ResponseHelper::failedResponse(
                         'Payment request is already being processed. Please wait.',
                         'Duplicate Payment Request',
@@ -143,13 +143,14 @@ class ClientPaymentController extends Controller
 
             return ResponseHelper::successResponse($result);
         } catch (Exception $ex) {
-            if ($lockKey) {
-                $this->redisService->unlock($lockKey);
-            }
             DB::rollBack();
             LogHelper::sendErrorLog($ex);
 
             return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400, $ex->getLine(), $ex->getFile());
+        } finally {
+            if ($lockKey) {
+                $this->redisService->unlock($lockKey);
+            }
         }
     }
 

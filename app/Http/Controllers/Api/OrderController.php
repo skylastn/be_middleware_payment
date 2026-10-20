@@ -168,7 +168,7 @@ class OrderController extends Controller
 
             if ($reference) {
                 $lockKey = "lock:order:create:{$project->type}:{$reference}";
-                if (! $this->redisService->lock($lockKey, 5)) {
+                if (! $this->redisService->lock($lockKey, 30)) {
                     return ResponseHelper::failedResponse(
                         'Duplicate order request detected. Please wait a few seconds before retrying.',
                         'Duplicate Order Request',
@@ -192,9 +192,6 @@ class OrderController extends Controller
 
             return ResponseHelper::successResponse($response);
         } catch (Exception $ex) {
-            if ($lockKey) {
-                $this->redisService->unlock($lockKey);
-            }
             if (DB::transactionLevel() > 0) {
                 DB::rollback();
             }
@@ -204,6 +201,10 @@ class OrderController extends Controller
             }
 
             return ResponseHelper::failedResponse($ex->getMessage(), $ex->getMessage(), 400, $ex->getLine(), $ex->getFile());
+        } finally {
+            if ($lockKey) {
+                $this->redisService->unlock($lockKey);
+            }
         }
     }
 

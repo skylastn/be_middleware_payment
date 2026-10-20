@@ -88,4 +88,20 @@ class OrderIdempotencyLockTest extends TestCase
         $redis->unlock($lockKey);
         $redis->deletePaymentToken($token);
     }
+
+    public function test_lock_is_released_after_order_create_request_settles(): void
+    {
+        $redis = app(RedisServiceInterface::class);
+        $reference = 'LCK-INV-'.uniqid();
+        $lockKey = "lock:order:create:{$this->project->type}:{$reference}";
+
+        // When request fails (e.g. missing required params or unconfigured payment), lock must be released
+        $this->withHeaders([
+            'Token' => $this->project->value,
+        ])->postJson('/api/order/create', [
+            'merchantOrderId' => $reference,
+        ]);
+
+        $this->assertNull($redis->get($lockKey));
+    }
 }
