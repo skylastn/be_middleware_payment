@@ -81,6 +81,7 @@ class StripeService
         $req['name'] = $customerName ?: ($request->customerVaName ?? $request->name ?? null);
         $req['status'] = OrderStatus::PENDING->value;
         $req['return_url'] = $request->input('returnUrl') ?: $request->input('return_url') ?: $project->callback;
+        $req['email'] = $request->input('email');
 
         $surcharge = $this->resolveSurcharge($request, $paymentRepo, $rawAmount, $currency);
 

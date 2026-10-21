@@ -71,6 +71,7 @@ class XenditService
         $req['name'] = $customerName ?: ($request->customerVaName ?? $request->name ?? null);
         $req['status'] = OrderStatus::PENDING->value;
         $req['return_url'] = $urlSuccess ?: $project->callback;
+        $req['email'] = $request->email;
 
         $expired = ($request->expiryPeriod ?? 0) * 60;
 

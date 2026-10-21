@@ -60,6 +60,7 @@ class MidtransService
         $req['name'] = $customerName ?: ($request->customerVaName ?? $request->name ?? null);
         $req['status'] = OrderStatus::PENDING->value;
         $req['return_url'] = $request->returnUrl ?? $request->return_url ?? $project->callback;
+        $req['email'] = $request->email;
 
         $transactionDetails['order_id'] = $req['reference'] ?? $project->type.'-'.$req['id'];
         $transactionDetails['gross_amount'] = $paymentAmount ?? 0;

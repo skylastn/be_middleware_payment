@@ -7,6 +7,7 @@ use App\Repository\BaseRepository;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 
 class OrderRepository extends BaseRepository
 {
@@ -121,11 +122,7 @@ class OrderRepository extends BaseRepository
                 if ($emails === []) {
                     return;
                 }
-                $query->where(function ($q) use ($emails) {
-                    foreach ($emails as $single) {
-                        $q->orWhere('email', 'like', "%{$single}%");
-                    }
-                });
+                $query->whereIn(DB::raw('LOWER(email)'), array_map('mb_strtolower', $emails));
             })
             ->when($startDate, function ($query, $startDate) {
                 $dt = preg_match('/\d{1,2}:\d{2}/', (string) $startDate)

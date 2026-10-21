@@ -413,6 +413,7 @@ class PaprikaService
         $req['payment_method'] = $request->paymentMethod ?? '';
         $req['amount'] = $amount;
         $req['return_url'] = $request->returnUrl ?? $request->return_url ?? $project->callback;
+        $req['email'] = $request->email;
 
         $url = "$baseurl/api/snap/v1.0/qr/qr-mpm-generate";
 
@@ -546,6 +547,7 @@ class PaprikaService
         $req['payment_method'] = $request->paymentMethod ?? '';
         $req['amount'] = $amount;
         $req['return_url'] = $request->returnUrl ?? $request->return_url ?? $project->callback;
+        $req['email'] = $request->email;
 
         $url = "$baseurl/api/snap/v1.0/transfer-va/create-va";
 

@@ -341,6 +341,7 @@ class BankAgiService
                 'payment_method' => 'AGI_QRIS',
                 'amount' => $amount,
                 'name' => trim($request->input('firstName', '') . ' ' . $request->input('lastName', '')) ?: $request->input('name'),
+                'email' => $request->input('email'),
                 'return_url' => $request->input('returnUrl', $request->input('return_url', $project->getCallback())),
                 'expired_at' => $expiredAt,
                 'request' => json_encode($body, JSON_THROW_ON_ERROR),

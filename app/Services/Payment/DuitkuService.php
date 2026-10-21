@@ -121,6 +121,7 @@ class DuitkuService
         $callbackUrl = $defaultUrl;
         $returnUrl = $request->returnUrl ?? $request->return_url ?? $defaultUrl;
         $req['return_url'] = $returnUrl;
+        $req['email'] = $email;
         $expiryPeriod = $request->expiryPeriod ?? 60; // set the expired time in minutes
         $req['expired_at'] = Carbon::now()->addMinutes((int) $expiryPeriod);
 

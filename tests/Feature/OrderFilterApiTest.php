@@ -127,18 +127,50 @@ class OrderFilterApiTest extends TestCase
         $this->assertNotContains('REF-OFT-002', $references);
     }
 
-    public function test_client_api_multiple_emails_use_partial_match(): void
+    public function test_client_api_multiple_emails_are_exact_match(): void
     {
-        // "example.com" must match both alice and bob, but not charlie.
-        $response = $this->withHeader('Token', $this->project->value)
-            ->getJson('/api/order?email=example.com')
+        // Full addresses match their own order only; a bare domain matches nothing.
+        $exact = $this->withHeader('Token', $this->project->value)
+            ->getJson('/api/order?email=alice@example.com,bob@example.com')
             ->assertOk();
 
-        $references = array_column($response->json('data'), 'reference');
+        $references = array_column($exact->json('data'), 'reference');
         $this->assertCount(2, $references);
         $this->assertContains('REF-OFT-001', $references);
         $this->assertContains('REF-OFT-002', $references);
         $this->assertNotContains('REF-OFT-003', $references);
+
+        $partial = $this->withHeader('Token', $this->project->value)
+            ->getJson('/api/order?email=example.com')
+            ->assertOk();
+
+        $this->assertCount(0, $partial->json('data'));
+    }
+
+    public function test_client_api_email_filter_is_case_insensitive(): void
+    {
+        $response = $this->withHeader('Token', $this->project->value)
+            ->getJson('/api/order?email=ALICE@EXAMPLE.COM')
+            ->assertOk();
+
+        $references = array_column($response->json('data'), 'reference');
+        $this->assertCount(1, $references);
+        $this->assertSame('REF-OFT-001', $references[0]);
+    }
+
+    public function test_client_api_email_filter_does_not_match_substrings(): void
+    {
+        $partial = $this->withHeader('Token', $this->project->value)
+            ->getJson('/api/order?email=bob')
+            ->assertOk();
+
+        $this->assertCount(0, $partial->json('data'));
+
+        $suffix = $this->withHeader('Token', $this->project->value)
+            ->getJson('/api/order?email=alice@example.com.evil.com')
+            ->assertOk();
+
+        $this->assertCount(0, $suffix->json('data'));
     }
 
     public function test_client_api_multiple_emails_compose_with_hour_filter(): void
@@ -217,7 +249,7 @@ class OrderFilterApiTest extends TestCase
     public function test_client_api_filters_by_email_and_hour_combined(): void
     {
         $response = $this->withHeader('Token', $this->project->value)
-            ->getJson('/api/order?email=bob&hour=14')
+            ->getJson('/api/order?email=bob@example.com&hour=14')
             ->assertOk()
             ->assertJsonPath('status', true);
 
@@ -226,7 +258,7 @@ class OrderFilterApiTest extends TestCase
         $this->assertSame('REF-OFT-002', $data[0]['reference']);
 
         $mismatch = $this->withHeader('Token', $this->project->value)
-            ->getJson('/api/order?email=bob&hour=9')
+            ->getJson('/api/order?email=bob@example.com&hour=9')
             ->assertOk();
         $this->assertCount(0, $mismatch->json('data'));
     }
@@ -276,7 +308,7 @@ class OrderFilterApiTest extends TestCase
         $this->assertEquals(10000.0, $filtered->json('data.total_amount'));
 
         $byEmail = $this->withHeader('Token', $this->project->value)
-            ->getJson('/api/order/summary?email=alice')
+            ->getJson('/api/order/summary?email=alice@example.com')
             ->assertOk();
 
         $this->assertSame(1, $byEmail->json('data.total_orders'));
