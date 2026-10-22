@@ -652,14 +652,12 @@ class BankAgiService
 
     private function requiredHeader(Request $request, string $header, string $serviceCode): string
     {
-        $hyphen = str_replace('_', '-', $header);
-        $underscore = str_replace('-', '_', $header);
-        $value = $request->header($hyphen) ?? $request->header($underscore);
+        $value = $request->header($header);
         if (! is_string($value) || trim($value) === '') {
-            throw new BankAgiException('400' . $serviceCode . '02', 'Invalid Mandatory Field [' . $hyphen . ']', 400);
+            throw new BankAgiException('400' . $serviceCode . '02', 'Invalid Mandatory Field [' . $header . ']', 400);
         }
 
-        $maxLength = match ($hyphen) {
+        $maxLength = match ($header) {
             'X-TIMESTAMP' => 35,
             'X-SIGNATURE' => 2048,
             'X-EXTERNAL-ID' => 64,
@@ -667,7 +665,7 @@ class BankAgiService
             default => 128,
         };
         if (strlen($value) > $maxLength) {
-            throw new BankAgiException('400' . $serviceCode . '01', 'Invalid Field Format [' . $hyphen . ']', 400);
+            throw new BankAgiException('400' . $serviceCode . '01', 'Invalid Field Format [' . $header . ']', 400);
         }
 
         return $value;

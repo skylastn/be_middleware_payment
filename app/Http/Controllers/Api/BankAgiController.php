@@ -26,9 +26,9 @@ class BankAgiController extends Controller
     {
         LogHelper::sendLog('Access Token AGI', [
             'headers' => [
-                'X-CLIENT-KEY' => $request->header('X-CLIENT-KEY') ?? $request->header('X_CLIENT_KEY'),
-                'X-TIMESTAMP' => $request->header('X-TIMESTAMP') ?? $request->header('X_TIMESTAMP'),
-                'X-SIGNATURE' => $request->header('X-SIGNATURE') ?? $request->header('X_SIGNATURE'),
+                'X-CLIENT-KEY' => $request->header('X-CLIENT-KEY'),
+                'X-TIMESTAMP' => $request->header('X-TIMESTAMP'),
+                'X-SIGNATURE' => $request->header('X-SIGNATURE'),
                 'Content-Type' => $request->header('Content-Type'),
             ],
             'body' => $request->all(),
@@ -58,12 +58,12 @@ class BankAgiController extends Controller
         // Log before any validation so rejected callbacks still leave a trace.
         LogHelper::sendLog('Callback AGI', [
             'headers' => [
-                'X-PARTNER-ID' => $request->header('X-PARTNER-ID') ?? $request->header('X_PARTNER_ID'),
-                'X-TIMESTAMP' => $request->header('X-TIMESTAMP') ?? $request->header('X_TIMESTAMP'),
-                'X-EXTERNAL-ID' => $request->header('X-EXTERNAL-ID') ?? $request->header('X_EXTERNAL_ID'),
-                'CHANNEL-ID' => $request->header('CHANNEL-ID') ?? $request->header('CHANNEL_ID'),
-                'X-SIGNATURE' => $request->header('X-SIGNATURE') ?? $request->header('X_SIGNATURE'),
-                'Authorization' => $request->header('Authorization') ?? $request->header('AUTHORIZATION'),
+                'X-PARTNER-ID' => $request->header('X-PARTNER-ID'),
+                'X-TIMESTAMP' => $request->header('X-TIMESTAMP'),
+                'X-EXTERNAL-ID' => $request->header('X-EXTERNAL-ID'),
+                'CHANNEL-ID' => $request->header('CHANNEL-ID'),
+                'X-SIGNATURE' => $request->header('X-SIGNATURE'),
+                'Authorization' => $request->header('Authorization'),
             ],
             'body' => $request->all(),
             'raw' => mb_strimwidth($request->getContent(), 0, 2000, '...[truncated]'),
