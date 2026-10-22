@@ -332,6 +332,28 @@ class UatTestController extends Controller
             throw new Exception('Unable to sign UAT access token request (check repository private_key)');
         }
 
+        // Inbound access-token verification in BankAgiService checks the signature
+        // against bank_public_key. When that field is empty or is not the pair of our
+        // own private_key (common on internal test repositories), derive the matching
+        // public key from private_key so the simulated inbound token still validates.
+        $bankPublicKey = trim(str_replace('\\n', "\n", (string) ($config['bank_public_key'] ?? '')));
+        $publicKey = openssl_pkey_get_public($bankPublicKey);
+        if ($publicKey === false || openssl_verify($clientKey . '|' . $timestamp, $signature, $publicKey, OPENSSL_ALGO_SHA256) !== 1) {
+            $derived = openssl_pkey_get_details($key)['key'] ?? '';
+            if ($derived === '' || openssl_verify($clientKey . '|' . $timestamp, $signature, openssl_pkey_get_public($derived), OPENSSL_ALGO_SHA256) !== 1) {
+                throw new Exception('UAT access token signature mismatch: private_key has no usable pair with bank_public_key');
+            }
+
+            $config['bank_public_key'] = str_replace("\n", '\\n', $derived);
+            $repository->setValue($config);
+            $repository->save();
+
+            LogHelper::sendLog('UAT Access Token - bank_public_key re-derived from private_key', [
+                'repository_id' => $repository->getAttribute('id'),
+                'repository_key' => $repository->getAttribute('key'),
+            ], '', 'uat_access_token');
+        }
+
         $tokenPayload = json_encode(['grantType' => 'client_credentials', 'additionalInfo' => []], JSON_THROW_ON_ERROR);
         $tokenRequest = Request::create('/api/bank/agi/access-token', 'POST', [], [], [], [
             'CONTENT_TYPE' => 'application/json',
