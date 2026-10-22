@@ -18,6 +18,8 @@ import { GatewayHistoryPage } from '@/features/dashboard/presentation/gateway_hi
 import { ProjectLogPage } from '@/features/dashboard/presentation/project_log/project_log_ui';
 import { LogsPage } from '@/features/logs/presentation/logs/logs_ui';
 import { QueuePage } from '@/features/queue/presentation/queue_ui';
+import { UatTestPage } from '@/features/uat/presentation/uat_test_ui';
+import { UatBankAgiPage } from '@/features/uat/presentation/bank_agi/uat_bank_agi_ui';
 import { Shell } from '@/shared/component/layout/shell_ui';
 import { useTheme } from '@/shared/hooks/use_theme';
 import { getStoredToken, removeStoredToken } from '@/shared/utils/auth_utils';
@@ -37,6 +39,15 @@ function parseRoute(pathname: string): RouteInfo {
 
     if (pathname === '/admin/gateway-history' || pathname === '/gateway-history') {
         return { page: 'gateway-history' as any };
+    }
+
+    if (pathname === '/admin/uat-testing' || pathname === '/uat-testing') {
+        return { page: 'uat-testing' as any };
+    }
+
+    const uatMatch = pathname.match(/^\/(?:admin\/)?uat-testing\/([^/]+)$/);
+    if (uatMatch) {
+        return { page: 'uat-gateway' as any, resource: uatMatch[1] as any };
     }
 
     const projectLogsMatch = pathname.match(/^\/(?:admin\/)?projects\/([^/]+)\/logs$/);
@@ -130,6 +141,15 @@ export function App(): React.JSX.Element {
         }
         if ((route.page as string) === 'gateway-history') {
             return <GatewayHistoryPage />;
+        }
+        if ((route.page as string) === 'uat-testing') {
+            return <UatTestPage />;
+        }
+        if ((route.page as string) === 'uat-gateway') {
+            if ((route.resource as string) === 'bank-agi') {
+                return <UatBankAgiPage />;
+            }
+            return <UatTestPage />;
         }
         if (route.page === 'project-logs' && route.id) {
             return <ProjectLogPage projectId={route.id} />;

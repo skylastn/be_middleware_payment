@@ -249,6 +249,16 @@ export function IconHistory(): React.JSX.Element {
     );
 }
 
+export function IconBeaker(): React.JSX.Element {
+    return (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 3h6" />
+            <path d="M10 3v6.5L4.5 19a1.8 1.8 0 0 0 1.6 2.7h11.8a1.8 1.8 0 0 0 1.6-2.7L14 9.5V3" />
+            <path d="M7 15h10" />
+        </svg>
+    );
+}
+
 export function IconChevronDown(): React.JSX.Element {
     return (
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">

@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\PayoutController;
 use App\Http\Controllers\Api\ProjectController;
 use App\Http\Controllers\Api\TestController;
+use App\Http\Controllers\Api\UatTestController;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Http\Request;
@@ -128,6 +129,15 @@ Route::middleware('throttle:api')->group(function () {
     Route::prefix('test')->middleware(['auth:sanctum', 'admin'])->controller(TestController::class)->group(function () {
         Route::get('/queue', [TestController::class, 'testQueue']);
         Route::post('/queue', [TestController::class, 'testQueue']);
+    });
+
+    Route::prefix('uat')->middleware(['auth:sanctum', 'admin'])->controller(UatTestController::class)->group(function () {
+        Route::get('/gateways/{gateway}/repositories', 'repositories');
+        Route::post('/bank-agi/generate-qr', 'generateQr');
+        Route::post('/bank-agi/notify', 'notifyQris');
+        Route::post('/bank-agi/query-status', 'queryStatus');
+        Route::post('/bank-agi/negative-test', 'negativeTest');
+        Route::get('/orders', 'listOrders');
     });
 
     Route::middleware('auth:sanctum')->get('/user', fn(Request $request) => $request->user());

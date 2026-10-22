@@ -15,6 +15,7 @@ import {
     IconOrders,
     IconProjects,
     IconQueue,
+    IconBeaker,
     IconRepositories,
     IconSettings,
     IconSun,
@@ -100,6 +101,13 @@ export function Shell({ user, route, children, theme, onToggleTheme, onLogout }:
             title: 'TOOLS',
             items: [
                 {
+                    key: 'uat-testing',
+                    label: 'UAT Test',
+                    icon: <IconBeaker />,
+                    active: (route.page as string) === 'uat-testing' || (route.page as string) === 'uat-gateway',
+                    path: '/admin/uat-testing',
+                },
+                {
                     key: 'queue',
                     label: 'Queue',
                     icon: <IconQueue />,
@@ -141,6 +149,8 @@ export function Shell({ user, route, children, theme, onToggleTheme, onLogout }:
         if ((route.page as string) === 'queue') return 'Queue Monitor';
         if (route.page === 'logs') return 'System Logs';
         if ((route.page as string) === 'gateway-history') return 'Gateway History';
+        if ((route.page as string) === 'uat-testing') return 'UAT Test';
+        if ((route.page as string) === 'uat-gateway') return `UAT Test — ${(route.resource as string || '').replace(/-/g, ' ').toUpperCase()}`;
         if (activeResource) {
             return activeResource.split('-').map((s) => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
         }

@@ -60,3 +60,14 @@ export function getLastDaysRange(days: number): { startDate: string; endDate: st
         endDate: end.toISOString().split('T')[0],
     };
 }
+
+export function formatCurrency(value?: number | string | null, currency = 'IDR'): string {
+    const num = Number(value || 0);
+    if (Number.isNaN(num)) return String(value ?? '-');
+    return new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency,
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2,
+    }).format(num);
+}
