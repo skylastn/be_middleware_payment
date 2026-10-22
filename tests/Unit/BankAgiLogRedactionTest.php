@@ -27,12 +27,12 @@ class BankAgiLogRedactionTest extends TestCase
         $service = (new \ReflectionClass(\App\Services\Payment\BankAgiService::class))->newInstanceWithoutConstructor();
         (new \ReflectionProperty($service, 'networkService'))->setValue($service, new \App\Services\Network\NetworkService);
         $raw = (new ReflectionMethod($service, 'postToBank'))->invoke($service, 'https://agi.test/token', [
-            'Authorization' => 'Bearer secret', 'X_SIGNATURE' => 'secret-signature', 'X_EXTERNAL_ID' => 'test-id',
+            'Authorization' => 'Bearer secret', 'X-SIGNATURE' => 'secret-signature', 'X-EXTERNAL-ID' => 'test-id',
         ], ['grantType' => 'client_credentials']);
         $this->assertSame('Request Bank AGI', $logs[0]['message']);
         $this->assertSame('client_credentials', $logs[0]['data']['body']['grantType']);
         $this->assertSame('***REDACTED***', $logs[0]['data']['header']['Authorization']);
-        $this->assertSame('***REDACTED***', $logs[0]['data']['header']['X_SIGNATURE']);
+        $this->assertSame('***REDACTED***', $logs[0]['data']['header']['X-SIGNATURE']);
         $this->assertSame('Response Bank AGI', $logs[1]['message']);
         $this->assertSame('5007300', $logs[1]['data']['body']['responseCode']);
         $this->assertSame('***REDACTED***', $logs[1]['data']['body']['accessToken']);
@@ -58,12 +58,12 @@ class BankAgiLogRedactionTest extends TestCase
     public function test_bank_credentials_are_redacted_in_nested_json_logs(): void
     {
         $data = ['Authorization' => 'Bearer token', 'nested' => json_encode([
-            'private_key' => 'private-key', 'client_secret' => 'secret', 'bank_client_secret' => 'bank-secret', 'accessToken' => 'access-token', 'X_SIGNATURE' => 'signature', 'merchant_id' => 'merchant',
+            'private_key' => 'private-key', 'client_secret' => 'secret', 'bank_client_secret' => 'bank-secret', 'accessToken' => 'access-token', 'X-SIGNATURE' => 'signature', 'merchant_id' => 'merchant',
         ])];
         $redacted = LogHelper::redactSensitiveData($data);
         $this->assertSame('***REDACTED***', $redacted['Authorization']);
         $nested = json_decode($redacted['nested'], true);
-        foreach (['private_key', 'client_secret', 'bank_client_secret', 'accessToken', 'X_SIGNATURE'] as $key) {
+        foreach (['private_key', 'client_secret', 'bank_client_secret', 'accessToken', 'X-SIGNATURE'] as $key) {
             $this->assertSame('***REDACTED***', $nested[$key]);
         }
         $this->assertSame('merchant', $nested['merchant_id']);
@@ -75,9 +75,9 @@ class BankAgiLogRedactionTest extends TestCase
         $provider = new TelescopeServiceProvider($this->app);
         (new ReflectionMethod($provider, 'hideSensitiveRequestDetails'))->invoke($provider);
         $client = new ClientRequestWatcher([]);
-        $headers = (new ReflectionMethod($client, 'headers'))->invoke($client, ['Authorization' => ['Bearer token'], 'X_SIGNATURE' => ['signature']]);
+        $headers = (new ReflectionMethod($client, 'headers'))->invoke($client, ['Authorization' => ['Bearer token'], 'X-SIGNATURE' => ['signature']]);
         $this->assertSame('********', $headers['authorization']);
-        $this->assertSame('********', $headers['x_signature']);
+        $this->assertSame('********', $headers['x-signature']);
         $response = new Response(new PsrResponse(200, ['Content-Type' => 'application/json'], json_encode(['accessToken' => 'bank-token'])));
         $this->assertSame('********', (new ReflectionMethod($client, 'response'))->invoke($client, $response)['accessToken']);
         $inbound = new RequestWatcher([]);

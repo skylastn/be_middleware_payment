@@ -51,7 +51,6 @@ class TelescopeServiceProvider extends TelescopeApplicationServiceProvider
             'x-xsrf-token',
             'authorization',
             'token',
-            'x_signature',
             'x-signature',
         ]);
     }

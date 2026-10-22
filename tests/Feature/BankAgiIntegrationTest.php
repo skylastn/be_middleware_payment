@@ -148,9 +148,9 @@ class BankAgiIntegrationTest extends PaymentTestCase
         openssl_sign($clientId.'|'.$timestamp, $signature, $this->privateKey, OPENSSL_ALGO_SHA256);
 
         return [
-            'X_CLIENT_KEY' => $clientId,
-            'X_TIMESTAMP' => $timestamp,
-            'X_SIGNATURE' => base64_encode($signature),
+            'X-CLIENT-KEY' => $clientId,
+            'X-TIMESTAMP' => $timestamp,
+            'X-SIGNATURE' => base64_encode($signature),
         ];
     }
 
@@ -184,11 +184,11 @@ class BankAgiIntegrationTest extends PaymentTestCase
         $signature = hash_hmac('sha512', 'POST:/api/bank/agi/notify-qris:'.$token.':'.hash('sha256', $minifiedBody).':'.$timestamp, 'agi-inbound-secret');
         $headers = array_merge([
             'Authorization' => 'Bearer '.$token,
-            'X_PARTNER_ID' => 'agi-client-key',
-            'X_TIMESTAMP' => $timestamp,
-            'X_SIGNATURE' => $signature,
-            'X_EXTERNAL_ID' => '20260930000000000001',
-            'CHANNEL_ID' => '95221',
+            'X-PARTNER-ID' => 'agi-client-key',
+            'X-TIMESTAMP' => $timestamp,
+            'X-SIGNATURE' => $signature,
+            'X-EXTERNAL-ID' => '20260930000000000001',
+            'CHANNEL-ID' => '95221',
             'Content-Type' => 'application/json',
             'Accept' => 'application/json',
         ], $headers);
@@ -219,11 +219,11 @@ class BankAgiIntegrationTest extends PaymentTestCase
 
         $headers = [
             'Authorization' => 'Bearer '.$this->issueToken(),
-            'X_PARTNER_ID' => 'agi-client-key',
-            'X_TIMESTAMP' => now('UTC')->format('Y-m-d\TH:i:s.vP'),
-            'X_SIGNATURE' => 'irrelevant',
-            'X_EXTERNAL_ID' => '20260930000000000001',
-            'CHANNEL_ID' => '95221',
+            'X-PARTNER-ID' => 'agi-client-key',
+            'X-TIMESTAMP' => now('UTC')->format('Y-m-d\TH:i:s.vP'),
+            'X-SIGNATURE' => 'irrelevant',
+            'X-EXTERNAL-ID' => '20260930000000000001',
+            'CHANNEL-ID' => '95221',
             'Content-Type' => 'text/plain',
             'Accept' => 'application/json',
         ];
@@ -264,8 +264,8 @@ class BankAgiIntegrationTest extends PaymentTestCase
         $token = $this->issueToken();
 
         $this->notify($this->notification(), $token, [
-            'X_EXTERNAL_ID' => '4961efb0ff5844b8a054e5ad7214a38d',
-            'CHANNEL_ID' => 'BAG-API',
+            'X-EXTERNAL-ID' => '4961efb0ff5844b8a054e5ad7214a38d',
+            'CHANNEL-ID' => 'BAG-API',
         ])->assertOk()->assertJsonPath('responseCode', '2001900');
 
         $this->assertDatabaseHas('orders', ['reference' => 'AGIT-INV-001', 'status' => 'SUCCESS']);
@@ -278,7 +278,7 @@ class BankAgiIntegrationTest extends PaymentTestCase
 
         // Expired timestamp triggers BankAgiException (4011900)
         $this->notify($this->notification(), headers: [
-            'X_TIMESTAMP' => now()->subMinutes(10)->toIso8601String(),
+            'X-TIMESTAMP' => now()->subMinutes(10)->toIso8601String(),
         ])->assertStatus(401)->assertJsonPath('responseCode', '4011900');
 
         Log::shouldHaveReceived('error')->atLeast()->once();
@@ -328,7 +328,7 @@ class BankAgiIntegrationTest extends PaymentTestCase
             }
 
             return $request->header('X-CLIENT-KEY') === ['bank-client-id']
-                && $request->header('X_CLIENT_KEY') === []
+                && ! $request->hasHeader('X_CLIENT_KEY')
                 && openssl_verify('bank-client-id|'.$request->header('X-TIMESTAMP')[0], base64_decode($request->header('X-SIGNATURE')[0]), $this->publicKey, OPENSSL_ALGO_SHA256) === 1;
         });
         Http::assertSent(function (ClientRequest $request) {
@@ -455,8 +455,8 @@ class BankAgiIntegrationTest extends PaymentTestCase
         );
 
         $this->notify($payload, $token, [
-            'X_TIMESTAMP' => $timestamp,
-            'X_SIGNATURE' => $signature,
+            'X-TIMESTAMP' => $timestamp,
+            'X-SIGNATURE' => $signature,
         ])->assertStatus(401)->assertJsonPath('responseCode', '4011900');
     }
 
@@ -471,7 +471,7 @@ class BankAgiIntegrationTest extends PaymentTestCase
     public function test_b2b_token_rejects_invalid_signature_unknown_client_and_expired_timestamp(): void
     {
         $headers = $this->tokenHeaders();
-        $headers['X_SIGNATURE'] = base64_encode('forged-signature');
+        $headers['X-SIGNATURE'] = base64_encode('forged-signature');
         $this->postJson('/api/bank/agi/access-token', ['grantType' => 'client_credentials'], $headers)
             ->assertStatus(401)->assertJsonPath('responseCode', '4017300');
         $this->postJson('/api/bank/agi/access-token', ['grantType' => 'client_credentials'], $this->tokenHeaders(clientId: 'unknown-client'))
@@ -558,7 +558,7 @@ class BankAgiIntegrationTest extends PaymentTestCase
         $this->createOrder()->assertOk();
         $token = $this->issueToken();
         $this->notify($this->notification(), $token)->assertOk();
-        $this->notify($this->notification(), $token, ['X_SIGNATURE' => 'invalid'])->assertStatus(401)->assertJsonPath('responseCode', '4011900');
+        $this->notify($this->notification(), $token, ['X-SIGNATURE' => 'invalid'])->assertStatus(401)->assertJsonPath('responseCode', '4011900');
         $this->notify($this->notification(), 'unknown-token')->assertStatus(401)->assertJsonPath('responseCode', '4011901');
         Queue::assertPushed(SendMerchantCallback::class, 1);
     }
@@ -572,7 +572,7 @@ class BankAgiIntegrationTest extends PaymentTestCase
         $this->createOrder()->assertOk();
         $token = $this->issueToken();
 
-        $this->notify($this->notification(), $token, ['X_PARTNER_ID' => 'other-partner'])->assertOk();
+        $this->notify($this->notification(), $token, ['X-PARTNER-ID' => 'other-partner'])->assertOk();
         $this->assertDatabaseHas('orders', ['reference' => 'AGIT-INV-001', 'status' => 'SUCCESS']);
     }
 
@@ -593,10 +593,10 @@ class BankAgiIntegrationTest extends PaymentTestCase
         // Send the callback without X-PARTNER-ID at all.
         $this->call('POST', '/api/bank/agi/notify-qris', [], [], [], $this->transformHeadersToServerVars([
             'Authorization' => 'Bearer '.$token,
-            'X_TIMESTAMP' => $timestamp,
-            'X_SIGNATURE' => $signature,
-            'X_EXTERNAL_ID' => '20260930000000000001',
-            'CHANNEL_ID' => '95221',
+            'X-TIMESTAMP' => $timestamp,
+            'X-SIGNATURE' => $signature,
+            'X-EXTERNAL-ID' => '20260930000000000001',
+            'CHANNEL-ID' => '95221',
             'Content-Type' => 'application/json',
             'Accept' => 'application/json',
         ]), json_encode($payload))->assertStatus(400)->assertJsonPath('responseCode', '4001902');
@@ -609,9 +609,9 @@ class BankAgiIntegrationTest extends PaymentTestCase
         $this->fakeBank();
         $this->createOrder()->assertOk();
         $token = $this->issueToken();
-        $this->notify($this->notification(), $token, ['X_SIGNATURE' => 'invalid'])->assertStatus(401);
+        $this->notify($this->notification(), $token, ['X-SIGNATURE' => 'invalid'])->assertStatus(401);
         $this->notify($this->notification(), 'forged-token')->assertStatus(401);
-        $this->notify($this->notification(), $token, ['X_TIMESTAMP' => now()->subMinutes(10)->toIso8601String()])->assertStatus(401);
+        $this->notify($this->notification(), $token, ['X-TIMESTAMP' => now()->subMinutes(10)->toIso8601String()])->assertStatus(401);
         $this->notify($this->notification(['amount' => ['value' => '1.00']]), $token)->assertStatus(400)->assertJsonPath('responseCode', '4001901');
         $this->notify($this->notification(['additionalInfo' => ['merchantId' => 'OTHER']]), $token)->assertStatus(401);
         $this->assertDatabaseHas('orders', ['reference' => 'AGIT-INV-001', 'status' => 'PENDING']);
@@ -630,8 +630,8 @@ class BankAgiIntegrationTest extends PaymentTestCase
         $signature = hash_hmac('sha512', 'POST:'.$target.':'.$token.':'.hash('sha256', json_encode($payload)).':'.$timestamp, 'not-the-right-secret');
 
         $this->notify($payload, $token, [
-            'X_TIMESTAMP' => $timestamp,
-            'X_SIGNATURE' => $signature,
+            'X-TIMESTAMP' => $timestamp,
+            'X-SIGNATURE' => $signature,
         ])->assertStatus(401)->assertJsonPath('responseCode', '4011900');
 
         $this->assertDatabaseHas('orders', ['reference' => 'AGIT-INV-001', 'status' => 'PENDING']);
@@ -998,7 +998,7 @@ class BankAgiIntegrationTest extends PaymentTestCase
             $this->createOrder()->assertStatus(400);
         }
         Http::assertNothingSent();
-        $this->postJson('/api/bank/agi/access-token', ['grantType' => 'client_credentials'], array_replace($this->tokenHeaders(), ['X_SIGNATURE' => str_repeat('x', 2049)]))
+        $this->postJson('/api/bank/agi/access-token', ['grantType' => 'client_credentials'], array_replace($this->tokenHeaders(), ['X-SIGNATURE' => str_repeat('x', 2049)]))
             ->assertStatus(400)->assertJsonPath('responseCode', '4007301');
     }
 
