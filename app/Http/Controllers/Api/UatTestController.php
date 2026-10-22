@@ -320,8 +320,8 @@ class UatTestController extends Controller
 
     private function requireRepository(string $id): PaymentRepository
     {
-        $repository = $this->repositoryService->getPaymentRepositoryById($id);
-        if (! $repository || $repository->payment_gateway?->key !== ProjectSlug::BANK_AGI->value) {
+        $repository = $this->repositoryService->getById($id);
+        if ($repository->payment_gateway?->key !== ProjectSlug::BANK_AGI->value) {
             throw new Exception('Bank AGI repository not found');
         }
 
