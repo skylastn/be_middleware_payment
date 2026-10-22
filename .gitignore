@@ -29,3 +29,5 @@ run_output.log
 storage/framework
 .commandcode/
 .phpunit.cache
+postman/BankAGI_UAT_README.md
+postman/BankAGI_UAT_README_EN.md
