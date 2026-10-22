@@ -142,13 +142,14 @@ class UatTestController extends Controller
                 ],
             ];
 
-            $notifyRequest = Request::create('/api/bank/agi/notify-qris', 'POST', $payload);
+            $notifyRequest = Request::create('/api/bank/agi/notify-qris', 'POST', [], [], [], [
+                'CONTENT_TYPE' => 'application/json',
+                'HTTP_ACCEPT' => 'application/json',
+            ], json_encode($payload, JSON_THROW_ON_ERROR));
             $notifyRequest->headers->set('X-PARTNER-ID', (string) ($config['client_key'] ?? 'UAT'));
             $notifyRequest->headers->set('X-TIMESTAMP', now()->toISOString());
             $notifyRequest->headers->set('X-EXTERNAL-ID', Str::random(32));
             $notifyRequest->headers->set('CHANNEL-ID', 'BAG-API');
-            $notifyRequest->server->set('CONTENT_TYPE', 'application/json');
-            $notifyRequest->setJson(new \Symfony\Component\HttpFoundation\ParameterBag($payload));
 
             $result = $this->bankAgiService->callback($notifyRequest);
             DB::commit();
@@ -256,14 +257,13 @@ class UatTestController extends Controller
                 $headers['X-SIGNATURE'] = 'deadbeef' . Str::random(56);
             }
 
-            $notifyRequest = Request::create('/api/bank/agi/notify-qris', 'POST', $payload);
+            $notifyRequest = Request::create('/api/bank/agi/notify-qris', 'POST', [], [], [], [
+                'CONTENT_TYPE' => 'application/json',
+                'HTTP_ACCEPT' => 'application/json',
+            ], json_encode($payload, JSON_THROW_ON_ERROR));
             foreach ($headers as $key => $value) {
-                if ($key !== 'Content-Type') {
-                    $notifyRequest->headers->set($key, $value);
-                }
+                $notifyRequest->headers->set($key, $value);
             }
-            $notifyRequest->server->set('CONTENT_TYPE', 'application/json');
-            $notifyRequest->setJson(new \Symfony\Component\HttpFoundation\ParameterBag($payload));
 
             $controller = new BankAgiController;
             $response = $controller->callback($notifyRequest);
@@ -290,15 +290,14 @@ class UatTestController extends Controller
             throw new Exception('Unable to sign UAT access token request (check repository private_key)');
         }
 
-        $tokenRequest = Request::create('/api/bank/agi/access-token', 'POST', [
-            'grantType' => 'client_credentials',
-            'additionalInfo' => [],
-        ]);
+        $tokenPayload = json_encode(['grantType' => 'client_credentials', 'additionalInfo' => []], JSON_THROW_ON_ERROR);
+        $tokenRequest = Request::create('/api/bank/agi/access-token', 'POST', [], [], [], [
+            'CONTENT_TYPE' => 'application/json',
+            'HTTP_ACCEPT' => 'application/json',
+        ], $tokenPayload);
         $tokenRequest->headers->set('X-CLIENT-KEY', $clientKey);
         $tokenRequest->headers->set('X-TIMESTAMP', $timestamp);
         $tokenRequest->headers->set('X-SIGNATURE', base64_encode($signature));
-        $tokenRequest->server->set('CONTENT_TYPE', 'application/json');
-        $tokenRequest->setJson(new \Symfony\Component\HttpFoundation\ParameterBag($tokenRequest->request->all()));
 
         $response = (new BankAgiController)->snapAccessTokenB2B($tokenRequest);
         $body = $response->getData(true);
