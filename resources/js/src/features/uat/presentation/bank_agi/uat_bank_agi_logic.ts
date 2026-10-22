@@ -73,19 +73,21 @@ export function useUatTestLogic(gateway: string) {
 
     const selectedRepo = repositories.find((r) => r.id === selectedRepoId) || null;
 
-    const handleGenerateQr = async () => {
+    const handleGenerateQr = async (override?: { amount?: number; expiryPeriod?: number }) => {
         if (!selectedRepoId) {
             setError('Select a repository first.');
             return;
         }
+        const useAmount = override?.amount ?? amount;
+        const useExpiry = override?.expiryPeriod ?? expiryPeriod;
         setGenerating(true);
         setError('');
         setNotice('');
         try {
             const res = await uatTestService.generateQr({
                 repositoryId: selectedRepoId,
-                amount,
-                expiryPeriod,
+                amount: useAmount,
+                expiryPeriod: useExpiry,
             });
             setQrResult(res?.data || res);
             setNotice('QR generated successfully.');
@@ -115,7 +117,7 @@ export function useUatTestLogic(gateway: string) {
         }
     };
 
-    const handleNotify = async () => {
+    const handleNotify = async (override?: { latestTransactionStatus?: string }) => {
         const ref = qrResult?.reference;
         if (!ref) {
             setError('Generate a QR first before sending a notify.');
@@ -126,7 +128,7 @@ export function useUatTestLogic(gateway: string) {
         try {
             const res = await uatTestService.notify({
                 reference: ref,
-                latestTransactionStatus: notifyStatus,
+                latestTransactionStatus: override?.latestTransactionStatus ?? notifyStatus,
                 amount: notifyAmount ? Number(notifyAmount) : undefined,
             });
             setNotifyResult(res?.data || res);

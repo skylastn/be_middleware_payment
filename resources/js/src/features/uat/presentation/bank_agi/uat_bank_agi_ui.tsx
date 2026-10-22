@@ -244,7 +244,7 @@ export function UatBankAgiPage(): React.JSX.Element {
                             <button
                                 type="button"
                                 className="button primary"
-                                onClick={handleGenerateQr}
+                                onClick={() => handleGenerateQr()}
                                 disabled={generating || !selectedRepoId}
                                 style={{ width: '100%' }}
                             >
@@ -339,7 +339,7 @@ export function UatBankAgiPage(): React.JSX.Element {
                             <button
                                 type="button"
                                 className="button primary"
-                                onClick={handleNotify}
+                                onClick={() => handleNotify()}
                                 disabled={notifying || !qrResult}
                                 style={{ width: '100%' }}
                             >
@@ -470,7 +470,7 @@ export function UatBankAgiPage(): React.JSX.Element {
                                                 onClick={() => {
                                                     setAmount(s.amount ?? 10000);
                                                     setExpiryPeriod(s.expiry ?? 60);
-                                                    setTimeout(() => handleGenerateQr(), 0);
+                                                    handleGenerateQr({ amount: s.amount ?? 10000, expiryPeriod: s.expiry ?? 60 });
                                                 }}
                                                 style={{ minHeight: '30px', padding: '4px 12px', fontSize: '12px' }}
                                             >
@@ -495,7 +495,7 @@ export function UatBankAgiPage(): React.JSX.Element {
                                                 disabled={notifying || !qrResult}
                                                 onClick={() => {
                                                     setNotifyStatus(s.notifyStatus ?? '00');
-                                                    setTimeout(() => handleNotify(), 0);
+                                                    handleNotify({ latestTransactionStatus: s.notifyStatus ?? '00' });
                                                 }}
                                                 style={{ minHeight: '30px', padding: '4px 12px', fontSize: '12px' }}
                                             >
