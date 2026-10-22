@@ -173,7 +173,7 @@ class UatTestController extends Controller
                 'HTTP_ACCEPT' => 'application/json',
             ], json_encode($payload, JSON_THROW_ON_ERROR));
             $notifyRequest->headers->set('X-PARTNER-ID', (string) ($config['client_key'] ?? 'UAT'));
-            $notifyRequest->headers->set('X-TIMESTAMP', now()->toISOString());
+            $notifyRequest->headers->set('X-TIMESTAMP', $this->snapTimestamp());
             $notifyRequest->headers->set('X-EXTERNAL-ID', Str::random(32));
             $notifyRequest->headers->set('CHANNEL-ID', 'BAG-API');
 
@@ -275,7 +275,7 @@ class UatTestController extends Controller
             $token = $this->issueUatAccessToken($repository);
             $headers = [
                 'X-PARTNER-ID' => (string) ($config['client_key'] ?? 'UAT'),
-                'X-TIMESTAMP' => $data['case'] === 'expired_timestamp' ? '2020-01-01T00:00:00+07:00' : now()->toISOString(),
+                'X-TIMESTAMP' => $data['case'] === 'expired_timestamp' ? '2020-01-01T00:00:00+07:00' : $this->snapTimestamp(),
                 'X-EXTERNAL-ID' => Str::random(32),
                 'CHANNEL-ID' => 'BAG-API',
                 'Authorization' => 'Bearer ' . $token,
@@ -325,7 +325,7 @@ class UatTestController extends Controller
     private function issueUatAccessToken(PaymentRepository $repository): string
     {
         $config = $repository->getValue();
-        $timestamp = now()->toISOString();
+        $timestamp = $this->snapTimestamp();
         $clientKey = (string) ($config['client_key'] ?? '');
         $key = openssl_pkey_get_private(str_replace('\\n', "\n", (string) ($config['private_key'] ?? '')));
         if ($key === false || ! openssl_sign($clientKey . '|' . $timestamp, $signature, $key, OPENSSL_ALGO_SHA256)) {
@@ -358,6 +358,11 @@ class UatTestController extends Controller
         ], '', 'uat_access_token');
 
         return (string) $body['accessToken'];
+    }
+
+    private function snapTimestamp(): string
+    {
+        return now()->format('Y-m-d\TH:i:s.vP');
     }
 
     private function uatOrder(string $reference): Order
