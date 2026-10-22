@@ -75,15 +75,30 @@ class UatTestController extends Controller
         try {
             DB::beginTransaction();
             $repository = $this->requireRepository($data['repositoryId']);
+            LogHelper::sendLog('UAT Generate QR - Request', [
+                'repository_id' => $repository->getAttribute('id'),
+                'repository_key' => $repository->getAttribute('key'),
+                'mode' => $repository->getMode()?->value,
+                'amount' => $data['amount'],
+                'expiry_period' => $data['expiryPeriod'] ?? 60,
+            ], '', 'uat_generate_qr');
+
             $response = $this->bankAgiService->order($this->uatOrderRequest($repository, $data), $this->uatProject($repository));
             DB::commit();
+
+            LogHelper::sendLog('UAT Generate QR - Success', [
+                'reference' => $response['reference'] ?? null,
+                'bill_number' => $response['result']['additionalInfo']['billNumber'] ?? null,
+                'qr_length' => isset($response['qr_string']) ? strlen($response['qr_string']) : 0,
+                'bank_reference' => $response['result']['referenceNo'] ?? null,
+            ], '', 'uat_generate_qr');
 
             return ResponseHelper::successResponse($response);
         } catch (Throwable $ex) {
             if (DB::transactionLevel() > 0) {
                 DB::rollBack();
             }
-            LogHelper::sendErrorLog($ex);
+            LogHelper::sendErrorLog($ex, ['operation' => 'uat_generate_qr', 'repository_id' => $data['repositoryId'] ?? null, 'amount' => $data['amount'] ?? null], '', 'error_uat_generate_qr');
 
             return ResponseHelper::failedResponse($ex->getMessage(), 'UAT Generate QR Failed', 400);
         }
@@ -98,16 +113,27 @@ class UatTestController extends Controller
             $repository = $this->requireRepository((string) $order->getAttribute('payment_repository_id'));
             $order->setRelation('project', $this->uatProject($repository));
 
+            LogHelper::sendLog('UAT Query Status - Request', [
+                'reference' => $order->getReference(),
+                'bill_number' => $order->getGatewayBillNumber(),
+                'local_status' => $order->getStatus()?->value,
+                'repository_id' => $repository->getAttribute('id'),
+            ], '', 'uat_query_status');
+
+            $bankStatus = $this->bankAgiService->checkStatus($order);
+
+            LogHelper::sendLog('UAT Query Status - Bank Response', $bankStatus, '', 'uat_query_status');
+
             return ResponseHelper::successResponse([
                 'reference' => $order->getReference(),
                 'bill_number' => $order->getGatewayBillNumber(),
                 'amount' => $order->getAmount(),
                 'local_status' => $order->getStatus()?->value,
                 'expired_at' => (string) $order->getAttribute('expired_at'),
-                'bank_status' => $this->bankAgiService->checkStatus($order),
+                'bank_status' => $bankStatus,
             ]);
         } catch (Throwable $ex) {
-            LogHelper::sendErrorLog($ex);
+            LogHelper::sendErrorLog($ex, ['operation' => 'uat_query_status', 'reference' => $data['reference'] ?? null], '', 'error_uat_query_status');
 
             return ResponseHelper::failedResponse($ex->getMessage(), 'UAT Query Status Failed', 400);
         }
@@ -156,6 +182,16 @@ class UatTestController extends Controller
 
             $order->refresh();
 
+            LogHelper::sendLog('UAT Notify - Success', [
+                'reference' => $order->getReference(),
+                'bill_number' => $order->getGatewayBillNumber(),
+                'notify_status' => $data['latestTransactionStatus'],
+                'notify_amount' => $amount,
+                'notify_response' => $result,
+                'local_status_after' => $order->getStatus()?->value,
+                'status_changed' => $order->getStatus()?->value,
+            ], '', 'uat_notify');
+
             return ResponseHelper::successResponse([
                 'notify_response' => $result,
                 'local_status' => $order->getStatus()?->value,
@@ -164,7 +200,7 @@ class UatTestController extends Controller
             if (DB::transactionLevel() > 0) {
                 DB::rollBack();
             }
-            LogHelper::sendErrorLog($ex);
+            LogHelper::sendErrorLog($ex, ['operation' => 'uat_notify', 'reference' => $data['reference'] ?? null, 'notify_status' => $data['latestTransactionStatus'] ?? null], '', 'error_uat_notify');
 
             return ResponseHelper::failedResponse($ex->getMessage(), 'UAT Notify Failed', 400);
         }
@@ -268,13 +304,19 @@ class UatTestController extends Controller
             $controller = new BankAgiController;
             $response = $controller->callback($notifyRequest);
 
+            LogHelper::sendLog('UAT Negative Test - Executed', [
+                'case' => $data['case'],
+                'http_status' => $response->getStatusCode(),
+                'response' => $response->getData(true),
+            ], '', 'uat_negative_test');
+
             return ResponseHelper::successResponse([
                 'case' => $data['case'],
                 'http_status' => $response->getStatusCode(),
                 'body' => $response->getData(true),
             ]);
         } catch (Throwable $ex) {
-            LogHelper::sendErrorLog($ex);
+            LogHelper::sendErrorLog($ex, ['operation' => 'uat_negative_test', 'case' => $data['case'] ?? null], '', 'error_uat_negative_test');
 
             return ResponseHelper::failedResponse($ex->getMessage(), 'UAT Negative Test Failed', 400);
         }
@@ -302,8 +344,18 @@ class UatTestController extends Controller
         $response = (new BankAgiController)->snapAccessTokenB2B($tokenRequest);
         $body = $response->getData(true);
         if (($body['responseCode'] ?? null) !== '2007300' || empty($body['accessToken'])) {
+            LogHelper::sendErrorLog(new Exception('UAT access token failed'), [
+                'operation' => 'uat_access_token',
+                'response_code' => $body['responseCode'] ?? null,
+                'response_message' => $body['responseMessage'] ?? null,
+            ], '', 'error_uat_access_token');
             throw new Exception('UAT access token failed: ' . ($body['responseMessage'] ?? 'unknown'));
         }
+
+        LogHelper::sendLog('UAT Access Token - Issued', [
+            'response_code' => $body['responseCode'],
+            'token_expires_in' => $body['expiresIn'] ?? null,
+        ], '', 'uat_access_token');
 
         return (string) $body['accessToken'];
     }
