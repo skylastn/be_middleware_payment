@@ -383,16 +383,15 @@ class BankAgiService
             throw new RuntimeException('AGI QRIS bill number is missing from the order');
         }
 
+        $merchantId = (string) $this->requiredConfig($config, 'merchant_id');
         $body = [
             'originalReferenceNo' => $order->getGatewayReference() ?? $order->getReference(),
             'originalPartnerReferenceNo' => $order->getReference(),
             'serviceCode' => '18',
-            'merchantId' => $this->requiredConfig($config, 'merchant_id'),
+            'merchantId' => $merchantId,
+            'subMerchantId' => $merchantId,
             'additionalInfo' => array_merge($this->additionalInfo($config, $this->deviceIdFromOrder($order)), ['billNumber' => $order->getGatewayBillNumber()]),
         ];
-        if (! empty($config['sub_merchant_id'])) {
-            $body['subMerchantId'] = (string) $config['sub_merchant_id'];
-        }
 
         return $this->sendTransaction($repository, self::QUERY_PATH, $body, '2001800');
     }
