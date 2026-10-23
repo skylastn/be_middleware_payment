@@ -520,25 +520,23 @@ class BankAgiService
     public function probeBank(PaymentRepository $repository, string $case): array
     {
         $config = $repository->getValue();
-        $path = $case === 'invalid_signature' ? self::TOKEN_PATH : self::GENERATE_PATH;
+        $path = self::GENERATE_PATH;
         $timestamp = $this->timestamp();
         $channelId = (string) $this->requiredConfig($config, 'channel_id');
         $bankClientId = (string) $this->requiredConfig($config, 'bank_client_id');
         $secret = (string) $this->requiredConfig($config, 'bank_client_secret');
 
-        $body = $case === 'invalid_signature'
-            ? ['grantType' => 'client_credentials', 'additionalInfo' => (object) []]
-            : [
-                'partnerReferenceNo' => 'AGI-UAT-' . strtoupper(bin2hex(random_bytes(6))),
-                'amount' => ['value' => '10000.00', 'currency' => 'IDR'],
-                'merchantId' => $case === 'invalid_merchant' ? 'ID0000000000000' : (string) $this->requiredConfig($config, 'merchant_id'),
-                'validityPeriod' => '60',
-                'additionalInfo' => $this->additionalInfo($config),
-                'subMerchantId' => $case === 'invalid_merchant' ? 'ID0000000000000' : (string) $this->requiredConfig($config, 'merchant_id'),
-                'storeId' => '',
-                'terminalId' => '',
-                'feeAmount' => ['value' => '0.00', 'currency' => 'IDR'],
-            ];
+        $body = [
+            'partnerReferenceNo' => 'AGI-UAT-' . strtoupper(bin2hex(random_bytes(6))),
+            'amount' => ['value' => '10000.00', 'currency' => 'IDR'],
+            'merchantId' => $case === 'invalid_merchant' ? 'ID0000000000000' : (string) $this->requiredConfig($config, 'merchant_id'),
+            'validityPeriod' => '60',
+            'additionalInfo' => $this->additionalInfo($config),
+            'subMerchantId' => $case === 'invalid_merchant' ? 'ID0000000000000' : (string) $this->requiredConfig($config, 'merchant_id'),
+            'storeId' => '',
+            'terminalId' => '',
+            'feeAmount' => ['value' => '0.00', 'currency' => 'IDR'],
+        ];
 
         $token = $case === 'invalid_token'
             ? 'UAT-INVALID-TOKEN'
@@ -569,26 +567,17 @@ class BankAgiService
                 throw new RuntimeException('Unknown AGI probe case: ' . $case);
         }
 
+        $headers = [
+            'Content-Type' => 'application/json',
+            'Authorization' => 'Bearer ' . $token,
+            'X-TIMESTAMP' => $timestamp,
+            'X-PARTNER-ID' => $bankClientId,
+            'X-EXTERNAL-ID' => $case === 'duplicate_external_id' ? '20261022000000000001' : now('UTC')->format('YmdHis') . sprintf('%018d', random_int(0, 999999999999999999)),
+            'CHANNEL-ID' => $channelId,
+            'X-SIGNATURE' => $this->signSymmetric($secret, 'POST', $path, $token, $rawBody, $timestamp),
+        ];
         if ($case === 'invalid_signature') {
-            // Signs the token request with a key the bank has never registered.
-            $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
-            openssl_sign($bankClientId . '|' . $timestamp, $rsaSignature, $key, OPENSSL_ALGO_SHA256);
-            $headers = [
-                'Content-Type' => 'application/json',
-                'X-CLIENT-KEY' => $bankClientId,
-                'X-TIMESTAMP' => $timestamp,
-                'X-SIGNATURE' => base64_encode($rsaSignature),
-            ];
-        } else {
-            $headers = [
-                'Content-Type' => 'application/json',
-                'Authorization' => 'Bearer ' . $token,
-                'X-TIMESTAMP' => $timestamp,
-                'X-PARTNER-ID' => $bankClientId,
-                'X-EXTERNAL-ID' => $case === 'duplicate_external_id' ? '20261022000000000001' : now('UTC')->format('YmdHis') . sprintf('%018d', random_int(0, 999999999999999999)),
-                'CHANNEL-ID' => $channelId,
-                'X-SIGNATURE' => $this->signSymmetric($secret, 'POST', $path, $token, $rawBody, $timestamp),
-            ];
+            $headers['X-SIGNATURE'] = $this->signSymmetric($secret, 'POST', $path, $token, $rawBody . 'tampered', $timestamp);
         }
 
         $url = $this->baseUrl($repository) . $path;
