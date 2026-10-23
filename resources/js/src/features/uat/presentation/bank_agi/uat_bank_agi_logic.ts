@@ -119,14 +119,15 @@ export function useUatTestLogic(gateway: string) {
             setError('Enter a bill number to query.');
             return;
         }
-        if (!selectedRepoId) {
-            setError('Select a repository first.');
+        const ref = qrResult?.reference;
+        if (!ref) {
+            setError('Generate a QR first so the order reference is available.');
             return;
         }
         setQuerying(true);
         setError('');
         try {
-            setQueryResult(await uatService.queryStatus({ reference: bill, billNumber: bill, repositoryId: selectedRepoId }));
+            setQueryResult(await uatService.queryStatus({ reference: ref, billNumber: bill }));
         } catch (err: any) {
             setError(err?.message || 'Failed to query status by bill number.');
         } finally {

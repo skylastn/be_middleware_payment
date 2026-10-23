@@ -107,40 +107,34 @@ class UatTestController extends Controller
     public function queryStatus(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'reference' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'reference' => ['required', 'string', 'max:255'],
             'billNumber' => ['sometimes', 'nullable', 'string', 'max:255'],
-            'repositoryId' => ['required_without:reference', 'nullable', 'uuid'],
         ]);
 
         try {
-            if (! empty($data['billNumber'])) {
-                $repository = $this->requireRepository((string) ($data['repositoryId'] ?? ''));
-                $order = null;
-                $reference = (string) ($data['reference'] ?? $data['billNumber']);
-                $bankStatus = $this->bankAgiService->queryQrisStatusByBill($repository, (string) $data['billNumber'], $reference);
-            } else {
-                $order = $this->uatOrder((string) $data['reference']);
-                $repository = $this->requireRepository((string) $order->getAttribute('payment_repository_id'));
-                $order->setRelation('project', $this->uatProject($repository));
-                $reference = $order->getReference();
-                $bankStatus = $this->bankAgiService->checkStatus($order);
-            }
+            $order = $this->uatOrder($data['reference']);
+            $repository = $this->requireRepository((string) $order->getAttribute('payment_repository_id'));
+            $order->setRelation('project', $this->uatProject($repository));
+
+            $bankStatus = ! empty($data['billNumber'])
+                ? $this->bankAgiService->queryQrisStatusByBill($repository, (string) $data['billNumber'], $order)
+                : $this->bankAgiService->checkStatus($order);
 
             LogHelper::sendLog('UAT Query Status - Request', [
-                'reference' => $reference,
-                'bill_number' => $data['billNumber'] ?? $order?->getGatewayBillNumber(),
-                'local_status' => $order?->getStatus()?->value,
+                'reference' => $order->getReference(),
+                'bill_number' => $data['billNumber'] ?? $order->getGatewayBillNumber(),
+                'local_status' => $order->getStatus()?->value,
                 'repository_id' => $repository->getAttribute('id'),
             ], '', 'uat_query_status');
 
             LogHelper::sendLog('UAT Query Status - Bank Response', $bankStatus, '', 'uat_query_status');
 
             return ResponseHelper::successResponse([
-                'reference' => $reference,
-                'bill_number' => $data['billNumber'] ?? $order?->getGatewayBillNumber(),
-                'amount' => $order?->getAmount(),
-                'local_status' => $order?->getStatus()?->value,
-                'expired_at' => $order ? (string) $order->getAttribute('expired_at') : null,
+                'reference' => $order->getReference(),
+                'bill_number' => $data['billNumber'] ?? $order->getGatewayBillNumber(),
+                'amount' => $order->getAmount(),
+                'local_status' => $order->getStatus()?->value,
+                'expired_at' => (string) $order->getAttribute('expired_at'),
                 'bank_status' => $bankStatus,
             ]);
         } catch (Throwable $ex) {

@@ -1,5 +1,4 @@
 export interface UatQueryStatusRequest {
-    reference?: string;
+    reference: string;
     billNumber?: string;
-    repositoryId?: string;
 }
