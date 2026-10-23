@@ -545,14 +545,10 @@ class BankAgiService
             : (string) ($this->getB2BToken($repository)['accessToken'] ?? '');
 
         $rawBody = json_encode($body, JSON_THROW_ON_ERROR);
-        $signatureBody = $rawBody;
 
         switch ($case) {
             case 'invalid_token':
             case 'invalid_merchant':
-                break;
-            case 'invalid_signature':
-                $signatureBody = $rawBody . ' ';
                 break;
             case 'missing_mandatory':
                 unset($body['merchantId'], $body['amount']);
@@ -586,8 +582,11 @@ class BankAgiService
                 'X-PARTNER-ID' => $bankClientId,
                 'X-EXTERNAL-ID' => $case === 'duplicate_external_id' ? '20261022000000000001' : now('UTC')->format('YmdHis') . sprintf('%018d', random_int(0, 999999999999999999)),
                 'CHANNEL-ID' => $channelId,
-                'X-SIGNATURE' => $this->signSymmetric($secret, 'POST', $path, $token, $signatureBody, $timestamp),
+                'X-SIGNATURE' => $this->signSymmetric($secret, 'POST', $path, $token, $rawBody, $timestamp),
             ];
+            if ($case === 'invalid_signature') {
+                $headers['X-SIGNATURE'] = str_repeat('a', 128);
+            }
         }
 
         $url = $this->baseUrl($repository) . $path;
