@@ -24,6 +24,7 @@ export interface UatProbeBankResponse {
     request_headers: Record<string, string>;
     request_body: any;
     bank_response: any;
+    raw_response?: string | null;
     response_code: string | null;
     response_message: string | null;
 }

@@ -527,7 +527,9 @@ export function UatBankAgiPage(): React.JSX.Element {
                             </span>
                         </div>
                         <pre className="uat-json-viewer">
-                            {JSON.stringify(negativeResult.bank_response, null, 2)}
+                            {negativeResult.bank_response
+                                ? JSON.stringify(negativeResult.bank_response, null, 2)
+                                : (negativeResult.raw_response || '(empty response body)')}
                         </pre>
                     </div>
                 )}

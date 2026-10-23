@@ -586,7 +586,12 @@ class BankAgiService
         $raw = $this->networkService->post($url, $headers, json_decode($rawBody, true), ['allow_redirects' => false]);
         $decoded = json_decode((string) $raw, true);
 
-        LogHelper::sendLog('UAT Probe Bank AGI Response', ['case' => $case, 'body' => $decoded, 'bytes' => strlen((string) $raw)], '', 'uat_probe_bank_agi');
+        LogHelper::sendLog('UAT Probe Bank AGI Response', [
+            'case' => $case,
+            'body' => is_array($decoded) ? $decoded : '[non-JSON response omitted]',
+            'raw_preview' => is_array($decoded) ? null : mb_strimwidth((string) $raw, 0, 500, '...[truncated]'),
+            'bytes' => strlen((string) $raw),
+        ], '', 'uat_probe_bank_agi');
 
         return [
             'case' => $case,
@@ -594,6 +599,7 @@ class BankAgiService
             'request_headers' => $headers,
             'request_body' => $body,
             'bank_response' => $decoded,
+            'raw_response' => is_array($decoded) ? null : (string) $raw,
             'response_code' => is_array($decoded) ? ($decoded['responseCode'] ?? null) : null,
             'response_message' => is_array($decoded) ? ($decoded['responseMessage'] ?? null) : null,
         ];
