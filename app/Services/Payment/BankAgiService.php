@@ -520,13 +520,13 @@ class BankAgiService
     public function probeBank(PaymentRepository $repository, string $case): array
     {
         $config = $repository->getValue();
-        $path = in_array($case, ['invalid_token', 'invalid_signature'], true) ? self::TOKEN_PATH : self::GENERATE_PATH;
+        $path = $case === 'invalid_signature' ? self::TOKEN_PATH : self::GENERATE_PATH;
         $timestamp = $this->timestamp();
         $channelId = (string) $this->requiredConfig($config, 'channel_id');
         $bankClientId = (string) $this->requiredConfig($config, 'bank_client_id');
         $secret = (string) $this->requiredConfig($config, 'bank_client_secret');
 
-        $body = in_array($case, ['invalid_token', 'invalid_signature'], true)
+        $body = $case === 'invalid_signature'
             ? ['grantType' => 'client_credentials', 'additionalInfo' => (object) []]
             : [
                 'partnerReferenceNo' => 'AGI-UAT-' . strtoupper(bin2hex(random_bytes(6))),
@@ -566,12 +566,9 @@ class BankAgiService
                 throw new RuntimeException('Unknown AGI probe case: ' . $case);
         }
 
-        if (in_array($case, ['invalid_token', 'invalid_signature'], true)) {
-            // invalid_token keeps the real credentials but sends a bogus bearer;
-            // invalid_signature signs the same payload with an unrelated key.
-            $key = $case === 'invalid_signature'
-                ? openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA])
-                : openssl_pkey_get_private(str_replace('\\n', "\n", (string) $this->requiredConfig($config, 'private_key')));
+        if ($case === 'invalid_signature') {
+            // Signs the token request with a key the bank has never registered.
+            $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
             openssl_sign($bankClientId . '|' . $timestamp, $rsaSignature, $key, OPENSSL_ALGO_SHA256);
             $headers = [
                 'Content-Type' => 'application/json',
