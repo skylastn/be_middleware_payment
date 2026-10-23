@@ -546,7 +546,7 @@ class BankAgiService
 
         switch ($case) {
             case 'invalid_token':
-            case 'invalid_signature':
+            case 'unauthorized_signature':
                 $rawBody = json_encode($body, JSON_THROW_ON_ERROR);
                 break;
             case 'invalid_merchant':
@@ -576,7 +576,7 @@ class BankAgiService
             'CHANNEL-ID' => $channelId,
             'X-SIGNATURE' => $this->signSymmetric($secret, 'POST', $path, $token, $rawBody, $timestamp),
         ];
-        if ($case === 'invalid_signature') {
+        if ($case === 'unauthorized_signature') {
             $headers['X-SIGNATURE'] = $this->signSymmetric($secret, 'POST', $path, $token, $rawBody . 'tampered', $timestamp);
         }
 

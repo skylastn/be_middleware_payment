@@ -22,7 +22,7 @@ interface ScenarioRow {
 
 const SCENARIOS: ScenarioRow[] = [
     { no: 1, name: 'Access Token Invalid', category: 'auth', categoryLabel: 'Auth', expectedCode: '401xx01', how: 'QR generate to the bank with a bogus Bearer token (Authorization: Bearer UAT-INVALID-TOKEN)', action: 'probe', case: 'invalid_token' },
-    { no: 2, name: 'Unauthorized Signature', category: 'auth', categoryLabel: 'Auth', expectedCode: '401xx00', how: 'Token request to the bank signed with an RSA key the bank never registered', action: 'probe', case: 'invalid_signature' },
+    { no: 2, name: 'Unauthorized Signature', category: 'auth', categoryLabel: 'Auth', expectedCode: '401xx00', how: 'Obtain a valid token, then call QR generate signed with a tampered X-SIGNATURE', action: 'probe', case: 'unauthorized_signature' },
     { no: 3, name: 'Missing Mandatory Field', category: 'validation', categoryLabel: 'Validation', expectedCode: '400xx02', how: 'QR generate to the bank with an empty merchantId', action: 'probe', case: 'missing_mandatory' },
     { no: 4, name: 'Invalid Field Format', category: 'validation', categoryLabel: 'Validation', expectedCode: '400xx01', how: 'QR generate to the bank with amount = "1000,abc" (not numeric)', action: 'probe', case: 'invalid_format' },
     { no: 5, name: 'Cannot use the same X-EXTERNAL-ID', category: 'validation', categoryLabel: 'Validation', expectedCode: '409xx00', how: 'QR generate to the bank with a fixed X-EXTERNAL-ID — click twice to reuse it', action: 'probe', case: 'duplicate_external_id' },

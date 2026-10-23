@@ -229,7 +229,7 @@ class UatTestController extends Controller
     {
         $data = $request->validate([
             'repositoryId' => ['required', 'uuid'],
-            'case' => ['required', 'string', 'in:invalid_token,invalid_signature,missing_mandatory,invalid_format,duplicate_external_id,invalid_merchant'],
+            'case' => ['required', 'string', 'in:invalid_token,unauthorized_signature,missing_mandatory,invalid_format,duplicate_external_id,invalid_merchant'],
         ]);
 
         try {
