@@ -113,6 +113,23 @@ export function useUatTestLogic(gateway: string) {
         }
     };
 
+    const handleCheckStatusByReference = async (reference: string) => {
+        const ref = reference.trim();
+        if (!ref) {
+            setError('Enter a reference to check.');
+            return;
+        }
+        setQuerying(true);
+        setError('');
+        try {
+            setQueryResult(await uatService.queryStatus({ reference: ref }));
+        } catch (err: any) {
+            setError(err?.message || 'Failed to check status.');
+        } finally {
+            setQuerying(false);
+        }
+    };
+
     const handleNotify = async (override?: { latestTransactionStatus?: string }) => {
         const ref = qrResult?.reference;
         if (!ref) {
@@ -179,6 +196,7 @@ export function useUatTestLogic(gateway: string) {
         queryResult,
         querying,
         handleQueryStatus,
+        handleCheckStatusByReference,
         notifyStatus,
         setNotifyStatus,
         notifyAmount,

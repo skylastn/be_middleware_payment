@@ -62,6 +62,7 @@ export function UatBankAgiPage(): React.JSX.Element {
         queryResult,
         querying,
         handleQueryStatus,
+        handleCheckStatusByReference,
         notifyStatus,
         setNotifyStatus,
         notifyAmount,
@@ -77,6 +78,7 @@ export function UatBankAgiPage(): React.JSX.Element {
         loadingOrders,
         loadOrders,
     } = useUatTestLogic('bank_agi');
+    const [referenceInput, setReferenceInput] = useState('');
 
     return (
         <div className="page-container" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -479,15 +481,24 @@ export function UatBankAgiPage(): React.JSX.Element {
                                                     {s.expiry !== undefined ? '8a. Generate 5-min QR' : 'Generate'}
                                                 </button>
                                                 {s.expiry !== undefined && (
-                                                    <button
-                                                        type="button"
-                                                        className="button"
-                                                        disabled={querying}
-                                                        onClick={() => handleQueryStatus()}
-                                                        style={{ minHeight: '30px', padding: '4px 12px', fontSize: '12px' }}
-                                                    >
-                                                        8b. Check status
-                                                    </button>
+                                                    <div style={{ display: 'flex', gap: '6px' }}>
+                                                        <input
+                                                            className="input"
+                                                            placeholder="Reference"
+                                                            value={referenceInput}
+                                                            onChange={(e) => setReferenceInput(e.target.value)}
+                                                            style={{ fontSize: '12px', height: '30px', width: '180px' }}
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            className="button"
+                                                            disabled={querying}
+                                                            onClick={() => handleCheckStatusByReference(referenceInput)}
+                                                            style={{ minHeight: '30px', padding: '4px 12px', fontSize: '12px' }}
+                                                        >
+                                                            8b. Check status
+                                                        </button>
+                                                    </div>
                                                 )}
                                             </div>
                                         )}
