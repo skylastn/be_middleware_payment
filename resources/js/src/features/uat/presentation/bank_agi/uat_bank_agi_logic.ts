@@ -140,19 +140,20 @@ export function useUatTestLogic(gateway: string) {
         }
     };
 
-    const handleNegativeTest = async (testCase: string) => {
+    const handleBankProbe = async (testCase: string) => {
+        if (!selectedRepoId) {
+            setError('Select a repository first.');
+            return;
+        }
         setRunningNegative(testCase);
         setNegativeCase(testCase);
         setNegativeResult(null);
         setError('');
         try {
-            const res = await uatTestService.negativeTest({
-                case: testCase,
-                reference: qrResult?.reference || undefined,
-            });
+            const res = await uatTestService.probeBank({ repositoryId: selectedRepoId, case: testCase });
             setNegativeResult(res?.data || res);
         } catch (err: any) {
-            setError(err?.message || 'Negative test failed.');
+            setError(err?.message || 'Bank probe failed.');
         } finally {
             setRunningNegative('');
         }
@@ -162,7 +163,7 @@ export function useUatTestLogic(gateway: string) {
         negativeResult,
         negativeCase,
         runningNegative,
-        handleNegativeTest,
+        handleBankProbe,
         repositories,
         selectedRepoId,
         setSelectedRepoId,

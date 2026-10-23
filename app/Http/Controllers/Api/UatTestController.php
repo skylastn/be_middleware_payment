@@ -225,161 +225,22 @@ class UatTestController extends Controller
         return ResponseHelper::successResponse($rows);
     }
 
-    public function negativeTest(Request $request): JsonResponse
+    public function probeBank(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'case' => ['required', 'string', 'in:invalid_token,missing_token,invalid_signature,missing_mandatory,invalid_format,reused_external_id,invalid_bill_number,expired_timestamp'],
-            'reference' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'repositoryId' => ['required', 'uuid'],
+            'case' => ['required', 'string', 'in:invalid_token,invalid_signature,missing_mandatory,invalid_format,duplicate_external_id,invalid_merchant'],
         ]);
 
         try {
-            $repository = PaymentRepository::withoutEagerLoads()
-                ->whereHas('payment_gateway', fn ($q) => $q->where('key', ProjectSlug::BANK_AGI->value))
-                ->orderByDesc('id')
-                ->first();
-            if (! $repository) {
-                return ResponseHelper::failedResponse('No Bank AGI repository configured', 'Not Found', 404);
-            }
-            $config = $repository->getValue();
-            $reference = $data['reference'] ?? null;
+            $repository = $this->requireRepository($data['repositoryId']);
 
-            $order = $reference ? $this->orders->latestByReference($reference, 'TEST') : null;
-            $billNumber = $order?->getGatewayBillNumber() ?? (string) ($config['merchant_id'] ?? '') . '999999';
-            $originalRef = $order?->getGatewayReference() ?? $order?->getReference() ?? 'UAT-NOT-EXISTS-999';
-            $amountValue = $this->formatAmount($order?->getAmount() ?? 10000);
-
-            $payload = [
-                'originalReferenceNo' => $originalRef,
-                'latestTransactionStatus' => '00',
-                'transactionStatusDesc' => 'SUCCEED',
-                'destinationAccountName' => 'UAT TESTER',
-                'issuerName' => 'Bank Artha Graha',
-                'amount' => ['value' => $amountValue, 'currency' => 'IDR'],
-                'additionalInfo' => [
-                    'merchantId' => (string) ($config['merchant_id'] ?? ''),
-                    'merchantUser' => (string) ($config['merchant_user'] ?? ''),
-                    'billNumber' => $billNumber,
-                ],
-            ];
-
-            if ($data['case'] === 'missing_mandatory') {
-                unset($payload['transactionStatusDesc'], $payload['additionalInfo']['merchantUser']);
-            }
-            if ($data['case'] === 'invalid_format') {
-                $payload['latestTransactionStatus'] = '99';
-            }
-            if ($data['case'] === 'invalid_bill_number') {
-                $payload['additionalInfo']['billNumber'] = '7000000000000000009999999';
-            }
-
-            $token = $this->issueUatAccessToken($repository);
-            $headers = [
-                'X-PARTNER-ID' => (string) ($config['client_key'] ?? 'UAT'),
-                'X-TIMESTAMP' => $data['case'] === 'expired_timestamp' ? '2020-01-01T00:00:00+07:00' : $this->snapTimestamp(),
-                'X-EXTERNAL-ID' => Str::random(32),
-                'CHANNEL-ID' => 'BAG-API',
-                'Authorization' => 'Bearer ' . $token,
-                'Content-Type' => 'application/json',
-                'Accept' => 'application/json',
-            ];
-
-            if ($data['case'] === 'invalid_token') {
-                $headers['Authorization'] = 'Bearer UAT-INVALID-TOKEN-000';
-            }
-            if ($data['case'] === 'missing_token') {
-                unset($headers['Authorization']);
-            }
-            if ($data['case'] === 'invalid_signature' || $data['case'] === 'expired_timestamp') {
-                $headers['X-SIGNATURE'] = 'deadbeef' . Str::random(56);
-            }
-
-            $notifyRequest = Request::create('/api/bank/agi/notify-qris', 'POST', [], [], [], [
-                'CONTENT_TYPE' => 'application/json',
-                'HTTP_ACCEPT' => 'application/json',
-            ], json_encode($payload, JSON_THROW_ON_ERROR));
-            foreach ($headers as $key => $value) {
-                $notifyRequest->headers->set($key, $value);
-            }
-
-            $controller = new BankAgiController;
-            $response = $controller->callback($notifyRequest);
-
-            LogHelper::sendLog('UAT Negative Test - Executed', [
-                'case' => $data['case'],
-                'http_status' => $response->getStatusCode(),
-                'response' => $response->getData(true),
-            ], '', 'uat_negative_test');
-
-            return ResponseHelper::successResponse([
-                'case' => $data['case'],
-                'http_status' => $response->getStatusCode(),
-                'body' => $response->getData(true),
-            ]);
+            return ResponseHelper::successResponse($this->bankAgiService->probeBank($repository, $data['case']));
         } catch (Throwable $ex) {
-            LogHelper::sendErrorLog($ex, ['operation' => 'uat_negative_test', 'case' => $data['case'] ?? null], '', 'error_uat_negative_test');
+            LogHelper::sendErrorLog($ex, ['operation' => 'uat_probe_bank', 'case' => $data['case'] ?? null], '', 'error_uat_probe_bank');
 
-            return ResponseHelper::failedResponse($ex->getMessage(), 'UAT Negative Test Failed', 400);
+            return ResponseHelper::failedResponse($ex->getMessage(), 'UAT Bank Probe Failed', 400);
         }
-    }
-
-    private function issueUatAccessToken(PaymentRepository $repository): string
-    {
-        $config = $repository->getValue();
-        $timestamp = $this->snapTimestamp();
-        $clientKey = (string) ($config['client_key'] ?? '');
-        $key = openssl_pkey_get_private(str_replace('\\n', "\n", (string) ($config['private_key'] ?? '')));
-        if ($key === false || ! openssl_sign($clientKey . '|' . $timestamp, $signature, $key, OPENSSL_ALGO_SHA256)) {
-            throw new Exception('Unable to sign UAT access token request (check repository private_key)');
-        }
-
-        // Inbound access-token verification in BankAgiService checks the signature
-        // against bank_public_key. When that field is empty or is not the pair of our
-        // own private_key (common on internal test repositories), derive the matching
-        // public key from private_key so the simulated inbound token still validates.
-        $bankPublicKey = trim(str_replace('\\n', "\n", (string) ($config['bank_public_key'] ?? '')));
-        $publicKey = openssl_pkey_get_public($bankPublicKey);
-        if ($publicKey === false || openssl_verify($clientKey . '|' . $timestamp, $signature, $publicKey, OPENSSL_ALGO_SHA256) !== 1) {
-            $derived = openssl_pkey_get_details($key)['key'] ?? '';
-            if ($derived === '' || openssl_verify($clientKey . '|' . $timestamp, $signature, openssl_pkey_get_public($derived), OPENSSL_ALGO_SHA256) !== 1) {
-                throw new Exception('UAT access token signature mismatch: private_key has no usable pair with bank_public_key');
-            }
-
-            $config['bank_public_key'] = str_replace("\n", '\\n', $derived);
-            $repository->setValue($config);
-            $repository->save();
-
-            LogHelper::sendLog('UAT Access Token - bank_public_key re-derived from private_key', [
-                'repository_id' => $repository->getAttribute('id'),
-                'repository_key' => $repository->getAttribute('key'),
-            ], '', 'uat_access_token');
-        }
-
-        $tokenPayload = json_encode(['grantType' => 'client_credentials', 'additionalInfo' => []], JSON_THROW_ON_ERROR);
-        $tokenRequest = Request::create('/api/bank/agi/access-token', 'POST', [], [], [], [
-            'CONTENT_TYPE' => 'application/json',
-            'HTTP_ACCEPT' => 'application/json',
-        ], $tokenPayload);
-        $tokenRequest->headers->set('X-CLIENT-KEY', $clientKey);
-        $tokenRequest->headers->set('X-TIMESTAMP', $timestamp);
-        $tokenRequest->headers->set('X-SIGNATURE', base64_encode($signature));
-
-        $response = (new BankAgiController)->snapAccessTokenB2B($tokenRequest);
-        $body = $response->getData(true);
-        if (($body['responseCode'] ?? null) !== '2007300' || empty($body['accessToken'])) {
-            LogHelper::sendErrorLog(new Exception('UAT access token failed'), [
-                'operation' => 'uat_access_token',
-                'response_code' => $body['responseCode'] ?? null,
-                'response_message' => $body['responseMessage'] ?? null,
-            ], '', 'error_uat_access_token');
-            throw new Exception('UAT access token failed: ' . ($body['responseMessage'] ?? 'unknown'));
-        }
-
-        LogHelper::sendLog('UAT Access Token - Issued', [
-            'response_code' => $body['responseCode'],
-            'token_expires_in' => $body['expiresIn'] ?? null,
-        ], '', 'uat_access_token');
-
-        return (string) $body['accessToken'];
     }
 
     private function snapTimestamp(): string

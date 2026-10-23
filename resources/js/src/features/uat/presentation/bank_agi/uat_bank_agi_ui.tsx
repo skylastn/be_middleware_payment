@@ -13,7 +13,7 @@ interface ScenarioRow {
     categoryLabel: string;
     expectedCode: string;
     how: string;
-    action: 'negative' | 'generate' | 'query' | 'notify' | 'manual' | 'blocked';
+    action: 'probe' | 'generate' | 'query' | 'notify' | 'manual';
     case?: string;
     amount?: number;
     expiry?: number;
@@ -21,19 +21,19 @@ interface ScenarioRow {
 }
 
 const SCENARIOS: ScenarioRow[] = [
-    { no: 1, name: 'Access Token Invalid', category: 'auth', categoryLabel: 'Auth', expectedCode: '4011901', how: 'Notify with an unverified / invalid B2B bearer token', action: 'negative', case: 'invalid_token' },
-    { no: 2, name: 'Unauthorized Signature', category: 'auth', categoryLabel: 'Auth', expectedCode: '4011900', how: 'Notify with a corrupted HMAC-SHA512 signature', action: 'negative', case: 'invalid_signature' },
-    { no: 3, name: 'Missing Mandatory Field', category: 'validation', categoryLabel: 'Validation', expectedCode: '4001902', how: 'Notify missing mandatory merchantUser & billNumber', action: 'negative', case: 'missing_mandatory' },
-    { no: 4, name: 'Invalid Field Format', category: 'validation', categoryLabel: 'Validation', expectedCode: '4001901', how: 'Notify with latestTransactionStatus = 99 (invalid enum)', action: 'negative', case: 'invalid_format' },
-    { no: 5, name: 'Duplicate X-EXTERNAL-ID', category: 'validation', categoryLabel: 'Validation', expectedCode: '4091900', how: 'Reused external ID — requires middleware deduplication', action: 'blocked' },
+    { no: 1, name: 'Access Token Invalid', category: 'auth', categoryLabel: 'Auth', expectedCode: '401xx01', how: 'Ask the bank for a token using an invalid token value', action: 'probe', case: 'invalid_token' },
+    { no: 2, name: 'Unauthorized Signature', category: 'auth', categoryLabel: 'Auth', expectedCode: '401xx00', how: 'Send a QR generate request whose signature does not match the body', action: 'probe', case: 'invalid_signature' },
+    { no: 3, name: 'Missing Mandatory Field', category: 'validation', categoryLabel: 'Validation', expectedCode: '400xx02', how: 'Send a QR generate request without merchantId and amount', action: 'probe', case: 'missing_mandatory' },
+    { no: 4, name: 'Invalid Field Format', category: 'validation', categoryLabel: 'Validation', expectedCode: '400xx01', how: 'Send a QR generate request with validityPeriod = "abc"', action: 'probe', case: 'invalid_format' },
+    { no: 5, name: 'Cannot use the same X-EXTERNAL-ID', category: 'validation', categoryLabel: 'Validation', expectedCode: '409xx00', how: 'Send a QR generate request reusing a fixed X-EXTERNAL-ID', action: 'probe', case: 'duplicate_external_id' },
     { no: 6, name: 'Show QR Code', category: 'lifecycle', categoryLabel: 'Lifecycle', expectedCode: '2001700', how: 'Generate dynamic QRIS with amount Rp 10.000', action: 'generate', amount: 10000 },
-    { no: 7, name: 'Invalid Merchant', category: 'edge', categoryLabel: 'Edge Case', expectedCode: '4041708', how: 'Switch repository to unregistered merchant, then generate QR', action: 'manual' },
+    { no: 7, name: 'Invalid Merchant', category: 'edge', categoryLabel: 'Edge Case', expectedCode: '4041708', how: 'Generate a QRIS against an unregistered merchant ID', action: 'probe', case: 'invalid_merchant' },
     { no: 8, name: 'QR Expired', category: 'lifecycle', categoryLabel: 'Lifecycle', expectedCode: '4041801', how: 'Generate QR with 1-min expiry, wait >60s, then query status', action: 'generate', amount: 10000, expiry: 1 },
     { no: 9, name: 'Query Pending', category: 'lifecycle', categoryLabel: 'Lifecycle', expectedCode: '4041801', how: 'Query newly generated QR before customer pays', action: 'query' },
     { no: 10, name: 'Query Failed', category: 'lifecycle', categoryLabel: 'Lifecycle', expectedCode: '4041801', how: 'Simulate failed notification (status 05), then query status', action: 'notify', notifyStatus: '05' },
-    { no: 11, name: 'Notify Success', category: 'lifecycle', categoryLabel: 'Lifecycle', expectedCode: '2001900', how: 'Inbound notification simulation with status 00 (SUCCESS)', action: 'notify', notifyStatus: '00' },
+    { no: 11, name: 'Notify Success', category: 'lifecycle', categoryLabel: 'Lifecycle', expectedCode: '2001900', how: 'Simulate a success notification (status 00) from the bank', action: 'notify', notifyStatus: '00' },
     { no: 12, name: 'Query Success', category: 'lifecycle', categoryLabel: 'Lifecycle', expectedCode: '2001800', how: 'Query paid transaction to verify settlement status at bank', action: 'query' },
-    { no: 13, name: 'Invalid Bill Number', category: 'validation', categoryLabel: 'Validation', expectedCode: '4041901', how: 'Notification attempt referencing an unknown bill number', action: 'negative', case: 'invalid_bill_number' },
+    { no: 13, name: 'Invalid Bill Number', category: 'validation', categoryLabel: 'Validation', expectedCode: '4041801', how: 'Query a reference that does not exist, then read the bank answer', action: 'query' },
     { no: 14, name: 'Nominal > 10.000.000', category: 'validation', categoryLabel: 'Validation', expectedCode: '4001701', how: 'Attempt QR generation exceeding Bank Indonesia QRIS limit', action: 'generate', amount: 10000001 },
     { no: 15, name: 'Insufficient Balance', category: 'edge', categoryLabel: 'Bank Side', expectedCode: '4041801', how: 'Requires physical bank test account with balance < transaction', action: 'manual' },
     { no: 16, name: 'Dormant Account', category: 'edge', categoryLabel: 'Bank Side', expectedCode: '4041801', how: 'Requires payer transaction using dormant account from bank', action: 'manual' },
@@ -72,7 +72,7 @@ export function UatBankAgiPage(): React.JSX.Element {
         negativeResult,
         negativeCase,
         runningNegative,
-        handleNegativeTest,
+        handleBankProbe,
         orders,
         loadingOrders,
         loadOrders,
@@ -451,15 +451,15 @@ export function UatBankAgiPage(): React.JSX.Element {
                                         {s.how}
                                     </td>
                                     <td style={{ textAlign: 'right' }}>
-                                        {s.action === 'negative' && (
+                                        {s.action === 'probe' && (
                                             <button
                                                 type="button"
                                                 className="button"
-                                                disabled={runningNegative !== ''}
-                                                onClick={() => handleNegativeTest(s.case!)}
+                                                disabled={runningNegative !== '' || !selectedRepoId}
+                                                onClick={() => handleBankProbe(s.case!)}
                                                 style={{ minHeight: '30px', padding: '4px 12px', fontSize: '12px' }}
                                             >
-                                                {runningNegative === s.case ? 'Testing...' : 'Run Test'}
+                                                {runningNegative === s.case ? 'Calling Bank...' : 'Call Bank'}
                                             </button>
                                         )}
                                         {s.action === 'generate' && (
@@ -507,11 +507,6 @@ export function UatBankAgiPage(): React.JSX.Element {
                                                 Bank Fixture
                                             </span>
                                         )}
-                                        {s.action === 'blocked' && (
-                                            <span className="badge danger" title="Requires backend deduplication implementation">
-                                                Pending Dedup
-                                            </span>
-                                        )}
                                     </td>
                                 </tr>
                             ))}
@@ -523,15 +518,16 @@ export function UatBankAgiPage(): React.JSX.Element {
                     <div style={{ padding: '16px 20px', borderTop: '1px solid var(--border)', background: 'var(--panel-header-bg)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <span style={{ fontSize: '12px', fontWeight: 700 }}>Negative Test Execution ({negativeCase}):</span>
-                                <span className={`badge ${negativeResult.http_status >= 400 ? 'danger' : 'success'}`}>
-                                    HTTP {negativeResult.http_status}
-                                </span>
+                                <span style={{ fontSize: '12px', fontWeight: 700 }}>Bank Response ({negativeCase}):</span>
+                                <span className="badge blue">{negativeResult.response_code || 'no code'}</span>
+                                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{negativeResult.response_message || ''}</span>
                             </div>
-                            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Response verified from Bank AGI controller</span>
+                            <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                                {negativeResult.url}
+                            </span>
                         </div>
                         <pre className="uat-json-viewer">
-                            {JSON.stringify(negativeResult.body, null, 2)}
+                            {JSON.stringify(negativeResult.bank_response, null, 2)}
                         </pre>
                     </div>
                 )}

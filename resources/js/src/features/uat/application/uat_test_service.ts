@@ -52,8 +52,8 @@ export class UatTestService {
         return res?.data || [];
     }
 
-    async negativeTest(data: { case: string; reference?: string }): Promise<any> {
-        return apiClient<any>('/api/uat/bank-agi/negative-test', {
+    async probeBank(data: { repositoryId: string; case: string }): Promise<any> {
+        return apiClient<any>('/api/uat/bank-agi/probe', {
             method: 'POST',
             body: JSON.stringify(data),
         });

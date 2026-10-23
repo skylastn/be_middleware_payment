@@ -3464,11 +3464,11 @@
           ]
         },
         {
-          "name": "02 - QR MPM ON US (18 scenarios)",
+          "name": "02 - QR MPM ON US (spreadsheet 1-7 outbound + 8-17)",
           "description": "Sheets: `QR MPM (On Us)` — 18 scenarios.",
           "item": [
             {
-              "name": "7. Generate QR - Show QR Code (2001700)",
+              "name": "1. Generate QR - Show QR Code (2001700)",
               "event": [
                 {
                   "listen": "test",
@@ -3546,7 +3546,7 @@
               "response": []
             },
             {
-              "name": "7b. Generate QR - Invalid Merchant (4041708)",
+              "name": "2. Generate QR - Invalid Merchant (4041708)",
               "request": {
                 "auth": {
                   "type": "apikey",
@@ -3600,7 +3600,7 @@
               "event": []
             },
             {
-              "name": "7c. Generate QR - Nominal > 10.000.000",
+              "name": "3. Generate QR - Nominal > 10.000.000",
               "request": {
                 "auth": {
                   "type": "apikey",
@@ -3654,7 +3654,7 @@
               "event": []
             },
             {
-              "name": "8. QR Expired (4041801)",
+              "name": "4. QR Expired (4041801)",
               "request": {
                 "auth": {
                   "type": "apikey",
@@ -3708,7 +3708,7 @@
               "event": []
             },
             {
-              "name": "9. Query Payment - Pending Transaction (4041801)",
+              "name": "5. Query Payment - Pending Transaction (4041801)",
               "request": {
                 "auth": {
                   "type": "apikey",
@@ -3759,7 +3759,7 @@
               "event": []
             },
             {
-              "name": "10. Query Payment - Failed Transaction (4041801)",
+              "name": "6. Query Payment - Failed Transaction (4041801)",
               "request": {
                 "auth": {
                   "type": "apikey",
@@ -3810,7 +3810,58 @@
               "event": []
             },
             {
-              "name": "11. Payment Notify - Success (2001900)",
+              "name": "7. Query Payment - Success Transaction (2001800)",
+              "request": {
+                "auth": {
+                  "type": "apikey",
+                  "apikey": [
+                    {
+                      "key": "value",
+                      "value": "{{Token}}",
+                      "type": "string"
+                    },
+                    {
+                      "key": "key",
+                      "value": "Token",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{url_payment}}order/checkOrderStatus?reference={{agi_reference}}",
+                  "host": [
+                    "{{url_payment}}order"
+                  ],
+                  "path": [
+                    "checkOrderStatus"
+                  ],
+                  "query": [
+                    {
+                      "key": "reference",
+                      "value": "{{agi_reference}}"
+                    },
+                    {
+                      "key": "status",
+                      "value": "all",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "**Scenario 12 - Query Payment - Success Transaction.**\n\n**Expected**: order `status = SUCCESS` after step 11."
+              },
+              "response": [],
+              "event": []
+            },
+            {
+              "name": "8. Payment Notify - Success (2001900)",
               "event": [
                 {
                   "listen": "test",
@@ -3896,7 +3947,7 @@
               "response": []
             },
             {
-              "name": "11b. Payment Notify - Idempotent resend (2001900)",
+              "name": "9. Payment Notify - Idempotent resend (2001900)",
               "event": [
                 {
                   "listen": "test",
@@ -3982,58 +4033,7 @@
               "response": []
             },
             {
-              "name": "12. Query Payment - Success Transaction (2001800)",
-              "request": {
-                "auth": {
-                  "type": "apikey",
-                  "apikey": [
-                    {
-                      "key": "value",
-                      "value": "{{Token}}",
-                      "type": "string"
-                    },
-                    {
-                      "key": "key",
-                      "value": "Token",
-                      "type": "string"
-                    }
-                  ]
-                },
-                "method": "GET",
-                "header": [
-                  {
-                    "key": "Accept",
-                    "value": "application/json",
-                    "type": "text"
-                  }
-                ],
-                "url": {
-                  "raw": "{{url_payment}}order/checkOrderStatus?reference={{agi_reference}}",
-                  "host": [
-                    "{{url_payment}}order"
-                  ],
-                  "path": [
-                    "checkOrderStatus"
-                  ],
-                  "query": [
-                    {
-                      "key": "reference",
-                      "value": "{{agi_reference}}"
-                    },
-                    {
-                      "key": "status",
-                      "value": "all",
-                      "disabled": true
-                    }
-                  ]
-                },
-                "description": "**Scenario 12 - Query Payment - Success Transaction.**\n\n**Expected**: order `status = SUCCESS` after step 11."
-              },
-              "response": [],
-              "event": []
-            },
-            {
-              "name": "12b. Notify - Amount Mismatch (4001901)",
+              "name": "10. Notify - Amount Mismatch (4001901)",
               "event": [
                 {
                   "listen": "test",
@@ -4119,7 +4119,7 @@
               "response": []
             },
             {
-              "name": "12c. Notify - Failed Status 05 (2001900)",
+              "name": "11. Notify - Failed Status 05 (2001900)",
               "event": [
                 {
                   "listen": "test",
@@ -4205,7 +4205,7 @@
               "response": []
             },
             {
-              "name": "13. Check Status - Invalid Bill Number (4041801)",
+              "name": "12. Check Status - Invalid Bill Number (4041801)",
               "request": {
                 "auth": {
                   "type": "apikey",
@@ -4256,7 +4256,7 @@
               "event": []
             },
             {
-              "name": "14. Notify - Unknown Bill Number (4041901)",
+              "name": "13. Notify - Unknown Bill Number (4041901)",
               "event": [
                 {
                   "listen": "test",
@@ -4342,7 +4342,7 @@
               "response": []
             },
             {
-              "name": "15. Query Payment - Saldo Rekening < nominal",
+              "name": "14. Query Payment - Saldo Rekening < nominal",
               "request": {
                 "auth": {
                   "type": "apikey",
@@ -4396,7 +4396,7 @@
               "event": []
             },
             {
-              "name": "16. Query Payment - Rekening Dormant (4041801)",
+              "name": "15. Query Payment - Rekening Dormant (4041801)",
               "request": {
                 "auth": {
                   "type": "apikey",
@@ -4447,7 +4447,7 @@
               "event": []
             },
             {
-              "name": "17. Query Payment - Rekening Post No Debit (4041801)",
+              "name": "16. Query Payment - Rekening Post No Debit (4041801)",
               "request": {
                 "auth": {
                   "type": "apikey",
@@ -4498,7 +4498,7 @@
               "event": []
             },
             {
-              "name": "18. Query Payment - Rekening Inactive (4041801)",
+              "name": "17. Query Payment - Rekening Inactive (4041801)",
               "request": {
                 "auth": {
                   "type": "apikey",

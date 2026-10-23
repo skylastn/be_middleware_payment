@@ -136,7 +136,7 @@ Route::middleware('throttle:api')->group(function () {
         Route::post('/bank-agi/generate-qr', 'generateQr');
         Route::post('/bank-agi/notify', 'notifyQris');
         Route::post('/bank-agi/query-status', 'queryStatus');
-        Route::post('/bank-agi/negative-test', 'negativeTest');
+        Route::post('/bank-agi/probe', 'probeBank');
         Route::get('/orders', 'listOrders');
     });
 

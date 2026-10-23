@@ -512,6 +512,103 @@ class BankAgiService
         return $repository;
     }
 
+    /**
+     * Sends a deliberately broken request straight to AGI so the bank UAT
+     * scenarios 1-5 and 7 (all "we call the bank" cases) can be exercised on
+     * demand. Returns the raw exchange instead of throwing on bank errors.
+     */
+    public function probeBank(PaymentRepository $repository, string $case): array
+    {
+        $config = $repository->getValue();
+        $path = $case === 'invalid_token' ? self::TOKEN_PATH : self::GENERATE_PATH;
+        $timestamp = $this->timestamp();
+        $channelId = (string) $this->requiredConfig($config, 'channel_id');
+        $bankClientId = (string) $this->requiredConfig($config, 'bank_client_id');
+        $secret = (string) $this->requiredConfig($config, 'bank_client_secret');
+
+        $body = $case === 'invalid_token'
+            ? ['grantType' => 'client_credentials', 'additionalInfo' => (object) []]
+            : [
+                'partnerReferenceNo' => 'AGI-UAT-' . strtoupper(bin2hex(random_bytes(6))),
+                'amount' => ['value' => '10000.00', 'currency' => 'IDR'],
+                'merchantId' => $case === 'invalid_merchant' ? 'ID0000000000000' : (string) $this->requiredConfig($config, 'merchant_id'),
+                'validityPeriod' => '60',
+                'additionalInfo' => $this->additionalInfo($config),
+                'subMerchantId' => $case === 'invalid_merchant' ? 'ID0000000000000' : (string) $this->requiredConfig($config, 'merchant_id'),
+                'storeId' => '',
+                'terminalId' => '',
+                'feeAmount' => ['value' => '0.00', 'currency' => 'IDR'],
+            ];
+
+        $token = $case === 'invalid_token'
+            ? 'UAT-INVALID-TOKEN'
+            : (string) ($this->getB2BToken($repository)['accessToken'] ?? '');
+
+        $rawBody = json_encode($body, JSON_THROW_ON_ERROR);
+        $signatureBody = $rawBody;
+
+        switch ($case) {
+            case 'invalid_token':
+            case 'invalid_merchant':
+                break;
+            case 'invalid_signature':
+                $signatureBody = $rawBody . ' ';
+                break;
+            case 'missing_mandatory':
+                unset($body['merchantId'], $body['amount']);
+                $rawBody = json_encode($body, JSON_THROW_ON_ERROR);
+                break;
+            case 'invalid_format':
+                $body['validityPeriod'] = 'abc';
+                $rawBody = json_encode($body, JSON_THROW_ON_ERROR);
+                break;
+            case 'duplicate_external_id':
+                $body['partnerReferenceNo'] = 'AGI-UAT-DUPLICATE-EXTID';
+                $rawBody = json_encode($body, JSON_THROW_ON_ERROR);
+                break;
+            default:
+                throw new RuntimeException('Unknown AGI probe case: ' . $case);
+        }
+
+        if ($case === 'invalid_token') {
+            openssl_sign($bankClientId . '|' . $timestamp, $rsaSignature, openssl_pkey_get_private(str_replace('\\n', "\n", (string) $this->requiredConfig($config, 'private_key'))), OPENSSL_ALGO_SHA256);
+            $headers = [
+                'Content-Type' => 'application/json',
+                'X-CLIENT-KEY' => $bankClientId,
+                'X-TIMESTAMP' => $timestamp,
+                'X-SIGNATURE' => base64_encode($rsaSignature),
+            ];
+        } else {
+            $headers = [
+                'Content-Type' => 'application/json',
+                'Authorization' => 'Bearer ' . $token,
+                'X-TIMESTAMP' => $timestamp,
+                'X-PARTNER-ID' => $bankClientId,
+                'X-EXTERNAL-ID' => $case === 'duplicate_external_id' ? '20261022000000000001' : now('UTC')->format('YmdHis') . sprintf('%018d', random_int(0, 999999999999999999)),
+                'CHANNEL-ID' => $channelId,
+                'X-SIGNATURE' => $this->signSymmetric($secret, 'POST', $path, $token, $signatureBody, $timestamp),
+            ];
+        }
+
+        $url = $this->baseUrl($repository) . $path;
+        LogHelper::sendLog('UAT Probe Bank AGI', ['case' => $case, 'url' => $url, 'header' => $headers, 'body' => $body], '', 'uat_probe_bank_agi');
+
+        $raw = $this->networkService->post($url, $headers, json_decode($rawBody, true), ['allow_redirects' => false]);
+        $decoded = json_decode((string) $raw, true);
+
+        LogHelper::sendLog('UAT Probe Bank AGI Response', ['case' => $case, 'body' => $decoded, 'bytes' => strlen((string) $raw)], '', 'uat_probe_bank_agi');
+
+        return [
+            'case' => $case,
+            'url' => $url,
+            'request_headers' => $headers,
+            'request_body' => $body,
+            'bank_response' => $decoded,
+            'response_code' => is_array($decoded) ? ($decoded['responseCode'] ?? null) : null,
+            'response_message' => is_array($decoded) ? ($decoded['responseMessage'] ?? null) : null,
+        ];
+    }
+
     private function sendTransaction(PaymentRepository $repository, string $path, array $body, string $successCode): array
     {
         $config = $repository->getValue();
