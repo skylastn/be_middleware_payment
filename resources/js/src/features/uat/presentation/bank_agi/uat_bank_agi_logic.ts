@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import {
-    uatTestService,
-    UatOrderItem,
-    UatRepositoryItem,
-} from '../../application/uat_test_service';
+import { uatService } from '../../application/uat_service';
+import { UatOrderItem } from '../../domain/model/response/uat_order_response';
+import { UatRepositoryItem } from '../../domain/model/response/uat_repository_response';
 
 export interface NotifyResult {
     notify_response: any;
@@ -42,7 +40,7 @@ export function useUatTestLogic(gateway: string) {
         setLoadingRepos(true);
         setError('');
         try {
-            const rows = await uatTestService.getRepositories(gateway, mode);
+            const rows = await uatService.getRepositories(gateway, mode);
             setRepositories(rows);
             setSelectedRepoId((prev) => {
                 if (prev && rows.some((r: UatRepositoryItem) => r.id === prev)) return prev;
@@ -58,7 +56,7 @@ export function useUatTestLogic(gateway: string) {
     const loadOrders = useCallback(async () => {
         setLoadingOrders(true);
         try {
-            setOrders(await uatTestService.listOrders(20));
+            setOrders(await uatService.listOrders(20));
         } catch {
             setOrders([]);
         } finally {
@@ -84,12 +82,11 @@ export function useUatTestLogic(gateway: string) {
         setError('');
         setNotice('');
         try {
-            const res = await uatTestService.generateQr({
+            setQrResult(await uatService.generateQr({
                 repositoryId: selectedRepoId,
                 amount: useAmount,
                 expiryPeriod: useExpiry,
-            });
-            setQrResult(res?.data || res);
+            }));
             setNotice('QR generated successfully.');
             loadOrders();
         } catch (err: any) {
@@ -108,8 +105,7 @@ export function useUatTestLogic(gateway: string) {
         setQuerying(true);
         setError('');
         try {
-            const res = await uatTestService.queryStatus(ref);
-            setQueryResult(res?.data || res);
+            setQueryResult(await uatService.queryStatus({ reference: ref }));
         } catch (err: any) {
             setError(err?.message || 'Failed to query status.');
         } finally {
@@ -126,12 +122,11 @@ export function useUatTestLogic(gateway: string) {
         setNotifying(true);
         setError('');
         try {
-            const res = await uatTestService.notify({
+            setNotifyResult(await uatService.notify({
                 reference: ref,
                 latestTransactionStatus: override?.latestTransactionStatus ?? notifyStatus,
                 amount: notifyAmount ? Number(notifyAmount) : undefined,
-            });
-            setNotifyResult(res?.data || res);
+            }));
             loadOrders();
         } catch (err: any) {
             setError(err?.message || 'Failed to send notify.');
@@ -150,8 +145,7 @@ export function useUatTestLogic(gateway: string) {
         setNegativeResult(null);
         setError('');
         try {
-            const res = await uatTestService.probeBank({ repositoryId: selectedRepoId, case: testCase });
-            setNegativeResult(res?.data || res);
+            setNegativeResult(await uatService.probeBank({ repositoryId: selectedRepoId, case: testCase }));
         } catch (err: any) {
             setError(err?.message || 'Bank probe failed.');
         } finally {
