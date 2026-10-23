@@ -21,19 +21,19 @@ interface ScenarioRow {
 }
 
 const SCENARIOS: ScenarioRow[] = [
-    { no: 1, name: 'Access Token Invalid', category: 'auth', categoryLabel: 'Auth', expectedCode: '401xx01', how: 'Ask the bank for a token using an invalid token value', action: 'probe', case: 'invalid_token' },
-    { no: 2, name: 'Unauthorized Signature', category: 'auth', categoryLabel: 'Auth', expectedCode: '401xx00', how: 'Send a QR generate request whose signature does not match the body', action: 'probe', case: 'invalid_signature' },
-    { no: 3, name: 'Missing Mandatory Field', category: 'validation', categoryLabel: 'Validation', expectedCode: '400xx02', how: 'Send a QR generate request without merchantId and amount', action: 'probe', case: 'missing_mandatory' },
-    { no: 4, name: 'Invalid Field Format', category: 'validation', categoryLabel: 'Validation', expectedCode: '400xx01', how: 'Send a QR generate request with validityPeriod = "abc"', action: 'probe', case: 'invalid_format' },
-    { no: 5, name: 'Cannot use the same X-EXTERNAL-ID', category: 'validation', categoryLabel: 'Validation', expectedCode: '409xx00', how: 'Send a QR generate request reusing a fixed X-EXTERNAL-ID', action: 'probe', case: 'duplicate_external_id' },
+    { no: 1, name: 'Access Token Invalid', category: 'auth', categoryLabel: 'Auth', expectedCode: '401xx01', how: 'QR generate to the bank with a bogus Bearer token (Authorization: Bearer UAT-INVALID-TOKEN)', action: 'probe', case: 'invalid_token' },
+    { no: 2, name: 'Unauthorized Signature', category: 'auth', categoryLabel: 'Auth', expectedCode: '401xx00', how: 'Token request to the bank signed with an RSA key the bank never registered', action: 'probe', case: 'invalid_signature' },
+    { no: 3, name: 'Missing Mandatory Field', category: 'validation', categoryLabel: 'Validation', expectedCode: '400xx02', how: 'QR generate to the bank with an empty merchantId', action: 'probe', case: 'missing_mandatory' },
+    { no: 4, name: 'Invalid Field Format', category: 'validation', categoryLabel: 'Validation', expectedCode: '400xx01', how: 'QR generate to the bank with amount = "1000,abc" (not numeric)', action: 'probe', case: 'invalid_format' },
+    { no: 5, name: 'Cannot use the same X-EXTERNAL-ID', category: 'validation', categoryLabel: 'Validation', expectedCode: '409xx00', how: 'QR generate to the bank with a fixed X-EXTERNAL-ID — click twice to reuse it', action: 'probe', case: 'duplicate_external_id' },
     { no: 6, name: 'Show QR Code', category: 'lifecycle', categoryLabel: 'Lifecycle', expectedCode: '2001700', how: 'Generate dynamic QRIS with amount Rp 10.000', action: 'generate', amount: 10000 },
-    { no: 7, name: 'Invalid Merchant', category: 'edge', categoryLabel: 'Edge Case', expectedCode: '4041708', how: 'Generate a QRIS against an unregistered merchant ID', action: 'probe', case: 'invalid_merchant' },
+    { no: 7, name: 'Invalid Merchant', category: 'edge', categoryLabel: 'Edge Case', expectedCode: '4041708', how: 'QR generate to the bank with merchantId ID0000000000000 (unregistered)', action: 'probe', case: 'invalid_merchant' },
     { no: 8, name: 'QR Expired', category: 'lifecycle', categoryLabel: 'Lifecycle', expectedCode: '4041801', how: 'Generate QR with 1-min expiry, wait >60s, then query status', action: 'generate', amount: 10000, expiry: 1 },
-    { no: 9, name: 'Query Pending', category: 'lifecycle', categoryLabel: 'Lifecycle', expectedCode: '4041801', how: 'Query newly generated QR before customer pays', action: 'query' },
-    { no: 10, name: 'Query Failed', category: 'lifecycle', categoryLabel: 'Lifecycle', expectedCode: '4041801', how: 'Simulate failed notification (status 05), then query status', action: 'notify', notifyStatus: '05' },
-    { no: 11, name: 'Notify Success', category: 'lifecycle', categoryLabel: 'Lifecycle', expectedCode: '2001900', how: 'Simulate a success notification (status 00) from the bank', action: 'notify', notifyStatus: '00' },
-    { no: 12, name: 'Query Success', category: 'lifecycle', categoryLabel: 'Lifecycle', expectedCode: '2001800', how: 'Query paid transaction to verify settlement status at bank', action: 'query' },
-    { no: 13, name: 'Invalid Bill Number', category: 'validation', categoryLabel: 'Validation', expectedCode: '4041801', how: 'Query a reference that does not exist, then read the bank answer', action: 'query' },
+    { no: 9, name: 'Query Pending', category: 'lifecycle', categoryLabel: 'Lifecycle', expectedCode: '4041801', how: 'Query the bank for a freshly generated QR before the customer pays', action: 'query' },
+    { no: 10, name: 'Query Failed', category: 'lifecycle', categoryLabel: 'Lifecycle', expectedCode: '4041801', how: 'Simulate a failed callback (status 05), then query the bank', action: 'notify', notifyStatus: '05' },
+    { no: 11, name: 'Notify Success', category: 'lifecycle', categoryLabel: 'Lifecycle', expectedCode: '2001900', how: 'Simulate the bank callback for a paid QRIS (status 00)', action: 'notify', notifyStatus: '00' },
+    { no: 12, name: 'Query Success', category: 'lifecycle', categoryLabel: 'Lifecycle', expectedCode: '2001800', how: 'Query the bank after a successful callback to confirm settlement', action: 'query' },
+    { no: 13, name: 'Invalid Bill Number', category: 'validation', categoryLabel: 'Validation', expectedCode: '4041801', how: 'Query the bank using a reference that does not exist', action: 'query' },
     { no: 14, name: 'Nominal > 10.000.000', category: 'validation', categoryLabel: 'Validation', expectedCode: '4001701', how: 'Attempt QR generation exceeding Bank Indonesia QRIS limit', action: 'generate', amount: 10000001 },
     { no: 15, name: 'Insufficient Balance', category: 'edge', categoryLabel: 'Bank Side', expectedCode: '4041801', how: 'Requires physical bank test account with balance < transaction', action: 'manual' },
     { no: 16, name: 'Dormant Account', category: 'edge', categoryLabel: 'Bank Side', expectedCode: '4041801', how: 'Requires payer transaction using dormant account from bank', action: 'manual' },
@@ -83,7 +83,7 @@ export function UatBankAgiPage(): React.JSX.Element {
             <PageTitle
                 eyebrow="UAT Test Suite"
                 title="Bank Artha Graha (AGI) QRIS"
-                subtitle="SNAP BI QR MPM On Us & Off Us test console. Run live bank sandbox inquiries, simulate verified callbacks, and validate 18 UAT test scenarios."
+                subtitle="SNAP BI QR MPM On Us test console. Every action calls the real Bank AGI sandbox — generate QR, query status, and send deliberately broken requests to capture the bank answer for each UAT scenario."
             >
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                     <button
@@ -413,7 +413,7 @@ export function UatBankAgiPage(): React.JSX.Element {
                 <div className="panel-header">
                     <div>
                         <h3 className="panel-title">Automated Scenario Matrix (18 Skenario On Us)</h3>
-                        <div className="panel-kicker">Mapped 1:1 against Bank Artha Graha official UAT functional test spreadsheet</div>
+                        <div className="panel-kicker">Mapped 1:1 to the Bank Artha Graha UAT spreadsheet. "Call Bank" sends a live request to the sandbox with that scenario broken on purpose — the bank response is shown as-is.</div>
                     </div>
                     <span className="badge blue">18 Scenarios</span>
                 </div>
