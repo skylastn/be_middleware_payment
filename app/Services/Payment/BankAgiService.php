@@ -520,13 +520,13 @@ class BankAgiService
     public function probeBank(PaymentRepository $repository, string $case): array
     {
         $config = $repository->getValue();
-        $path = $case === 'invalid_token' ? self::TOKEN_PATH : self::GENERATE_PATH;
+        $path = in_array($case, ['invalid_token', 'invalid_signature'], true) ? self::TOKEN_PATH : self::GENERATE_PATH;
         $timestamp = $this->timestamp();
         $channelId = (string) $this->requiredConfig($config, 'channel_id');
         $bankClientId = (string) $this->requiredConfig($config, 'bank_client_id');
         $secret = (string) $this->requiredConfig($config, 'bank_client_secret');
 
-        $body = $case === 'invalid_token'
+        $body = in_array($case, ['invalid_token', 'invalid_signature'], true)
             ? ['grantType' => 'client_credentials', 'additionalInfo' => (object) []]
             : [
                 'partnerReferenceNo' => 'AGI-UAT-' . strtoupper(bin2hex(random_bytes(6))),
@@ -566,8 +566,13 @@ class BankAgiService
                 throw new RuntimeException('Unknown AGI probe case: ' . $case);
         }
 
-        if ($case === 'invalid_token') {
-            openssl_sign($bankClientId . '|' . $timestamp, $rsaSignature, openssl_pkey_get_private(str_replace('\\n', "\n", (string) $this->requiredConfig($config, 'private_key'))), OPENSSL_ALGO_SHA256);
+        if (in_array($case, ['invalid_token', 'invalid_signature'], true)) {
+            // invalid_token keeps the real credentials but sends a bogus bearer;
+            // invalid_signature signs the same payload with an unrelated key.
+            $key = $case === 'invalid_signature'
+                ? openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA])
+                : openssl_pkey_get_private(str_replace('\\n', "\n", (string) $this->requiredConfig($config, 'private_key')));
+            openssl_sign($bankClientId . '|' . $timestamp, $rsaSignature, $key, OPENSSL_ALGO_SHA256);
             $headers = [
                 'Content-Type' => 'application/json',
                 'X-CLIENT-KEY' => $bankClientId,
@@ -584,9 +589,6 @@ class BankAgiService
                 'CHANNEL-ID' => $channelId,
                 'X-SIGNATURE' => $this->signSymmetric($secret, 'POST', $path, $token, $rawBody, $timestamp),
             ];
-            if ($case === 'invalid_signature') {
-                $headers['X-SIGNATURE'] = str_repeat('a', 128);
-            }
         }
 
         $url = $this->baseUrl($repository) . $path;
