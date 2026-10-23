@@ -548,6 +548,7 @@ class BankAgiService
 
         switch ($case) {
             case 'invalid_token':
+            case 'invalid_signature':
                 $rawBody = json_encode($body, JSON_THROW_ON_ERROR);
                 break;
             case 'invalid_merchant':
