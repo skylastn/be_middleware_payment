@@ -397,27 +397,6 @@ class BankAgiService
         return $this->sendTransaction($repository, self::QUERY_PATH, $body, '2001800');
     }
 
-    public function queryQrisStatusByBill(PaymentRepository $repository, string $billNumber, ?Order $order = null): array
-    {
-        $config = $repository->getValue();
-        $body = array_filter([
-            'originalReferenceNo' => $order?->getGatewayReference() ?? '',
-            'originalPartnerReferenceNo' => $order?->getReference() ?? '',
-            'serviceCode' => '18',
-            'merchantId' => (string) $this->requiredConfig($config, 'merchant_id'),
-            'subMerchantId' => (string) ($config['sub_merchant_id'] ?? ''),
-            'additionalInfo' => array_filter(
-                array_merge(
-                    $this->additionalInfo($config, $order ? $this->deviceIdFromOrder($order) : null),
-                    ['billNumber' => $billNumber],
-                ),
-                static fn ($value) => $value !== '' && $value !== null,
-            ),
-        ], static fn ($value) => $value !== '' && $value !== null);
-
-        return $this->sendTransaction($repository, self::QUERY_PATH, $body, '2001800');
-    }
-
     public function callback(Request $request): array
     {
         $repository = $this->authenticateCallback($request);

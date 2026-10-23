@@ -106,23 +106,18 @@ class UatTestController extends Controller
 
     public function queryStatus(Request $request): JsonResponse
     {
-        $data = $request->validate([
-            'reference' => ['required', 'string', 'max:255'],
-            'billNumber' => ['sometimes', 'nullable', 'string', 'max:255'],
-        ]);
+        $data = $request->validate(['reference' => ['required', 'string', 'max:255']]);
 
         try {
             $order = $this->uatOrder($data['reference']);
             $repository = $this->requireRepository((string) $order->getAttribute('payment_repository_id'));
             $order->setRelation('project', $this->uatProject($repository));
 
-            $bankStatus = ! empty($data['billNumber'])
-                ? $this->bankAgiService->queryQrisStatusByBill($repository, (string) $data['billNumber'], $order)
-                : $this->bankAgiService->checkStatus($order);
+            $bankStatus = $this->bankAgiService->checkStatus($order);
 
             LogHelper::sendLog('UAT Query Status - Request', [
                 'reference' => $order->getReference(),
-                'bill_number' => $data['billNumber'] ?? $order->getGatewayBillNumber(),
+                'bill_number' => $order->getGatewayBillNumber(),
                 'local_status' => $order->getStatus()?->value,
                 'repository_id' => $repository->getAttribute('id'),
             ], '', 'uat_query_status');
@@ -131,7 +126,7 @@ class UatTestController extends Controller
 
             return ResponseHelper::successResponse([
                 'reference' => $order->getReference(),
-                'bill_number' => $data['billNumber'] ?? $order->getGatewayBillNumber(),
+                'bill_number' => $order->getGatewayBillNumber(),
                 'amount' => $order->getAmount(),
                 'local_status' => $order->getStatus()?->value,
                 'expired_at' => (string) $order->getAttribute('expired_at'),
