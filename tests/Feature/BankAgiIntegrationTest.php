@@ -742,7 +742,7 @@ class BankAgiIntegrationTest extends PaymentTestCase
         $clientToken = (new RedisService)->generatePaymentToken($this->project->getAttribute('id'), $this->project->getValue(), 'AGIT-INV-001');
         $this->getJson('/api/client/order/checkOrderStatus?reference=AGIT-INV-001', ['Token' => $clientToken])
             ->assertOk()->assertJsonPath('data.latestTransactionStatus', '00');
-        Http::assertSent(fn (ClientRequest $request) => str_ends_with($request->url(), '/qr-mpm-query') && $request['serviceCode'] === '17'
+        Http::assertSent(fn (ClientRequest $request) => str_ends_with($request->url(), '/qr-mpm-query') && $request['serviceCode'] === '18'
             && $request['originalReferenceNo'] === 'API000562794'
             && $request['additionalInfo']['billNumber'] === '7000000000000000000710730');
     }

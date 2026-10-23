@@ -113,6 +113,27 @@ export function useUatTestLogic(gateway: string) {
         }
     };
 
+    const handleQueryByBillNumber = async (billNumber: string) => {
+        const bill = billNumber.trim();
+        if (!bill) {
+            setError('Enter a bill number to query.');
+            return;
+        }
+        if (!selectedRepoId) {
+            setError('Select a repository first.');
+            return;
+        }
+        setQuerying(true);
+        setError('');
+        try {
+            setQueryResult(await uatService.queryStatus({ reference: bill, billNumber: bill, repositoryId: selectedRepoId }));
+        } catch (err: any) {
+            setError(err?.message || 'Failed to query status by bill number.');
+        } finally {
+            setQuerying(false);
+        }
+    };
+
     const handleNotify = async (override?: { latestTransactionStatus?: string }) => {
         const ref = qrResult?.reference;
         if (!ref) {
@@ -179,6 +200,7 @@ export function useUatTestLogic(gateway: string) {
         queryResult,
         querying,
         handleQueryStatus,
+        handleQueryByBillNumber,
         notifyStatus,
         setNotifyStatus,
         notifyAmount,

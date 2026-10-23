@@ -386,13 +386,27 @@ class BankAgiService
         $body = [
             'originalReferenceNo' => $order->getGatewayReference() ?? $order->getReference(),
             'originalPartnerReferenceNo' => $order->getReference(),
-            'serviceCode' => '17',
+            'serviceCode' => '18',
             'merchantId' => $this->requiredConfig($config, 'merchant_id'),
             'additionalInfo' => array_merge($this->additionalInfo($config, $this->deviceIdFromOrder($order)), ['billNumber' => $order->getGatewayBillNumber()]),
         ];
         if (! empty($config['sub_merchant_id'])) {
             $body['subMerchantId'] = (string) $config['sub_merchant_id'];
         }
+
+        return $this->sendTransaction($repository, self::QUERY_PATH, $body, '2001800');
+    }
+
+    public function queryQrisStatusByBill(PaymentRepository $repository, string $billNumber, ?string $originalReferenceNo = null): array
+    {
+        $config = $repository->getValue();
+        $body = [
+            'originalReferenceNo' => $originalReferenceNo ?? $billNumber,
+            'originalPartnerReferenceNo' => $originalReferenceNo ?? $billNumber,
+            'serviceCode' => '18',
+            'merchantId' => $this->requiredConfig($config, 'merchant_id'),
+            'additionalInfo' => ['billNumber' => $billNumber],
+        ];
 
         return $this->sendTransaction($repository, self::QUERY_PATH, $body, '2001800');
     }

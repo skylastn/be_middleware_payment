@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { PageTitle } from '@/shared/component/ui/page_title';
 import { renderBadge } from '@/shared/component/ui/badge';
 import { CopyButton } from '@/shared/component/ui/copy_button';
@@ -28,7 +28,7 @@ const SCENARIOS: ScenarioRow[] = [
     { no: 5, name: 'Cannot use the same X-EXTERNAL-ID', category: 'validation', categoryLabel: 'Validation', expectedCode: '409xx00', how: 'QR generate to the bank with a fixed X-EXTERNAL-ID — click twice to reuse it', action: 'probe', case: 'duplicate_external_id' },
     { no: 6, name: 'Show QR Code', category: 'lifecycle', categoryLabel: 'Lifecycle', expectedCode: '2001700', how: 'Generate dynamic QRIS with amount Rp 10.000', action: 'generate', amount: 10000 },
     { no: 7, name: 'Invalid Merchant', category: 'edge', categoryLabel: 'Edge Case', expectedCode: '4041708', how: 'QR generate to the bank with merchantId ID0000000000000 (unregistered)', action: 'probe', case: 'invalid_merchant' },
-    { no: 8, name: 'QR Expired', category: 'lifecycle', categoryLabel: 'Lifecycle', expectedCode: '4041801', how: 'Generate QR with 5-min expiry, wait >5 minutes, then query status', action: 'generate', amount: 10000, expiry: 5 },
+    { no: 8, name: 'QR Expired', category: 'lifecycle', categoryLabel: 'Lifecycle', expectedCode: '4041801', how: '8a. Generate QR with 5-min expiry (wait >5 minutes). 8b. Check status at the bank by bill number', action: 'generate', amount: 10000, expiry: 5 },
     { no: 9, name: 'Query Pending', category: 'lifecycle', categoryLabel: 'Lifecycle', expectedCode: '4041801', how: 'Query the bank for a freshly generated QR before the customer pays', action: 'query' },
     { no: 10, name: 'Query Failed', category: 'lifecycle', categoryLabel: 'Lifecycle', expectedCode: '4041801', how: 'Simulate a failed callback (status 05), then query the bank', action: 'notify', notifyStatus: '05' },
     { no: 11, name: 'Notify Success', category: 'lifecycle', categoryLabel: 'Lifecycle', expectedCode: '2001900', how: 'Simulate the bank callback for a paid QRIS (status 00)', action: 'notify', notifyStatus: '00' },
@@ -62,6 +62,7 @@ export function UatBankAgiPage(): React.JSX.Element {
         queryResult,
         querying,
         handleQueryStatus,
+        handleQueryByBillNumber,
         notifyStatus,
         setNotifyStatus,
         notifyAmount,
@@ -77,6 +78,7 @@ export function UatBankAgiPage(): React.JSX.Element {
         loadingOrders,
         loadOrders,
     } = useUatTestLogic('bank_agi');
+    const [billNumberInput, setBillNumberInput] = useState('');
 
     return (
         <div className="page-container" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -288,6 +290,7 @@ export function UatBankAgiPage(): React.JSX.Element {
                                         <IconRefresh /> {querying ? 'Querying...' : 'Query Status'}
                                     </button>
                                 </div>
+
                             </div>
                         )}
                     </div>
@@ -463,19 +466,41 @@ export function UatBankAgiPage(): React.JSX.Element {
                                             </button>
                                         )}
                                         {s.action === 'generate' && (
-                                            <button
-                                                type="button"
-                                                className="button"
-                                                disabled={generating || !selectedRepoId}
-                                                onClick={() => {
-                                                    setAmount(s.amount ?? 10000);
-                                                    setExpiryPeriod(s.expiry ?? 60);
-                                                    handleGenerateQr({ amount: s.amount ?? 10000, expiryPeriod: s.expiry ?? 60 });
-                                                }}
-                                                style={{ minHeight: '30px', padding: '4px 12px', fontSize: '12px' }}
-                                            >
-                                                Generate
-                                            </button>
+                                            <div style={{ display: 'flex', gap: '6px' }}>
+                                                <button
+                                                    type="button"
+                                                    className="button"
+                                                    disabled={generating || !selectedRepoId}
+                                                    onClick={() => {
+                                                        setAmount(s.amount ?? 10000);
+                                                        setExpiryPeriod(s.expiry ?? 60);
+                                                        handleGenerateQr({ amount: s.amount ?? 10000, expiryPeriod: s.expiry ?? 60 });
+                                                    }}
+                                                    style={{ minHeight: '30px', padding: '4px 12px', fontSize: '12px' }}
+                                                >
+                                                    {s.expiry !== undefined ? '8a. Generate 5-min QR' : 'Generate'}
+                                                </button>
+                                                {s.expiry !== undefined && (
+                                                    <div style={{ display: 'flex', gap: '6px' }}>
+                                                        <input
+                                                            className="input"
+                                                            placeholder="Bill number"
+                                                            value={billNumberInput}
+                                                            onChange={(e) => setBillNumberInput(e.target.value)}
+                                                            style={{ fontSize: '12px', height: '30px', width: '180px' }}
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            className="button"
+                                                            disabled={querying}
+                                                            onClick={() => handleQueryByBillNumber(billNumberInput)}
+                                                            style={{ minHeight: '30px', padding: '4px 12px', fontSize: '12px' }}
+                                                        >
+                                                            8b. Check status
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
                                         )}
                                         {s.action === 'query' && (
                                             <button
