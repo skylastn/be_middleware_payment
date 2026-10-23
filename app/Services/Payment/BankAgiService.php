@@ -548,14 +548,16 @@ class BankAgiService
 
         switch ($case) {
             case 'invalid_token':
+                $rawBody = json_encode($body, JSON_THROW_ON_ERROR);
+                break;
             case 'invalid_merchant':
                 break;
             case 'missing_mandatory':
-                unset($body['merchantId'], $body['amount']);
+                $body['merchantId'] = '';
                 $rawBody = json_encode($body, JSON_THROW_ON_ERROR);
                 break;
             case 'invalid_format':
-                $body['validityPeriod'] = 'abc';
+                $body['amount'] = ['value' => '1000,abc', 'currency' => 'IDR'];
                 $rawBody = json_encode($body, JSON_THROW_ON_ERROR);
                 break;
             case 'duplicate_external_id':
