@@ -119,11 +119,7 @@ export function useUatTestLogic(gateway: string) {
             setError('Enter a bill number to query.');
             return;
         }
-        const ref = qrResult?.reference;
-        if (!ref) {
-            setError('Generate a QR first so the order reference is available.');
-            return;
-        }
+        const ref = qrResult?.reference || bill;
         setQuerying(true);
         setError('');
         try {
