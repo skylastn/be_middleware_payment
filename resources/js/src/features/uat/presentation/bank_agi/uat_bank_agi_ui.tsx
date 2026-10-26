@@ -29,8 +29,8 @@ const SCENARIOS: ScenarioRow[] = [
     { no: 6, name: 'Show QR Code', category: 'lifecycle', categoryLabel: 'Lifecycle', expectedCode: '2001700', how: 'Generate dynamic QRIS with amount Rp 10.000', action: 'generate', amount: 10000 },
     { no: 7, name: 'Invalid Merchant', category: 'edge', categoryLabel: 'Edge Case', expectedCode: '4041708', how: 'QR generate to the bank with merchantId ID0000000000000 (unregistered)', action: 'probe', case: 'invalid_merchant' },
     { no: 8, name: 'QR Expired', category: 'lifecycle', categoryLabel: 'Lifecycle', expectedCode: '4041801', how: '8a. Generate QR with 5-min expiry (wait >5 minutes). 8b. Check status at the bank by reference', action: 'generate', amount: 10000, expiry: 5 },
-    { no: 9, name: 'Query Pending', category: 'lifecycle', categoryLabel: 'Lifecycle', expectedCode: '4041801', how: 'Query the bank for a freshly generated QR before the customer pays', action: 'query' },
-    { no: 10, name: 'Query Failed', category: 'lifecycle', categoryLabel: 'Lifecycle', expectedCode: '4041801', how: 'Simulate a failed callback (status 05), then query the bank', action: 'notify', notifyStatus: '05' },
+    { no: 9, name: 'Query Pending', category: 'lifecycle', categoryLabel: 'Lifecycle', expectedCode: '4041801', how: '9a. Generate QR. 9b. Check status at the bank by entered reference', action: 'generate', amount: 10000 },
+    { no: 10, name: 'Query Failed', category: 'lifecycle', categoryLabel: 'Lifecycle', expectedCode: '4041801', how: '10a. Generate QR. 10b. Check status at the bank by entered reference', action: 'generate', amount: 10000 },
     { no: 11, name: 'Notify Success', category: 'lifecycle', categoryLabel: 'Lifecycle', expectedCode: '2001900', how: 'Simulate the bank callback for a paid QRIS (status 00)', action: 'notify', notifyStatus: '00' },
     { no: 12, name: 'Query Success', category: 'lifecycle', categoryLabel: 'Lifecycle', expectedCode: '2001800', how: 'Query the bank after a successful callback to confirm settlement', action: 'query' },
     { no: 13, name: 'Invalid Bill Number', category: 'validation', categoryLabel: 'Validation', expectedCode: '4041801', how: 'Query the bank using a reference that does not exist', action: 'query' },
@@ -478,9 +478,9 @@ export function UatBankAgiPage(): React.JSX.Element {
                                                     }}
                                                     style={{ minHeight: '30px', padding: '4px 12px', fontSize: '12px' }}
                                                 >
-                                                    {s.expiry !== undefined ? '8a. Generate 5-min QR' : 'Generate'}
+                                                    {s.expiry !== undefined ? '8a. Generate 5-min QR' : s.no === 9 ? '9a. Generate QR' : s.no === 10 ? '10a. Generate QR' : 'Generate'}
                                                 </button>
-                                                {s.expiry !== undefined && (
+                                                {(s.no === 8 || s.no === 9 || s.no === 10) && (
                                                     <div style={{ display: 'flex', gap: '6px' }}>
                                                         <input
                                                             className="input"
