@@ -106,14 +106,17 @@ class UatTestController extends Controller
 
     public function queryStatus(Request $request): JsonResponse
     {
-        $data = $request->validate(['reference' => ['required', 'string', 'max:255']]);
+        $data = $request->validate([
+            'reference' => ['required', 'string', 'max:255'],
+            'invalidBillNumber' => ['sometimes', 'boolean'],
+        ]);
 
         try {
             $order = $this->uatOrder($data['reference']);
             $repository = $this->requireRepository((string) $order->getAttribute('payment_repository_id'));
             $order->setRelation('project', $this->uatProject($repository));
 
-            $bankStatus = $this->bankAgiService->checkStatus($order);
+            $bankStatus = $this->bankAgiService->checkStatus($order, ! empty($data['invalidBillNumber']));
 
             LogHelper::sendLog('UAT Query Status - Request', [
                 'reference' => $order->getReference(),

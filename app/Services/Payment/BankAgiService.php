@@ -375,7 +375,7 @@ class BankAgiService
         ];
     }
 
-    public function checkStatus(Order $order): array
+    public function checkStatus(Order $order, bool $invalidBillNumber = false): array
     {
         $repository = $this->getPaymentRepo($order->getMode(), $order->getPaymentRepositoryId());
         $config = $repository->getValue();
@@ -390,7 +390,7 @@ class BankAgiService
             'serviceCode' => '18',
             'merchantId' => $merchantId,
             'subMerchantId' => $merchantId,
-            'additionalInfo' => array_merge($this->additionalInfo($config, $this->deviceIdFromOrder($order)), ['billNumber' => $order->getGatewayBillNumber()]),
+            'additionalInfo' => array_merge($this->additionalInfo($config, $this->deviceIdFromOrder($order)), ['billNumber' => $invalidBillNumber ? 'UAT-' . strtoupper(bin2hex(random_bytes(12))) : $order->getGatewayBillNumber()]),
         ];
 
         return $this->sendTransaction($repository, self::QUERY_PATH, $body, '2001800');

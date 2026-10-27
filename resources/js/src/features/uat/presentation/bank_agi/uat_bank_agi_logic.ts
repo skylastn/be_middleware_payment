@@ -113,7 +113,7 @@ export function useUatTestLogic(gateway: string) {
         }
     };
 
-    const handleCheckStatusByReference = async (reference: string) => {
+    const handleCheckStatusByReference = async (reference: string, invalidBillNumber = false) => {
         const ref = reference.trim();
         if (!ref) {
             setError('Enter a reference to check.');
@@ -122,7 +122,7 @@ export function useUatTestLogic(gateway: string) {
         setQuerying(true);
         setError('');
         try {
-            setQueryResult(await uatService.queryStatus({ reference: ref }));
+            setQueryResult(await uatService.queryStatus({ reference: ref, invalidBillNumber }));
         } catch (err: any) {
             setError(err?.message || 'Failed to check status.');
         } finally {

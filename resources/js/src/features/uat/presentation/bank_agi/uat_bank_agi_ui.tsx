@@ -33,7 +33,7 @@ const SCENARIOS: ScenarioRow[] = [
     { no: 10, name: 'Query Failed', category: 'lifecycle', categoryLabel: 'Lifecycle', expectedCode: '4041801', how: '10a. Generate QR. 10b. Check status at the bank by entered reference', action: 'generate', amount: 10000 },
     { no: 11, name: 'Notify Success', category: 'lifecycle', categoryLabel: 'Lifecycle', expectedCode: '2001900', how: 'Simulate the bank callback for a paid QRIS (status 00)', action: 'notify', notifyStatus: '00' },
     { no: 12, name: 'Query Success', category: 'lifecycle', categoryLabel: 'Lifecycle', expectedCode: '2001800', how: 'Query the bank after a successful callback to confirm settlement', action: 'query' },
-    { no: 13, name: 'Invalid Bill Number', category: 'validation', categoryLabel: 'Validation', expectedCode: '4041801', how: 'Query the bank using a reference that does not exist', action: 'query' },
+    { no: 13, name: 'Invalid Bill Number', category: 'validation', categoryLabel: 'Validation', expectedCode: '4041801', how: '13a. Generate QR. 13b. Query status with a dummy bill number not found by the bank', action: 'generate', amount: 10000 },
     { no: 14, name: 'Nominal > 10.000.000', category: 'validation', categoryLabel: 'Validation', expectedCode: '4001701', how: 'Attempt QR generation exceeding Bank Indonesia QRIS limit', action: 'generate', amount: 10000001 },
     { no: 15, name: 'Insufficient Balance', category: 'edge', categoryLabel: 'Bank Side', expectedCode: '4041801', how: 'Requires physical bank test account with balance < transaction', action: 'manual' },
     { no: 16, name: 'Dormant Account', category: 'edge', categoryLabel: 'Bank Side', expectedCode: '4041801', how: 'Requires payer transaction using dormant account from bank', action: 'manual' },
@@ -478,9 +478,9 @@ export function UatBankAgiPage(): React.JSX.Element {
                                                     }}
                                                     style={{ minHeight: '30px', padding: '4px 12px', fontSize: '12px' }}
                                                 >
-                                                    {s.expiry !== undefined ? '8a. Generate 5-min QR' : s.no === 9 ? '9a. Generate QR' : s.no === 10 ? '10a. Generate QR' : 'Generate'}
+                                                    {s.expiry !== undefined ? '8a. Generate 5-min QR' : s.no === 9 ? '9a. Generate QR' : s.no === 10 ? '10a. Generate QR' : s.no === 13 ? '13a. Generate QR' : 'Generate'}
                                                 </button>
-                                                {(s.no === 8 || s.no === 9 || s.no === 10) && (
+                                                {(s.no === 8 || s.no === 9 || s.no === 10 || s.no === 13) && (
                                                     <div style={{ display: 'flex', gap: '6px' }}>
                                                         <input
                                                             className="input"
@@ -493,10 +493,10 @@ export function UatBankAgiPage(): React.JSX.Element {
                                                             type="button"
                                                             className="button"
                                                             disabled={querying}
-                                                            onClick={() => handleCheckStatusByReference(referenceInput)}
+                                                            onClick={() => handleCheckStatusByReference(referenceInput, s.no === 13)}
                                                             style={{ minHeight: '30px', padding: '4px 12px', fontSize: '12px' }}
                                                         >
-                                                            8b. Check status
+                                                            {s.no === 13 ? '13b. Query dummy bill' : `${s.no}b. Check status`}
                                                         </button>
                                                     </div>
                                                 )}
