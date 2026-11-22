@@ -491,7 +491,7 @@ class BankAgiService
         // requests we send out.
         $secret = $this->requiredConfig($config, 'client_secret');
         LogHelper::sendLog('Log AGI Signature', [
-            'secret' => $secret,
+            ...(config('app.debug') ? ['secret' => $secret] : []),
             'method' => $request->method(),
             'path' => $request->getPathInfo(),
             'token' => $token,

@@ -84,9 +84,8 @@ class BankAgiController extends Controller
                 'amount.currency' => ['required_with:amount', 'in:IDR'],
             ]);
 
-            DB::beginTransaction();
-            $response = $this->service->callback($request);
-            DB::commit();
+            // Concurrent AGI callbacks can deadlock in InnoDB; Laravel retries deadlocks up to 3 attempts.
+            $response = DB::transaction(fn () => $this->service->callback($request), 3);
 
             LogHelper::sendLog('Response Callback AGI', $response, '', 'response_callback_agi');
 
