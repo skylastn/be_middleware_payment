@@ -26,6 +26,8 @@ export async function apiClient<T = any>(url: string, options: RequestInit = {})
     if (!response.ok) {
         if (response.status === 401) {
             removeStoredToken();
+            // Session expired or revoked: force back to the login page.
+            window.location.assign('/login');
         }
 
         const message =

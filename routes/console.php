@@ -2,6 +2,7 @@
 
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Schedule;
 
 /*
 |--------------------------------------------------------------------------
@@ -17,3 +18,7 @@ use Illuminate\Support\Facades\Artisan;
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
+
+// Delete backoffice tokens expired more than 1 hour ago so the
+// personal_access_tokens table does not grow unbounded.
+Schedule::command('sanctum:prune-expired --hours=1')->daily();

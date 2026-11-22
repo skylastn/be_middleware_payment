@@ -26,10 +26,11 @@ class AdminAuthController extends Controller
         return response()->json([
             'token' => $authData['token'],
             'user' => new UserResource($authData['user']),
+            'expires_at' => $authData['expires_at']->toIso8601String(),
         ])->withCookie(cookie(
             'log_viewer_token',
             $authData['token'],
-            1440,
+            $authData['ttl_minutes'],
             '/',
             null,
             $request->secure(),

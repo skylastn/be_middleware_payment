@@ -26,7 +26,9 @@ class LogViewerTokenAuth
         if ($token) {
             $accessToken = PersonalAccessToken::findToken($token);
 
-            if ($accessToken && $accessToken->tokenable instanceof User && $accessToken->tokenable->isAdmin()) {
+            // findToken does not filter expired tokens, so enforce the lifetime here.
+            if ($accessToken && $accessToken->tokenable instanceof User && $accessToken->tokenable->isAdmin()
+                && (! $accessToken->expires_at || ! $accessToken->expires_at->isPast())) {
                 Auth::setUser($accessToken->tokenable);
 
                 if ($request->query('token') && ! $request->cookie(self::COOKIE_NAME)) {

@@ -43,7 +43,7 @@ class DashboardController extends Controller
             ])->onlyInput('email');
         }
 
-        $token = $user->createToken('log-viewer')->plainTextToken;
+        $token = $user->createToken('log-viewer', ['*'], now()->addMinutes(1440))->plainTextToken;
 
         return redirect('/log-viewer')
             ->withCookie(cookie(

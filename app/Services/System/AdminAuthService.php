@@ -21,7 +21,7 @@ class AdminAuthService
      *
      * @param string $email
      * @param string $password
-     * @return array{user: User, token: string}
+     * @return array{user: User, token: string, expires_at: \Carbon\CarbonInterface, ttl_minutes: int}
      * @throws ValidationException
      */
     public function attemptAdminLogin(string $email, string $password): array
@@ -34,11 +34,23 @@ class AdminAuthService
             ]);
         }
 
-        $token = $user->createToken('backoffice')->plainTextToken;
+        // Revoke any prior backoffice token so a re-login (or a leaked old token)
+        // cannot stay valid past the new session. Only one backoffice session
+        // is active per user at a time.
+        $user->tokens()->where('name', 'backoffice')->delete();
+
+        // Hard session lifetime: after this the token stops authorizing and
+        // Sanctum returns 401, so a stolen token is only useful for this window.
+        $ttlMinutes = max(1, (int) env('BACKOFFICE_TOKEN_TTL_MINUTES', 2880));
+        $expiration = now()->addMinutes($ttlMinutes);
+
+        $token = $user->createToken('backoffice', ['*'], $expiration)->plainTextToken;
 
         return [
             'user' => $user,
             'token' => $token,
+            'expires_at' => $expiration,
+            'ttl_minutes' => $ttlMinutes,
         ];
     }
 
