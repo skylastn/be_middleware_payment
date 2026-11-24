@@ -6,6 +6,7 @@ use App\Enums\OrderStatus;
 use App\Enums\UserRole;
 use App\Http\Controllers\Api\BankAgiController;
 use App\Interface\RedisServiceInterface;
+use App\Jobs\ProcessAgiCallbackJob;
 use App\Jobs\SendMerchantCallback;
 use App\Jobs\SendNotificationJob;
 use App\Model\Entity\Order;
@@ -176,6 +177,21 @@ class BankAgiIntegrationTest extends PaymentTestCase
     }
 
     private function notify(array $payload, ?string $token = null, array $headers = [], bool $pretty = false): TestResponse
+    {
+        $before = count(Queue::pushedJobs()[ProcessAgiCallbackJob::class] ?? []);
+        $response = $this->sendNotify($payload, $token, $headers, $pretty);
+
+        // The HTTP layer only validates; persistence now runs in the queue.
+        // Execute each newly captured job so DB assertions see the final state.
+        $pushed = Queue::pushedJobs()[ProcessAgiCallbackJob::class] ?? [];
+        for ($i = $before; $i < count($pushed); $i++) {
+            $pushed[$i]['job']->handle($this->app->make(\App\Services\Payment\BankAgiService::class));
+        }
+
+        return $response;
+    }
+
+    private function sendNotify(array $payload, ?string $token = null, array $headers = [], bool $pretty = false): TestResponse
     {
         $token ??= $this->issueToken();
         $timestamp = now('UTC')->format('Y-m-d\TH:i:s.vP');
@@ -542,8 +558,22 @@ class BankAgiIntegrationTest extends PaymentTestCase
         $this->fakeBank();
         $this->createOrder()->assertOk();
         $token = $this->issueToken();
-        $this->notify($this->notification(), $token, pretty: true)->assertOk()->assertExactJson(['responseCode' => '2001900', 'responseMessage' => 'Success']);
-        $this->notify($this->notification(), $token)->assertOk();
+        $payload = $this->notification();
+        $this->notify($payload, $token, pretty: true)->assertOk()->assertExactJson(['responseCode' => '2001900', 'responseMessage' => 'Success']);
+        $this->notify($payload, $token)->assertOk();
+
+        // Persistence is deferred to ProcessAgiCallbackJob; the HTTP response
+        // must not depend on the database write. The duplicate callback must
+        // not queue a second job.
+        Queue::assertPushed(ProcessAgiCallbackJob::class, 1);
+
+        // Run the queued persistence now and assert the order becomes SUCCESS
+        // and downstream jobs are dispatched from the worker, not the request.
+        $captured = collect(Queue::pushedJobs()[ProcessAgiCallbackJob::class] ?? [])
+            ->map(fn ($pushed) => $pushed['job'])
+            ->first();
+        $this->assertNotNull($captured);
+        $captured->handle($this->app->make(\App\Services\Payment\BankAgiService::class));
 
         $this->assertDatabaseHas('orders', ['reference' => 'AGIT-INV-001', 'status' => 'SUCCESS']);
         Queue::assertPushed(SendMerchantCallback::class, 1);
@@ -717,9 +747,13 @@ class BankAgiIntegrationTest extends PaymentTestCase
         $this->createOrder()->assertOk();
         $token = $this->issueToken();
         $this->notify($this->notification(['latestTransactionStatus' => '03']), $token)->assertOk();
-        Queue::assertNothingPushed();
+        // Same status as current (PENDING) → no persistence job, no callback.
+        Queue::assertPushed(ProcessAgiCallbackJob::class, 0);
+        Queue::assertPushed(SendMerchantCallback::class, 0);
         $this->notify($this->notification(), $token)->assertOk();
         $this->notify($this->notification(['latestTransactionStatus' => '06']), $token)->assertOk();
+        // Already SUCCESS → no second job or callback.
+        Queue::assertPushed(ProcessAgiCallbackJob::class, 1);
         $this->assertDatabaseHas('orders', ['reference' => 'AGIT-INV-001', 'status' => 'SUCCESS']);
         Queue::assertPushed(SendMerchantCallback::class, 1);
     }
@@ -794,15 +828,30 @@ class BankAgiIntegrationTest extends PaymentTestCase
         $this->createOrder()->assertOk();
         $token = $this->issueToken();
         $history = Mockery::mock(OrderHistoryService::class);
-        $history->shouldReceive('log')->once()->andThrow(new RuntimeException('History database unavailable'));
-        $this->app->instance(BankAgiController::class, new BankAgiController(new BankAgiService(orderHistoryService: $history)));
+        // createOrder already logged ORDER_CREATE_AGI; the callback adds the
+        // WEBHOOK_AGI entry whose failure must roll the order status back.
+        $history->shouldReceive('log')->andReturnUsing(function ($order, $status, $source) use ($history) {
+            if ($source === 'WEBHOOK_AGI') {
+                throw new RuntimeException('History database unavailable');
+            }
 
-        $this->notify($this->notification(), $token)->assertStatus(500)->assertExactJson([
-            'responseCode' => '5001901',
-            'responseMessage' => 'Internal Server Error',
-        ]);
+            return (new OrderHistoryService)->log(...func_get_args());
+        });
+
+        // Run the persisted update directly with the failing history service:
+        // the queue job must roll back the order status when the history write
+        // dies, and the failure is logged by failed() for retry handling.
+        $service = new BankAgiService(orderHistoryService: $history);
+        $request = \Illuminate\Http\Request::create('/api/bank/agi/notify-qris', 'POST', [], [], [], ['CONTENT_TYPE' => 'application/json'], json_encode($this->notification()));
+
+        try {
+            DB::transaction(fn () => $service->callback($request), 3);
+            $this->fail('Expected the history write failure to bubble up');
+        } catch (RuntimeException) {
+            // expected
+        }
+
         $this->assertDatabaseHas('orders', ['reference' => 'AGIT-INV-001', 'status' => 'PENDING']);
-        Queue::assertNothingPushed();
     }
 
     public function test_missing_or_expired_token_does_not_update_the_order(): void

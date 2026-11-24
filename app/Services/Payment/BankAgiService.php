@@ -8,6 +8,7 @@ use App\Exceptions\BankAgiException;
 use App\Http\Helper\LogHelper;
 use App\Http\Helper\OrderIdGenerator;
 use App\Interface\RedisServiceInterface;
+use App\Jobs\ProcessAgiCallbackJob;
 use App\Jobs\SendMerchantCallback;
 use App\Jobs\SendNotificationJob;
 use App\Model\Entity\Order;
@@ -434,25 +435,20 @@ class BankAgiService
             return ['responseCode' => '2001900', 'responseMessage' => 'Success'];
         }
 
-        $order->setCallback($request->getContent());
-        $order->setStatus($status);
-        $order->save();
-        $this->orderHistoryService->log($order, $status, 'WEBHOOK_AGI', 'AGI notification received', $request->all(), $previousStatus);
+        $headers = collect($request->headers->all())->map(fn ($values) => $values[0] ?? null)->all();
 
-        $project = $order->getRelationValue('project');
-        if ($project && $project->getCallback()) {
-            dispatch(new SendMerchantCallback($project->getValue(), [
-                'merchantOrderId' => $order->getMerchantOrderId(),
-                'reference' => $order->getReference(),
-                'paymentCode' => $order->getPaymentMethod(),
-                'amount' => $order->getAmount(),
-                'status' => $status->value,
-                'resultCode' => $status === OrderStatus::SUCCESS ? '00' : '01',
-            ], $project->getCallback()))->afterCommit();
-        }
-        dispatch(new SendNotificationJob($order->getReference()))->afterCommit();
+        dispatch(new ProcessAgiCallbackJob(
+            $request->all(),
+            $headers,
+            $request->getContent(),
+        ))->afterCommit();
 
         return ['responseCode' => '2001900', 'responseMessage' => 'Success'];
+    }
+
+    public function authenticateCallbackForJob(Request $request): PaymentRepository
+    {
+        return $this->authenticateCallback($request);
     }
 
     private function authenticateCallback(Request $request): PaymentRepository
