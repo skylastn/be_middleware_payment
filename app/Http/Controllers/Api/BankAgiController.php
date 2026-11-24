@@ -9,7 +9,6 @@ use App\Http\Helper\ResponseHelper;
 use App\Services\Payment\BankAgiService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
@@ -94,10 +93,6 @@ class BankAgiController extends Controller
 
             return ResponseHelper::payload($response);
         } catch (Throwable $exception) {
-            if (DB::transactionLevel() > 0) {
-                DB::rollBack();
-            }
-
             return $this->errorResponse($exception, '19');
         }
     }

@@ -228,7 +228,6 @@ class OrderRepository extends BaseRepository
     {
         return Order::withoutEagerLoads()->where('payment_repository_id', $repositoryId)
             ->where('gateway_bill_number', $billNumber)
-            ->lockForUpdate()
             ->first();
     }
 

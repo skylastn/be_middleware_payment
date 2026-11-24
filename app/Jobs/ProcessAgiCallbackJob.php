@@ -4,15 +4,11 @@ namespace App\Jobs;
 
 use App\Enums\OrderStatus;
 use App\Http\Helper\LogHelper;
-use App\Jobs\SendMerchantCallback;
-use App\Jobs\SendNotificationJob;
-use App\Model\Entity\Order;
-use App\Repository\Payment\OrderHistoryRepository;
 use App\Repository\Payment\OrderRepository;
 use App\Services\Payment\BankAgiService;
+use App\Services\Payment\OrderHistoryService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
-use Illuminate\Queue\Attributes\WithoutRelations;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 
@@ -21,7 +17,6 @@ use Throwable;
  * on database row locks: the HTTP layer validates the payload and replies
  * immediately, while this job performs the order update + history write.
  */
-#[WithoutRelations]
 class ProcessAgiCallbackJob implements ShouldQueue
 {
     use Queueable;
@@ -32,54 +27,30 @@ class ProcessAgiCallbackJob implements ShouldQueue
     public array $backoff = [2, 5, 10, 30];
 
     public function __construct(
-        public array $payload,
-        public array $headers,
         public string $rawBody,
+        public string $orderId,
+        public OrderStatus $status,
     ) {
         //
     }
 
-    public function handle(BankAgiService $service): void
+    public function handle(): void
     {
-        // Rebuild a request-like object from the stored payload. The stored
-        // signature covers the exact raw body, method and path, so it stays
-        // valid when re-verified inside the worker.
-        $request = \Illuminate\Http\Request::create(
-            '/api/bank/agi/notify-qris',
-            'POST',
-            [],
-            [],
-            [],
-            ['CONTENT_TYPE' => 'application/json'],
-            $this->rawBody,
-        );
-        $request->headers->add($this->headers);
+        DB::transaction(function (): void {
+            $order = app(OrderRepository::class)->findByIdForUpdate($this->orderId);
+            if (! $order) {
+                return;
+            }
 
-        $repository = $service->authenticateCallbackForJob($request);
-        $order = app(OrderRepository::class)->findByGatewayBillNumber(
-            $repository->getAttribute('id'),
-            (string) $request->input('additionalInfo.billNumber'),
-        );
-        if (! $order) {
-            return;
-        }
+            $previousStatus = $order->getStatus();
+            if (BankAgiService::shouldIgnoreStatusTransition($previousStatus, $this->status)) {
+                return;
+            }
 
-        $status = match ($request->input('latestTransactionStatus')) {
-            '00' => OrderStatus::SUCCESS,
-            '05', '06' => OrderStatus::FAILED,
-            '01', '02', '03' => OrderStatus::PENDING,
-            default => null,
-        };
-        $previousStatus = $order->getStatus();
-        if ($status === null || $previousStatus === $status || $previousStatus === OrderStatus::SUCCESS) {
-            return;
-        }
-
-        DB::transaction(function () use ($request, $order, $status, $previousStatus): void {
-            $order->setCallback($request->getContent());
-            $order->setStatus($status);
+            $order->setCallback($this->rawBody);
+            $order->setStatus($this->status);
             $order->save();
-            app(OrderHistoryRepository::class)->log($order, $status, 'WEBHOOK_AGI', 'AGI notification received', $request->all(), $previousStatus);
+            app(OrderHistoryService::class)->log($order, $this->status, 'WEBHOOK_AGI', 'AGI notification received', $this->rawBody, $previousStatus);
 
             $project = $order->getRelationValue('project');
             if ($project && $project->getCallback()) {
@@ -88,8 +59,8 @@ class ProcessAgiCallbackJob implements ShouldQueue
                     'reference' => $order->getReference(),
                     'paymentCode' => $order->getPaymentMethod(),
                     'amount' => $order->getAmount(),
-                    'status' => $status->value,
-                    'resultCode' => $status === OrderStatus::SUCCESS ? '00' : '01',
+                    'status' => $this->status->value,
+                    'resultCode' => $this->status === OrderStatus::SUCCESS ? '00' : '01',
                 ], $project->getCallback()))->afterCommit();
             }
             dispatch(new SendNotificationJob($order->getReference()))->afterCommit();
@@ -98,9 +69,11 @@ class ProcessAgiCallbackJob implements ShouldQueue
 
     public function failed(Throwable $exception): void
     {
-        \App\Http\Helper\LogHelper::sendErrorLog($exception, [
+        $payload = json_decode($this->rawBody, true);
+
+        LogHelper::sendErrorLog($exception, [
             'operation' => 'agi_callback_queue',
-            'billNumber' => $this->payload['additionalInfo']['billNumber'] ?? null,
+            'billNumber' => is_array($payload) ? ($payload['additionalInfo']['billNumber'] ?? null) : null,
         ], '', 'error_agi_callback_queue');
     }
 }

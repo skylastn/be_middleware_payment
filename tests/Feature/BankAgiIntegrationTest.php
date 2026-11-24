@@ -185,7 +185,7 @@ class BankAgiIntegrationTest extends PaymentTestCase
         // Execute each newly captured job so DB assertions see the final state.
         $pushed = Queue::pushedJobs()[ProcessAgiCallbackJob::class] ?? [];
         for ($i = $before; $i < count($pushed); $i++) {
-            $pushed[$i]['job']->handle($this->app->make(\App\Services\Payment\BankAgiService::class));
+            $pushed[$i]['job']->handle();
         }
 
         return $response;
@@ -573,7 +573,7 @@ class BankAgiIntegrationTest extends PaymentTestCase
             ->map(fn ($pushed) => $pushed['job'])
             ->first();
         $this->assertNotNull($captured);
-        $captured->handle($this->app->make(\App\Services\Payment\BankAgiService::class));
+        $captured->handle();
 
         $this->assertDatabaseHas('orders', ['reference' => 'AGIT-INV-001', 'status' => 'SUCCESS']);
         Queue::assertPushed(SendMerchantCallback::class, 1);

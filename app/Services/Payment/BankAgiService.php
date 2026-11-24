@@ -9,8 +9,6 @@ use App\Http\Helper\LogHelper;
 use App\Http\Helper\OrderIdGenerator;
 use App\Interface\RedisServiceInterface;
 use App\Jobs\ProcessAgiCallbackJob;
-use App\Jobs\SendMerchantCallback;
-use App\Jobs\SendNotificationJob;
 use App\Model\Entity\Order;
 use App\Model\Entity\PaymentRepository;
 use App\Model\Entity\Project;
@@ -420,35 +418,36 @@ class BankAgiService
             throw new BankAgiException('4001901', 'Invalid Field Format [amount]', 400);
         }
 
-        $previousStatus = $order->getStatus();
-        $status = match ($request->input('latestTransactionStatus')) {
-            '00' => OrderStatus::SUCCESS,
-            '05', '06' => OrderStatus::FAILED,
-            '01', '02', '03' => OrderStatus::PENDING,
-            default => null,
-        };
-
-        if (
-            $previousStatus === OrderStatus::SUCCESS || $status === null || $status === $previousStatus
-            || ($status === OrderStatus::PENDING && $previousStatus?->isFailed())
-        ) {
+        $status = self::mapCallbackStatus($request->input('latestTransactionStatus'));
+        if (self::shouldIgnoreStatusTransition($order->getStatus(), $status)) {
             return ['responseCode' => '2001900', 'responseMessage' => 'Success'];
         }
 
-        $headers = collect($request->headers->all())->map(fn ($values) => $values[0] ?? null)->all();
-
         dispatch(new ProcessAgiCallbackJob(
-            $request->all(),
-            $headers,
             $request->getContent(),
+            (string) $order->getId(),
+            $status,
         ))->afterCommit();
 
         return ['responseCode' => '2001900', 'responseMessage' => 'Success'];
     }
 
-    public function authenticateCallbackForJob(Request $request): PaymentRepository
+    public static function mapCallbackStatus(mixed $statusCode): ?OrderStatus
     {
-        return $this->authenticateCallback($request);
+        return match ($statusCode) {
+            '00' => OrderStatus::SUCCESS,
+            '05', '06' => OrderStatus::FAILED,
+            '01', '02', '03' => OrderStatus::PENDING,
+            default => null,
+        };
+    }
+
+    public static function shouldIgnoreStatusTransition(?OrderStatus $previousStatus, ?OrderStatus $nextStatus): bool
+    {
+        return $previousStatus === OrderStatus::SUCCESS
+            || $nextStatus === null
+            || $nextStatus === $previousStatus
+            || ($nextStatus === OrderStatus::PENDING && $previousStatus?->isFailed());
     }
 
     private function authenticateCallback(Request $request): PaymentRepository
